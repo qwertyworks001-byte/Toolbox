@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age-at-Date Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  input[type="date"] { color-scheme: dark; }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Age-at-Date Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Work out an exact age on any date &mdash; past or future.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label for="dobInput" class="block text-sm font-medium text-slate-300 mb-2">Date of birth</label>
+        <input type="date" id="dobInput"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label for="targetInput" class="text-sm font-medium text-slate-300">Target date</label>
+          <button type="button" id="useTodayBtn" class="text-xs text-blue-400 hover:text-blue-300">Today</button>
+        </div>
+        <input type="date" id="targetInput"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <p class="text-xs text-amber-400 mb-4 hidden" id="errorNote"></p>
+
+    <div class="text-center border-t border-slate-700/60 pt-6 mb-6">
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="ageMain">17 years, 4 months, 12 days</p>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center border-t border-slate-700/60 pt-5">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Years</p>
+        <p class="text-lg font-bold text-white" id="totalYears">17</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Months</p>
+        <p class="text-lg font-bold text-white" id="totalMonths">208</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Weeks</p>
+        <p class="text-lg font-bold text-white" id="totalWeeks">906</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Days</p>
+        <p class="text-lg font-bold text-white" id="totalDays">6342</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const dobInput = document.getElementById('dobInput');
+  const targetInput = document.getElementById('targetInput');
+  const useTodayBtn = document.getElementById('useTodayBtn');
+  const errorNote = document.getElementById('errorNote');
+  const ageMain = document.getElementById('ageMain');
+  const totalYears = document.getElementById('totalYears');
+  const totalMonths = document.getElementById('totalMonths');
+  const totalWeeks = document.getElementById('totalWeeks');
+  const totalDays = document.getElementById('totalDays');
+
+  function pad(n) { return n.toString().padStart(2, '0'); }
+  function parseDate(str) {
+    if (!str) return null;
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function daysInMonth(year, monthIndex0) {
+    return new Date(year, monthIndex0 + 1, 0).getDate();
+  }
+
+  function update() {
+    const dob = parseDate(dobInput.value);
+    const target = parseDate(targetInput.value);
+
+    if (!dob || !target) {
+      errorNote.classList.add('hidden');
+      ageMain.textContent = 'Enter both dates';
+      totalYears.textContent = totalMonths.textContent = totalWeeks.textContent = totalDays.textContent = '\u2014';
+      return;
+    }
+
+    if (target < dob) {
+      errorNote.textContent = 'Target date is before the date of birth.';
+      errorNote.classList.remove('hidden');
+      ageMain.textContent = '\u2014';
+      totalYears.textContent = totalMonths.textContent = totalWeeks.textContent = totalDays.textContent = '\u2014';
+      return;
+    }
+    errorNote.classList.add('hidden');
+
+    let years = target.getFullYear() - dob.getFullYear();
+    let months = target.getMonth() - dob.getMonth();
+    let days = target.getDate() - dob.getDate();
+
+    if (days < 0) {
+      months -= 1;
+      const borrowMonth = (target.getMonth() - 1 + 12) % 12;
+      const borrowYear = target.getMonth() === 0 ? target.getFullYear() - 1 : target.getFullYear();
+      days += daysInMonth(borrowYear, borrowMonth);
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+    if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+    parts.push(`${days} day${days === 1 ? '' : 's'}`);
+    ageMain.textContent = parts.join(', ');
+
+    const msDiff = target.getTime() - dob.getTime();
+    const exactDays = Math.floor(msDiff / 86400000);
+
+    totalYears.textContent = years.toString();
+    totalMonths.textContent = (years * 12 + months).toString();
+    totalWeeks.textContent = Math.floor(exactDays / 7).toLocaleString('en-US');
+    totalDays.textContent = exactDays.toLocaleString('en-US');
+  }
+
+  useTodayBtn.addEventListener('click', () => {
+    const now = new Date();
+    targetInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    update();
+  });
+
+  [dobInput, targetInput].forEach(el => el.addEventListener('input', update));
+
+  const now = new Date();
+  targetInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  dobInput.value = `${now.getFullYear() - 20}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'age-at-date';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

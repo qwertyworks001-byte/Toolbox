@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regex Tester</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  mark { background: rgba(59,130,246,0.35); color: #dbeafe; border-radius: 2px; }
+  #highlightOut { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Regex Tester</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Test regular expressions against text (JavaScript regex flavor).</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <label for="regexInput" class="block text-sm font-medium text-slate-300 mb-2">Regular Expression</label>
+    <div class="flex items-center gap-2 mb-4">
+      <span class="text-slate-500 font-mono">/</span>
+      <input type="text" id="regexInput" value="\b[A-Z][a-z]+\b" spellcheck="false"
+        class="flex-1 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <span class="text-slate-500 font-mono">/</span>
+    </div>
+
+    <div class="flex flex-wrap gap-x-5 gap-y-2 mb-5 text-sm">
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="flagGlobal" checked class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Global (g)
+      </label>
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="flagIgnoreCase" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Case-insensitive (i)
+      </label>
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="flagMultiline" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Multiline (m)
+      </label>
+    </div>
+
+    <label for="testText" class="block text-sm font-medium text-slate-300 mb-2">Test Text</label>
+    <textarea id="testText" rows="6" spellcheck="false"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">Toolbox has Tools for Everything. Alice and Bob use it daily.</textarea>
+
+    <p class="text-xs text-amber-400 mt-3 hidden" id="errorNote"></p>
+  </div>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Highlighted Matches</h2>
+    <div id="highlightOut" class="text-sm font-mono bg-slate-900/50 border border-slate-700 rounded-lg p-3 min-h-[3rem]"></div>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Matches</h2>
+      <span class="text-xs text-slate-500" id="matchCount">0 matches</span>
+    </div>
+    <div class="space-y-2" id="matchList"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const regexInput = document.getElementById('regexInput');
+  const flagGlobal = document.getElementById('flagGlobal');
+  const flagIgnoreCase = document.getElementById('flagIgnoreCase');
+  const flagMultiline = document.getElementById('flagMultiline');
+  const testText = document.getElementById('testText');
+  const errorNote = document.getElementById('errorNote');
+  const highlightOut = document.getElementById('highlightOut');
+  const matchCount = document.getElementById('matchCount');
+  const matchList = document.getElementById('matchList');
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function buildFlags() {
+    let f = '';
+    if (flagGlobal.checked) f += 'g';
+    if (flagIgnoreCase.checked) f += 'i';
+    if (flagMultiline.checked) f += 'm';
+    return f;
+  }
+
+  function update() {
+    const pattern = regexInput.value;
+    const text = testText.value;
+    errorNote.classList.add('hidden');
+
+    if (!pattern) {
+      highlightOut.textContent = esc(text);
+      matchCount.textContent = '0 matches';
+      matchList.innerHTML = '';
+      return;
+    }
+
+    let regex;
+    try {
+      regex = new RegExp(pattern, buildFlags());
+    } catch (err) {
+      errorNote.textContent = `Invalid regular expression: ${err.message}`;
+      errorNote.classList.remove('hidden');
+      highlightOut.textContent = esc(text);
+      matchCount.textContent = '0 matches';
+      matchList.innerHTML = '';
+      return;
+    }
+
+    const matches = [];
+    if (flagGlobal.checked) {
+      let m;
+      const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+      while ((m = globalRegex.exec(text)) !== null) {
+        matches.push(m);
+        if (m[0] === '') globalRegex.lastIndex++; // avoid infinite loop on zero-length matches
+      }
+    } else {
+      const m = regex.exec(text);
+      if (m) matches.push(m);
+    }
+
+    // Highlighted view
+    let highlighted = '';
+    let cursor = 0;
+    matches.forEach(m => {
+      highlighted += esc(text.slice(cursor, m.index));
+      highlighted += `<mark>${esc(m[0])}</mark>`;
+      cursor = m.index + m[0].length;
+    });
+    highlighted += esc(text.slice(cursor));
+    highlightOut.innerHTML = highlighted || '<span class="text-slate-600">(empty)</span>';
+
+    matchCount.textContent = `${matches.length} match${matches.length === 1 ? '' : 'es'}`;
+
+    if (matches.length === 0) {
+      matchList.innerHTML = '<p class="text-sm text-slate-500">No matches.</p>';
+      return;
+    }
+
+    matchList.innerHTML = matches.map((m, idx) => {
+      const groups = m.slice(1).map((g, i) => `<div class="text-xs text-slate-400">Group ${i + 1}: <span class="text-slate-200 font-mono">${g === undefined ? '(no match)' : esc(g)}</span></div>`).join('');
+      const namedGroups = m.groups
+        ? Object.entries(m.groups).map(([name, val]) => `<div class="text-xs text-slate-400">${esc(name)}: <span class="text-slate-200 font-mono">${val === undefined ? '(no match)' : esc(val)}</span></div>`).join('')
+        : '';
+      return `
+        <div class="bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+          <p class="text-sm font-mono text-blue-300">Match ${idx + 1}: "${esc(m[0])}" <span class="text-slate-500 text-xs">at index ${m.index}</span></p>
+          ${groups}${namedGroups}
+        </div>
+      `;
+    }).join('');
+  }
+
+  [regexInput, flagGlobal, flagIgnoreCase, flagMultiline, testText].forEach(el => el.addEventListener('input', update));
+
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'regex-tester';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

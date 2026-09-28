@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Formatter</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">JSON Formatter</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Format, minify, and validate JSON.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+    <textarea id="jsonInput" rows="14" spellcheck="false" placeholder="Paste JSON here..."
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-3 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">{
+  "name": "Toolbox",
+  "tools": ["devex", "sleep", "json"],
+  "public": true
+}</textarea>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button type="button" id="formatBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Format</button>
+      <button type="button" id="minifyBtn" class="text-sm px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:border-blue-500">Minify</button>
+      <button type="button" id="validateBtn" class="text-sm px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:border-blue-500">Validate</button>
+      <button type="button" id="copyBtn" class="text-sm px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:border-blue-500 ml-auto">Copy</button>
+    </div>
+
+    <p class="text-sm px-1" id="statusOut"></p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const jsonInput = document.getElementById('jsonInput');
+  const formatBtn = document.getElementById('formatBtn');
+  const minifyBtn = document.getElementById('minifyBtn');
+  const validateBtn = document.getElementById('validateBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const statusOut = document.getElementById('statusOut');
+
+  function findLineOfError(text, err) {
+    const match = /position (\d+)/.exec(err.message);
+    if (!match) return null;
+    const pos = parseInt(match[1], 10);
+    const before = text.slice(0, pos);
+    return before.split('\n').length;
+  }
+
+  function showError(err) {
+    const line = findLineOfError(jsonInput.value, err);
+    statusOut.textContent = line
+      ? `Invalid JSON near line ${line}. ${err.message}`
+      : `Invalid JSON. ${err.message}`;
+    statusOut.className = 'text-sm px-1 text-amber-400';
+  }
+
+  function showSuccess(msg) {
+    statusOut.textContent = msg;
+    statusOut.className = 'text-sm px-1 text-emerald-400';
+  }
+
+  formatBtn.addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(jsonInput.value);
+      jsonInput.value = JSON.stringify(parsed, null, 2);
+      showSuccess('\u2713 Formatted.');
+    } catch (err) {
+      showError(err); // original input is left untouched
+    }
+  });
+
+  minifyBtn.addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(jsonInput.value);
+      jsonInput.value = JSON.stringify(parsed);
+      showSuccess('\u2713 Minified.');
+    } catch (err) {
+      showError(err);
+    }
+  });
+
+  validateBtn.addEventListener('click', () => {
+    try {
+      JSON.parse(jsonInput.value);
+      showSuccess('\u2713 Valid JSON.');
+    } catch (err) {
+      showError(err);
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(jsonInput.value);
+      const original = copyBtn.textContent;
+      copyBtn.textContent = '\u2713 Copied';
+      setTimeout(() => { copyBtn.textContent = original; }, 1200);
+    } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'json-formatter';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

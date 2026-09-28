@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timezone Comparison</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .chart-scroll { overflow-x: auto; }
+  .chart-scroll svg { min-width: 900px; }
+  .swatch-input {
+    -webkit-appearance: none;
+    width: 28px; height: 28px;
+    border: none; border-radius: 9999px;
+    padding: 0; background: none;
+    cursor: pointer;
+  }
+  .swatch-input::-webkit-color-swatch-wrapper { padding: 0; }
+  .swatch-input::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.25); border-radius: 9999px; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Timezone Comparison</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Compare local time across timezones on one UTC-aligned timeline.</p>
+  </header>
+
+  <!-- Chart -->
+  <div class="glass rounded-2xl p-5 mb-5">
+    <div class="chart-scroll">
+      <svg id="chartSvg" width="100%"></svg>
+    </div>
+  </div>
+
+  <!-- Plain-text reference summary — the same info as the chart's red labels,
+       just laid out as plain readable cards instead of having to trace lines. -->
+  <div class="glass rounded-2xl p-6 mb-5 hidden" id="refSummaryWrap">
+    <p class="text-sm font-medium text-slate-300 mb-4" id="refSummaryTitle"></p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="refSummary"></div>
+  </div>
+
+  <!-- Timezones list -->
+  <div class="glass rounded-2xl p-6 mb-5">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Timezones</h2>
+    <div class="space-y-2 mb-4" id="tzList"></div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" id="addTzBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+ Add custom</button>
+      <span class="text-xs text-slate-500">or quick-add:</span>
+      <select id="presetSelect" class="bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      <button type="button" id="addPresetBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Add</button>
+    </div>
+  </div>
+
+  <!-- Reference alignment -->
+  <div class="glass rounded-2xl p-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-1">Reference Line</h2>
+    <p class="text-xs text-slate-500 mb-4">Pick a date, a timezone, and a local time (e.g. a meeting) &mdash; the chart draws a line at that exact instant and shows the real date and time everywhere else.</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <label class="inline-flex items-center gap-2 cursor-pointer text-sm">
+        <input type="checkbox" id="refEnabled" checked class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Show reference line
+      </label>
+      <select id="refTzSelect" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      <input type="date" id="refDateInput" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <input type="time" id="refTimeInput" value="09:00" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const tzList = document.getElementById('tzList');
+  const addTzBtn = document.getElementById('addTzBtn');
+  const presetSelect = document.getElementById('presetSelect');
+  const addPresetBtn = document.getElementById('addPresetBtn');
+  const refEnabled = document.getElementById('refEnabled');
+  const refTzSelect = document.getElementById('refTzSelect');
+  const refDateInput = document.getElementById('refDateInput');
+  const refTimeInput = document.getElementById('refTimeInput');
+  const chartSvg = document.getElementById('chartSvg');
+  const refSummaryWrap = document.getElementById('refSummaryWrap');
+  const refSummaryTitle = document.getElementById('refSummaryTitle');
+  const refSummary = document.getElementById('refSummary');
+
+  // ── Config (this is the part you'd edit if you wanted different
+  // starting defaults) ──────────────────────────────────────────
+  let nextId = 1;
+  let timezones = [
+    { id: nextId++, name: 'New Zealand (NZST)', offset: 12, color: '#3b82f6' },
+    { id: nextId++, name: 'US Eastern (EST)', offset: -5, color: '#f97316' }
+  ];
+  let referenceTzId = timezones[0].id;
+
+  const COLOR_PALETTE = ['#3b82f6', '#f97316', '#22c55e', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#ef4444', '#6366f1', '#84cc16'];
+  const PRESETS = [
+    { name: 'UTC', offset: 0 },
+
+    { name: 'United Kingdom (GMT)', offset: 0 },
+    { name: 'United Kingdom (BST, summer)', offset: 1 },
+    { name: 'Germany (CET)', offset: 1 },
+    { name: 'Germany (CEST, summer)', offset: 2 },
+    { name: 'Sweden (CET)', offset: 1 },
+    { name: 'Sweden (CEST, summer)', offset: 2 },
+    { name: 'Denmark (CET)', offset: 1 },
+    { name: 'Denmark (CEST, summer)', offset: 2 },
+    { name: 'France (CET)', offset: 1 },
+
+    { name: 'Russia \u2013 Moscow (MSK)', offset: 3 },
+    { name: 'Russia \u2013 Yekaterinburg', offset: 5 },
+    { name: 'Russia \u2013 Novosibirsk', offset: 7 },
+    { name: 'Russia \u2013 Vladivostok', offset: 10 },
+
+    { name: 'United Arab Emirates (Dubai)', offset: 4 },
+    { name: 'India (IST)', offset: 5.5 },
+    { name: 'China (Beijing)', offset: 8 },
+    { name: 'Singapore (SGT)', offset: 8 },
+    { name: 'Japan (JST)', offset: 9 },
+    { name: 'South Korea (KST)', offset: 9 },
+
+    { name: 'Australia \u2013 Perth (AWST)', offset: 8 },
+    { name: 'Australia \u2013 Adelaide (ACST)', offset: 9.5 },
+    { name: 'Australia \u2013 Sydney (AEST)', offset: 10 },
+    { name: 'Australia \u2013 Sydney (AEDT, summer)', offset: 11 },
+
+    { name: 'New Zealand (NZST)', offset: 12 },
+    { name: 'New Zealand (NZDT, summer)', offset: 13 },
+
+    { name: 'Canada \u2013 Vancouver (PST)', offset: -8 },
+    { name: 'Canada \u2013 Vancouver (PDT, summer)', offset: -7 },
+    { name: 'Canada \u2013 Toronto (EST)', offset: -5 },
+    { name: 'Canada \u2013 Toronto (EDT, summer)', offset: -4 },
+    { name: 'Canada \u2013 Newfoundland (NST)', offset: -3.5 },
+
+    { name: 'USA \u2013 Los Angeles (PST)', offset: -8 },
+    { name: 'USA \u2013 Los Angeles (PDT, summer)', offset: -7 },
+    { name: 'USA \u2013 Chicago (CST)', offset: -6 },
+    { name: 'USA \u2013 Chicago (CDT, summer)', offset: -5 },
+    { name: 'USA \u2013 New York (EST)', offset: -5 },
+    { name: 'USA \u2013 New York (EDT, summer)', offset: -4 },
+
+    { name: 'Mexico City (CST)', offset: -6 },
+    { name: 'Brazil \u2013 S\u00E3o Paulo (BRT)', offset: -3 },
+    { name: 'South Africa (SAST)', offset: 2 }
+  ];
+
+  // ── Time math (mirrors the Python version's logic) ───────────
+  function pad(n) { return n.toString().padStart(2, '0'); }
+
+  function localHourAndDayOffset(utcHour, offset) {
+    let raw = utcHour + offset;
+    let dayOffset = 0;
+    if (raw < 0) { raw += 24; dayOffset = -1; }
+    else if (raw >= 24) { raw -= 24; dayOffset = 1; }
+    return { localHour: raw, dayOffset };
+  }
+  function utcHourForLocal(offset, localHour) {
+    return ((localHour - offset) % 24 + 24) % 24;
+  }
+  // Rounds to the nearest MINUTE rather than the nearest hour, so fractional
+  // offsets (e.g. India, UTC+5:30) don't get mangled by hour-level rounding.
+  function formatHourLabel(localHour, dayOffset) {
+    const totalMinutes = Math.round(localHour * 60) % (24 * 60);
+    const hh = Math.floor(totalMinutes / 60), mm = totalMinutes % 60;
+    let label = mm === 0 ? pad(hh) : `${pad(hh)}:${pad(mm)}`;
+    if (dayOffset === -1) label += ' (-1d)';
+    else if (dayOffset === 1) label += ' (+1d)';
+    return label;
+  }
+  function escapeXml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Formats a Date object using its UTC-getters. This isn't about UTC per se —
+  // it's the trick used throughout this file: we represent "local wall-clock
+  // time in some timezone" as a Date whose UTC fields already equal that wall
+  // clock, so real calendar arithmetic (month/year rollovers, leap years) is
+  // just native Date math, and we always read it back with getUTC*.
+  function formatDate(d) {
+    return `${WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+
+  function computeReference() {
+    if (!refEnabled.checked || referenceTzId === null) return null;
+    const refTz = timezones.find(t => t.id === referenceTzId);
+    if (!refTz || !refTimeInput.value) return null;
+    const [rh, rm] = refTimeInput.value.split(':').map(Number);
+    const refLocalHour = rh + rm / 60;
+    const refUtcHour = utcHourForLocal(refTz.offset, refLocalHour);
+
+    let refInstantMs = null;
+    if (refDateInput.value) {
+      const [Y, M, D] = refDateInput.value.split('-').map(Number);
+      const wallClockAsUtc = Date.UTC(Y, M - 1, D, rh, rm, 0);
+      refInstantMs = wallClockAsUtc - refTz.offset * 3600000;
+    }
+
+    return { refTz, rh, rm, refUtcHour, refInstantMs };
+  }
+
+  function renderReferenceSummary() {
+    const ref = computeReference();
+    if (!ref || timezones.length === 0) {
+      refSummaryWrap.classList.add('hidden');
+      return;
+    }
+    refSummaryWrap.classList.remove('hidden');
+    const { refTz, rh, rm, refUtcHour, refInstantMs } = ref;
+
+    if (refInstantMs !== null) {
+      const refDateObj = new Date(refInstantMs + refTz.offset * 3600000);
+      refSummaryTitle.textContent = `${pad(rh)}:${pad(rm)} on ${formatDate(refDateObj)} in ${refTz.name}:`;
+    } else {
+      refSummaryTitle.textContent = `When it's ${pad(rh)}:${pad(rm)} in ${refTz.name}:`;
+    }
+
+    refSummary.innerHTML = timezones.map(tz => {
+      let hh, mm, subLine;
+      if (refInstantMs !== null) {
+        const d = new Date(refInstantMs + tz.offset * 3600000);
+        hh = d.getUTCHours();
+        mm = d.getUTCMinutes();
+        subLine = formatDate(d);
+      } else {
+        const { localHour, dayOffset } = localHourAndDayOffset(refUtcHour, tz.offset);
+        const totalMinutes = Math.round(localHour * 60) % (24 * 60);
+        hh = Math.floor(totalMinutes / 60);
+        mm = totalMinutes % 60;
+        subLine = dayOffset === -1 ? 'Previous day' : dayOffset === 1 ? 'Next day' : 'Same day';
+      }
+      const isRef = tz.id === refTz.id;
+      return `
+        <div class="rounded-xl p-4 bg-slate-900/50 border-l-4" style="border-left-color:${tz.color}">
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">${escapeXml(tz.name)}${isRef ? ' \u2014 reference' : ''}</p>
+          <p class="text-2xl font-bold text-white">${pad(hh)}:${pad(mm)}</p>
+          <p class="text-xs text-slate-500 mt-1">${subLine}</p>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderAll() {
+    renderChart();
+    renderReferenceSummary();
+  }
+
+  // ── Chart rendering (SVG, hand-built to mirror the Python layout) ──
+  const PX_PER_HOUR = 42;
+  const ROW_SPACING = 76;
+  const BAR_HEIGHT = 44;
+  const RIGHT_MARGIN = 24;
+  const TOP_MARGIN = 80;
+  const BOTTOM_MARGIN = 55;
+  const LABEL_DOT_X = 11;
+  const LABEL_TEXT_X = 26;
+  const LABEL_GAP_TO_BAR = 20;
+
+  function approxTextWidth(text, fontSize, bold) {
+    return text.length * fontSize * (bold ? 0.66 : 0.58);
+  }
+
+  // A small rounded background behind a piece of text, so it stays legible
+  // sitting on top of a colored bar instead of just floating over it.
+  function badgeText(x, y, text, { fontSize = 11, color = '#ef4444', bg = 'rgba(11,15,25,0.92)', bold = true, anchor = 'middle' } = {}) {
+    const w = approxTextWidth(text, fontSize, bold) + 12;
+    const h = fontSize + 10;
+    let rectX = x - w / 2;
+    if (anchor === 'start') rectX = x - 6;
+    if (anchor === 'end') rectX = x - w + 6;
+    return `
+      <rect x="${rectX}" y="${y - h / 2}" width="${w}" height="${h}" rx="5" fill="${bg}"/>
+      <text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="${fontSize}" font-weight="${bold ? 700 : 400}" fill="${color}">${text}</text>
+    `;
+  }
+
+  function renderChart() {
+    const n = timezones.length;
+    const chartWidth = 24 * PX_PER_HOUR;
+
+    const longestName = timezones.reduce((max, tz) => Math.max(max, tz.name.length), 4);
+    const leftMargin = Math.max(150, LABEL_TEXT_X + longestName * 7.6 + LABEL_GAP_TO_BAR);
+
+    const width = leftMargin + chartWidth + RIGHT_MARGIN;
+    const height = TOP_MARGIN + Math.max(1, n) * ROW_SPACING + BOTTOM_MARGIN;
+
+    chartSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    chartSvg.setAttribute('font-family', 'ui-sans-serif, system-ui, sans-serif');
+
+    if (n === 0) {
+      chartSvg.innerHTML = `<text x="${width/2}" y="${height/2}" text-anchor="middle" font-size="14" fill="#64748b">Add a timezone to see the chart.</text>`;
+      return;
+    }
+
+    let svg = '';
+
+    // Faint vertical hour gridlines, drawn behind everything else.
+    for (let h = 0; h <= 24; h++) {
+      const x = leftMargin + h * PX_PER_HOUR;
+      const major = h % 6 === 0;
+      svg += `<line x1="${x}" y1="${TOP_MARGIN - 6}" x2="${x}" y2="${TOP_MARGIN + n * ROW_SPACING + 6}" stroke="#475569" stroke-width="1" opacity="${major ? 0.4 : 0.18}"/>`;
+    }
+
+    timezones.forEach((tz, i) => {
+      const y = TOP_MARGIN + i * ROW_SPACING;
+
+      // Solid bar with a subtle light border so it reads cleanly against the dark page.
+      svg += `<rect x="${leftMargin}" y="${y}" width="${chartWidth}" height="${BAR_HEIGHT}" rx="8" fill="${tz.color}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
+
+      // Row label: a small colored dot + name, left-aligned so long names simply
+      // grow the margin instead of ever clipping off the edge of the chart.
+      svg += `<circle cx="${LABEL_DOT_X}" cy="${y + BAR_HEIGHT / 2}" r="5" fill="${tz.color}"/>`;
+      svg += `<text x="${LABEL_TEXT_X}" y="${y + BAR_HEIGHT / 2}" text-anchor="start" dominant-baseline="middle" font-size="13.5" font-weight="700" fill="#e2e8f0">${escapeXml(tz.name)}</text>`;
+
+      for (let h = 0; h < 24; h++) {
+        const { localHour, dayOffset } = localHourAndDayOffset(h, tz.offset);
+        const label = formatHourLabel(localHour, dayOffset);
+        const x = leftMargin + h * PX_PER_HOUR + PX_PER_HOUR / 2;
+        if (label.includes('(')) {
+          const [main, note] = label.split(' ');
+          svg += `<text x="${x}" y="${y + BAR_HEIGHT / 2 - 6}" text-anchor="middle" font-size="10.5" fill="white">${main}</text>`;
+          svg += `<text x="${x}" y="${y + BAR_HEIGHT / 2 + 8}" text-anchor="middle" font-size="8" fill="white" opacity="0.8">${note}</text>`;
+        } else {
+          svg += `<text x="${x}" y="${y + BAR_HEIGHT / 2}" text-anchor="middle" dominant-baseline="middle" font-size="11.5" fill="white">${label}</text>`;
+        }
+      }
+    });
+
+    // x-axis (UTC hour) ticks
+    const axisY = TOP_MARGIN + n * ROW_SPACING + 24;
+    for (let h = 0; h <= 24; h += 2) {
+      const x = leftMargin + h * PX_PER_HOUR;
+      svg += `<text x="${x}" y="${axisY}" text-anchor="middle" font-size="11" fill="#94a3b8">${pad(h)}</text>`;
+    }
+    svg += `<text x="${leftMargin + chartWidth / 2}" y="${axisY + 26}" text-anchor="middle" font-size="12" fill="#cbd5e1">UTC Hour</text>`;
+
+    // reference line
+    const ref = computeReference();
+    if (ref) {
+      const { refTz, rh, rm, refUtcHour } = ref;
+      const x = leftMargin + refUtcHour * PX_PER_HOUR;
+
+      svg += `<line x1="${x}" y1="${TOP_MARGIN - 40}" x2="${x}" y2="${TOP_MARGIN + n * ROW_SPACING}" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,4"/>`;
+      svg += badgeText(x, TOP_MARGIN - 50, `Reference: ${escapeXml(refTz.name)} ${pad(rh)}:${pad(rm)}`, { fontSize: 12.5 });
+
+      timezones.forEach((tz, i) => {
+        const y = TOP_MARGIN + i * ROW_SPACING;
+        const { localHour, dayOffset } = localHourAndDayOffset(refUtcHour, tz.offset);
+        const totalMinutes = Math.round(localHour * 60) % (24 * 60);
+        const hh = Math.floor(totalMinutes / 60), mm = totalMinutes % 60;
+        const dayNote = dayOffset === -1 ? ' (prev day)' : dayOffset === 1 ? ' (next day)' : '';
+        svg += badgeText(x, y - 14, `${pad(hh)}:${pad(mm)}${dayNote}`, { fontSize: 10.5 });
+      });
+    }
+
+    chartSvg.innerHTML = svg;
+  }
+
+  // ── Timezone list UI ───────────────────────────────────────────
+  function nextColor() {
+    return COLOR_PALETTE[timezones.length % COLOR_PALETTE.length];
+  }
+
+  function renderTzList() {
+    tzList.innerHTML = timezones.map(tz => `
+      <div class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2" data-id="${tz.id}">
+        <input type="color" value="${tz.color}" class="tz-color swatch-input" data-id="${tz.id}" title="Color">
+        <input type="text" value="${tz.name.replace(/"/g, '&quot;')}" placeholder="Timezone name"
+          class="tz-name flex-1 min-w-0 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none" data-id="${tz.id}">
+        <input type="text" inputmode="decimal" value="${tz.offset}" class="tz-offset w-16 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-sm text-white text-center focus:outline-none" data-id="${tz.id}" title="UTC offset, e.g. 5.5 for +5:30">
+        <span class="text-xs text-slate-500">UTC</span>
+        <button type="button" class="tz-remove text-slate-500 hover:text-red-400 disabled:opacity-30 disabled:pointer-events-none" data-id="${tz.id}" ${timezones.length <= 1 ? 'disabled' : ''} aria-label="Remove">&times;</button>
+      </div>
+    `).join('');
+
+    tzList.querySelectorAll('.tz-color').forEach(el => el.addEventListener('input', () => {
+      const tz = timezones.find(t => t.id === parseInt(el.dataset.id, 10));
+      if (tz) { tz.color = el.value; renderAll(); }
+    }));
+    tzList.querySelectorAll('.tz-name').forEach(el => el.addEventListener('input', () => {
+      const tz = timezones.find(t => t.id === parseInt(el.dataset.id, 10));
+      if (tz) { tz.name = el.value; renderAll(); renderRefTzOptions(); }
+    }));
+    tzList.querySelectorAll('.tz-offset').forEach(el => el.addEventListener('input', () => {
+      const tz = timezones.find(t => t.id === parseInt(el.dataset.id, 10));
+      const val = parseFloat(el.value);
+      if (tz && !isNaN(val)) { tz.offset = val; renderAll(); }
+    }));
+    tzList.querySelectorAll('.tz-remove').forEach(el => el.addEventListener('click', () => {
+      const id = parseInt(el.dataset.id, 10);
+      timezones = timezones.filter(t => t.id !== id);
+      if (referenceTzId === id) referenceTzId = timezones.length ? timezones[0].id : null;
+      renderTzList();
+      renderRefTzOptions();
+      renderAll();
+    }));
+  }
+
+  function renderRefTzOptions() {
+    const current = referenceTzId;
+    refTzSelect.innerHTML = timezones.map(tz => `<option value="${tz.id}">${escapeXml(tz.name)}</option>`).join('');
+    if (timezones.some(t => t.id === current)) refTzSelect.value = current;
+    else if (timezones.length) referenceTzId = timezones[0].id;
+  }
+
+  function addTimezone(name, offset) {
+    timezones.push({ id: nextId++, name, offset, color: nextColor() });
+    if (referenceTzId === null) referenceTzId = timezones[timezones.length - 1].id;
+    renderTzList();
+    renderRefTzOptions();
+    renderAll();
+  }
+
+  addTzBtn.addEventListener('click', () => addTimezone('New Timezone', 0));
+
+  presetSelect.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${escapeXml(p.name)} (UTC${p.offset >= 0 ? '+' : ''}${p.offset})</option>`).join('');
+  addPresetBtn.addEventListener('click', () => {
+    const preset = PRESETS[parseInt(presetSelect.value, 10)];
+    if (preset) addTimezone(preset.name, preset.offset);
+  });
+
+  refTzSelect.addEventListener('change', () => {
+    referenceTzId = parseInt(refTzSelect.value, 10);
+    renderAll();
+  });
+  refTimeInput.addEventListener('input', renderAll);
+  refDateInput.addEventListener('input', renderAll);
+  refEnabled.addEventListener('change', renderAll);
+
+  (function setDefaultDate() {
+    const now = new Date();
+    refDateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  })();
+
+  renderTzList();
+  renderRefTzOptions();
+  renderAll();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'timezone-chart';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

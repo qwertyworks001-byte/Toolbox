@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit Converter</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Unit Converter</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Length, weight, temperature, speed, area, volume, data, and time.</p>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-5" id="categoryRow"></div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+      <div>
+        <label for="valueA" class="block text-sm font-medium text-slate-300 mb-2" id="labelA">Value</label>
+        <input type="text" inputmode="decimal" id="valueA" value="10"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+        <select id="unitA" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      </div>
+      <div>
+        <label for="valueB" class="block text-sm font-medium text-slate-300 mb-2" id="labelB">Value</label>
+        <input type="text" inputmode="decimal" id="valueB" value=""
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+        <select id="unitB" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      </div>
+    </div>
+
+    <div class="flex justify-center my-4">
+      <button type="button" id="swapBtn" aria-label="Swap units" class="w-10 h-10 rounded-full border border-slate-700 bg-slate-900/50 flex items-center justify-center text-blue-400 hover:border-blue-500">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="text-xs text-slate-500 text-center" id="categoryNote"></p>
+  </div>
+
+  <button type="button" id="resetBtn" class="mt-5 text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400">
+    Reset
+  </button>
+
+</div>
+
+<script>
+(function () {
+  // ── Conversion data ─────────────────────────────────────
+  // Linear categories store a factor to a base unit. Temperature is handled specially.
+  const CATEGORIES = {
+    length: {
+      label: 'Length', base: 'm',
+      units: [
+        { key: 'mm', label: 'Millimetres (mm)', factor: 0.001 },
+        { key: 'cm', label: 'Centimetres (cm)', factor: 0.01 },
+        { key: 'm', label: 'Metres (m)', factor: 1 },
+        { key: 'km', label: 'Kilometres (km)', factor: 1000 },
+        { key: 'in', label: 'Inches (in)', factor: 0.0254 },
+        { key: 'ft', label: 'Feet (ft)', factor: 0.3048 },
+        { key: 'yd', label: 'Yards (yd)', factor: 0.9144 },
+        { key: 'mi', label: 'Miles (mi)', factor: 1609.344 }
+      ],
+      note: ''
+    },
+    weight: {
+      label: 'Weight', base: 'kg',
+      units: [
+        { key: 'mg', label: 'Milligrams (mg)', factor: 0.000001 },
+        { key: 'g', label: 'Grams (g)', factor: 0.001 },
+        { key: 'kg', label: 'Kilograms (kg)', factor: 1 },
+        { key: 'oz', label: 'Ounces (oz)', factor: 0.028349523125 },
+        { key: 'lb', label: 'Pounds (lb)', factor: 0.45359237 },
+        { key: 't', label: 'Tonnes (t)', factor: 1000 }
+      ],
+      note: ''
+    },
+    temperature: {
+      label: 'Temperature', base: 'c',
+      units: [
+        { key: 'c', label: 'Celsius (\u00B0C)' },
+        { key: 'f', label: 'Fahrenheit (\u00B0F)' },
+        { key: 'k', label: 'Kelvin (K)' }
+      ],
+      note: ''
+    },
+    speed: {
+      label: 'Speed', base: 'ms',
+      units: [
+        { key: 'kmh', label: 'Kilometres/hour (km/h)', factor: 1000 / 3600 },
+        { key: 'mph', label: 'Miles/hour (mph)', factor: 0.44704 },
+        { key: 'ms', label: 'Metres/second (m/s)', factor: 1 }
+      ],
+      note: ''
+    },
+    area: {
+      label: 'Area', base: 'sqm',
+      units: [
+        { key: 'sqm', label: 'Square metres (m\u00B2)', factor: 1 },
+        { key: 'sqkm', label: 'Square kilometres (km\u00B2)', factor: 1000000 },
+        { key: 'sqft', label: 'Square feet (ft\u00B2)', factor: 0.09290304 },
+        { key: 'acre', label: 'Acres', factor: 4046.8564224 }
+      ],
+      note: ''
+    },
+    volume: {
+      label: 'Volume', base: 'l',
+      units: [
+        { key: 'ml', label: 'Millilitres (mL)', factor: 0.001 },
+        { key: 'l', label: 'Litres (L)', factor: 1 },
+        { key: 'm3', label: 'Cubic metres (m\u00B3)', factor: 1000 },
+        { key: 'floz', label: 'Fluid ounces (US, fl oz)', factor: 0.0295735295625 },
+        { key: 'gal', label: 'Gallons (US)', factor: 3.785411784 }
+      ],
+      note: ''
+    },
+    data: {
+      label: 'Data', base: 'byte',
+      units: [
+        { key: 'bit', label: 'Bits', factor: 0.125 },
+        { key: 'byte', label: 'Bytes', factor: 1 },
+        { key: 'KB', label: 'KB (decimal, 1000)', factor: 1e3 },
+        { key: 'MB', label: 'MB (decimal, 1000\u00B2)', factor: 1e6 },
+        { key: 'GB', label: 'GB (decimal, 1000\u00B3)', factor: 1e9 },
+        { key: 'TB', label: 'TB (decimal, 1000\u2074)', factor: 1e12 },
+        { key: 'KiB', label: 'KiB (binary, 1024)', factor: 1024 },
+        { key: 'MiB', label: 'MiB (binary, 1024\u00B2)', factor: 1024 ** 2 },
+        { key: 'GiB', label: 'GiB (binary, 1024\u00B3)', factor: 1024 ** 3 },
+        { key: 'TiB', label: 'TiB (binary, 1024\u2074)', factor: 1024 ** 4 }
+      ],
+      note: 'KB/MB/GB/TB use decimal (1000-based) units. KiB/MiB/GiB/TiB use binary (1024-based) units \u2014 they are not the same thing.'
+    },
+    time: {
+      label: 'Time', base: 's',
+      units: [
+        { key: 'ms', label: 'Milliseconds', factor: 0.001 },
+        { key: 's', label: 'Seconds', factor: 1 },
+        { key: 'min', label: 'Minutes', factor: 60 },
+        { key: 'hr', label: 'Hours', factor: 3600 },
+        { key: 'day', label: 'Days', factor: 86400 },
+        { key: 'week', label: 'Weeks', factor: 604800 }
+      ],
+      note: ''
+    }
+  };
+  // ────────────────────────────────────────────────────────
+
+  const categoryRow = document.getElementById('categoryRow');
+  const valueA = document.getElementById('valueA');
+  const valueB = document.getElementById('valueB');
+  const unitA = document.getElementById('unitA');
+  const unitB = document.getElementById('unitB');
+  const labelA = document.getElementById('labelA');
+  const labelB = document.getElementById('labelB');
+  const categoryNote = document.getElementById('categoryNote');
+  const swapBtn = document.getElementById('swapBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let currentCategory = 'length';
+  let activeSide = 'a';
+
+  function renderCategoryChips() {
+    categoryRow.innerHTML = Object.keys(CATEGORIES).map(key => `
+      <button type="button" class="cat-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50 ${key === currentCategory ? 'active' : ''}" data-cat="${key}">
+        ${CATEGORIES[key].label}
+      </button>
+    `).join('');
+    categoryRow.querySelectorAll('[data-cat]').forEach(btn => {
+      btn.addEventListener('click', () => setCategory(btn.getAttribute('data-cat')));
+    });
+  }
+
+  function populateUnitSelects() {
+    const cat = CATEGORIES[currentCategory];
+    [unitA, unitB].forEach((sel, i) => {
+      sel.innerHTML = cat.units.map(u => `<option value="${u.key}">${u.label}</option>`).join('');
+      sel.selectedIndex = i === 0 ? 0 : Math.min(1, cat.units.length - 1);
+    });
+  }
+
+  function setCategory(key) {
+    currentCategory = key;
+    activeSide = 'a';
+    renderCategoryChips();
+    populateUnitSelects();
+    categoryNote.textContent = CATEGORIES[key].note;
+    valueA.value = '10';
+    convert();
+  }
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) ? null : v;
+  }
+
+  function toCelsius(value, unit) {
+    if (unit === 'c') return value;
+    if (unit === 'f') return (value - 32) * (5 / 9);
+    if (unit === 'k') return value - 273.15;
+  }
+  function fromCelsius(celsius, unit) {
+    if (unit === 'c') return celsius;
+    if (unit === 'f') return celsius * (9 / 5) + 32;
+    if (unit === 'k') return celsius + 273.15;
+  }
+
+  function formatResult(n) {
+    if (!isFinite(n)) return '';
+    const rounded = Math.round(n * 1e6) / 1e6;
+    return rounded.toLocaleString('en-US', { maximumFractionDigits: 6 });
+  }
+
+  function convert() {
+    const cat = CATEGORIES[currentCategory];
+    const fromSel = activeSide === 'a' ? unitA : unitB;
+    const toSel = activeSide === 'a' ? unitB : unitA;
+    const fromInput = activeSide === 'a' ? valueA : valueB;
+    const toInput = activeSide === 'a' ? valueB : valueA;
+
+    const raw = parseNum(fromInput.value);
+    if (raw === null) {
+      toInput.value = '';
+      return;
+    }
+
+    if (currentCategory === 'temperature') {
+      const celsius = toCelsius(raw, fromSel.value);
+      toInput.value = formatResult(fromCelsius(celsius, toSel.value));
+      return;
+    }
+
+    const fromUnit = cat.units.find(u => u.key === fromSel.value);
+    const toUnit = cat.units.find(u => u.key === toSel.value);
+    const baseValue = raw * fromUnit.factor;
+    toInput.value = formatResult(baseValue / toUnit.factor);
+  }
+
+  valueA.addEventListener('input', () => { activeSide = 'a'; convert(); });
+  valueB.addEventListener('input', () => { activeSide = 'b'; convert(); });
+  unitA.addEventListener('change', convert);
+  unitB.addEventListener('change', convert);
+
+  swapBtn.addEventListener('click', () => {
+    const tmpUnit = unitA.value;
+    unitA.value = unitB.value;
+    unitB.value = tmpUnit;
+    const tmpVal = valueA.value;
+    valueA.value = valueB.value;
+    valueB.value = tmpVal;
+    activeSide = 'a';
+    convert();
+  });
+
+  resetBtn.addEventListener('click', () => setCategory('length'));
+
+  renderCategoryChips();
+  populateUnitSelects();
+  categoryNote.textContent = CATEGORIES[currentCategory].note;
+  convert();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'unit-converter';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Percentage Change Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Percentage Change Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Find the % increase or decrease between two values &mdash; or work backwards from a target change.</p>
+  </header>
+
+  <div class="flex gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="change">% Change</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="reverse">Reverse</button>
+  </div>
+
+  <!-- % Change panel -->
+  <div id="panelChange" class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label for="originalValue" class="block text-sm font-medium text-slate-300 mb-2">Original Value</label>
+        <input type="text" inputmode="decimal" id="originalValue" value="250"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="newValue" class="block text-sm font-medium text-slate-300 mb-2">New Value</label>
+        <input type="text" inputmode="decimal" id="newValue" value="340"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-3xl sm:text-4xl font-bold" id="changeResult">36% increase</p>
+      <p class="text-xs text-slate-500 mt-2" id="changeDetail"></p>
+    </div>
+  </div>
+
+  <!-- Reverse panel -->
+  <div id="panelReverse" class="glass rounded-2xl p-6 hidden">
+    <p class="text-sm text-slate-400 mb-4">What number would represent a given % increase or decrease?</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div>
+        <label for="startValue" class="block text-sm font-medium text-slate-300 mb-2">Starting Value</label>
+        <input type="text" inputmode="decimal" id="startValue" value="500"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="changePct" class="block text-sm font-medium text-slate-300 mb-2">Change %</label>
+        <input type="text" inputmode="decimal" id="changePct" value="20"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="changeDirection" class="block text-sm font-medium text-slate-300 mb-2">Direction</label>
+        <select id="changeDirection" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="increase">Increase</option>
+          <option value="decrease">Decrease</option>
+        </select>
+      </div>
+    </div>
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Result</p>
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="reverseResult">600</p>
+    </div>
+  </div>
+
+  <button type="button" id="resetBtn" class="mt-5 text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400">
+    Reset
+  </button>
+
+</div>
+
+<script>
+(function () {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panelChange = document.getElementById('panelChange');
+  const panelReverse = document.getElementById('panelReverse');
+
+  const originalValue = document.getElementById('originalValue');
+  const newValue = document.getElementById('newValue');
+  const changeResult = document.getElementById('changeResult');
+  const changeDetail = document.getElementById('changeDetail');
+
+  const startValue = document.getElementById('startValue');
+  const changePct = document.getElementById('changePct');
+  const changeDirection = document.getElementById('changeDirection');
+  const reverseResult = document.getElementById('reverseResult');
+
+  const resetBtn = document.getElementById('resetBtn');
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) ? null : v;
+  }
+
+  function formatSmart(n) {
+    if (!isFinite(n)) return '\u2014';
+    const rounded = Math.round(n * 100) / 100;
+    return rounded.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }
+
+  function updateChange() {
+    const orig = parseNum(originalValue.value);
+    const next = parseNum(newValue.value);
+
+    if (orig === null || next === null) {
+      changeResult.textContent = 'Enter both values';
+      changeResult.className = 'text-3xl sm:text-4xl font-bold text-slate-500';
+      changeDetail.textContent = '';
+      return;
+    }
+
+    if (orig === 0) {
+      changeResult.textContent = 'Cannot calculate';
+      changeResult.className = 'text-2xl sm:text-3xl font-bold text-amber-400';
+      changeDetail.textContent = 'Percentage change cannot be calculated from an original value of zero.';
+      return;
+    }
+
+    const pctChange = ((next - orig) / orig) * 100;
+    const absPct = formatSmart(Math.abs(pctChange));
+
+    if (pctChange > 0) {
+      changeResult.textContent = `${absPct}% increase`;
+      changeResult.className = 'text-3xl sm:text-4xl font-bold text-emerald-400';
+    } else if (pctChange < 0) {
+      changeResult.textContent = `${absPct}% decrease`;
+      changeResult.className = 'text-3xl sm:text-4xl font-bold text-red-400';
+    } else {
+      changeResult.textContent = 'No change';
+      changeResult.className = 'text-3xl sm:text-4xl font-bold text-slate-300';
+    }
+    changeDetail.textContent = `${orig} \u2192 ${next}`;
+  }
+
+  function updateReverse() {
+    const start = parseNum(startValue.value);
+    const pct = parseNum(changePct.value);
+    const dir = changeDirection.value;
+
+    if (start === null || pct === null) {
+      reverseResult.textContent = 'Enter both values';
+      return;
+    }
+    const sign = dir === 'increase' ? 1 : -1;
+    const result = start * (1 + sign * (pct / 100));
+    reverseResult.textContent = formatSmart(result);
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+    panelChange.classList.toggle('hidden', tab !== 'change');
+    panelReverse.classList.toggle('hidden', tab !== 'reverse');
+  }
+
+  tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+
+  [originalValue, newValue].forEach(el => el.addEventListener('input', updateChange));
+  [startValue, changePct].forEach(el => el.addEventListener('input', updateReverse));
+  changeDirection.addEventListener('change', updateReverse);
+
+  resetBtn.addEventListener('click', () => {
+    originalValue.value = '250';
+    newValue.value = '340';
+    startValue.value = '500';
+    changePct.value = '20';
+    changeDirection.value = 'increase';
+    updateChange();
+    updateReverse();
+  });
+
+  updateChange();
+  updateReverse();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'percentage-change';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

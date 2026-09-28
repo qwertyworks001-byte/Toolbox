@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roblox Thumbnail & Icon Size Helper</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Roblox Thumbnail & Icon Size Helper</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Recommended dimensions for common Roblox image assets.</p>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-5" id="assetRow"></div>
+
+  <div class="glass rounded-2xl p-6 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Dimensions</p>
+        <p class="text-lg font-bold text-white" id="presetDims">512 &times; 512</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Aspect Ratio</p>
+        <p class="text-lg font-bold text-white" id="presetRatio">1:1</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Width</p>
+        <p class="text-lg font-bold text-white" id="presetWidth">512 px</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Height</p>
+        <p class="text-lg font-bold text-white" id="presetHeight">512 px</p>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 text-center mt-4" id="presetPixels">262,144 total pixels</p>
+    <p class="text-xs text-slate-400 mt-4 border-t border-slate-700/60 pt-4" id="assetNote"></p>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Check Your Own Dimensions</h2>
+    <div class="grid grid-cols-2 gap-4 mb-5">
+      <div>
+        <label for="customWidth" class="block text-sm font-medium text-slate-300 mb-2">Width</label>
+        <input type="text" inputmode="numeric" id="customWidth" value="512"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="customHeight" class="block text-sm font-medium text-slate-300 mb-2">Height</label>
+        <input type="text" inputmode="numeric" id="customHeight" value="512"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center border-t border-slate-700/60 pt-5">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Aspect Ratio</p>
+        <p class="text-lg font-bold text-white" id="customRatio">1:1</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Total Pixels</p>
+        <p class="text-lg font-bold text-white" id="customPixels">262,144</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Matches Preset?</p>
+        <p class="text-lg font-bold" id="customMatch">&#9989; Yes</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-5 mt-5">
+    <p class="text-xs text-slate-400 leading-relaxed">Recommendations may change as Roblox updates its platform &mdash; verify against the official docs if it matters for a real submission.</p>
+    <a href="https://create.roblox.com/docs/en-us/production/publishing/experience-icons" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 inline-block mt-2">Check official Roblox docs &#8599;</a>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ── Config ──────────────────────────────────────────────
+  // Centralized so it's easy to update if Roblox changes recommendations.
+  const ASSET_TYPES = [
+    { key: 'icon', label: 'Game Icon', w: 512, h: 512, note: 'Square icon shown across Home and the experience page. Roblox scales it down to as small as 150\u00D7150 in some places, so keep the focal point simple.' },
+    { key: 'thumbnail', label: 'Game Thumbnail', w: 1920, h: 1080, note: 'Widescreen promotional image shown on the experience page and in personalization. Non-16:9 uploads get stretched to fit.' },
+    { key: 'badge', label: 'Badge Icon', w: 512, h: 512, note: 'Uploaded at 512\u00D7512 but displayed to players inside a circular crop \u2014 keep important details away from the corners.' },
+    { key: 'gamepass', label: 'Gamepass Icon', w: 512, h: 512, note: 'Same 512\u00D7512 template as badges. Also shown inside a circular crop in some UI.' },
+    { key: 'devproduct', label: 'Developer Product Icon', w: 512, h: 512, note: 'Same 512\u00D7512 template as gamepasses and badges.' }
+  ];
+  // ────────────────────────────────────────────────────────
+
+  const assetRow = document.getElementById('assetRow');
+  const presetDims = document.getElementById('presetDims');
+  const presetRatio = document.getElementById('presetRatio');
+  const presetWidth = document.getElementById('presetWidth');
+  const presetHeight = document.getElementById('presetHeight');
+  const presetPixels = document.getElementById('presetPixels');
+  const assetNote = document.getElementById('assetNote');
+
+  const customWidth = document.getElementById('customWidth');
+  const customHeight = document.getElementById('customHeight');
+  const customRatio = document.getElementById('customRatio');
+  const customPixels = document.getElementById('customPixels');
+  const customMatch = document.getElementById('customMatch');
+
+  let currentAsset = ASSET_TYPES[0];
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+  function ratioString(w, h) {
+    const d = gcd(w, h) || 1;
+    return `${w / d}:${h / d}`;
+  }
+
+  function renderAssetRow() {
+    assetRow.innerHTML = ASSET_TYPES.map(a => `
+      <button type="button" class="asset-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50 ${a.key === currentAsset.key ? 'active' : ''}" data-asset="${a.key}">
+        ${a.label}
+      </button>
+    `).join('');
+    assetRow.querySelectorAll('[data-asset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentAsset = ASSET_TYPES.find(a => a.key === btn.getAttribute('data-asset'));
+        renderAssetRow();
+        renderPreset();
+        updateCustom();
+      });
+    });
+  }
+
+  function renderPreset() {
+    presetDims.textContent = `${currentAsset.w} \u00D7 ${currentAsset.h}`;
+    presetRatio.textContent = ratioString(currentAsset.w, currentAsset.h);
+    presetWidth.textContent = `${currentAsset.w} px`;
+    presetHeight.textContent = `${currentAsset.h} px`;
+    presetPixels.textContent = `${(currentAsset.w * currentAsset.h).toLocaleString('en-US')} total pixels`;
+    assetNote.textContent = currentAsset.note;
+  }
+
+  function updateCustom() {
+    const w = parseInt(customWidth.value, 10);
+    const h = parseInt(customHeight.value, 10);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+      customRatio.textContent = '\u2014';
+      customPixels.textContent = '\u2014';
+      customMatch.textContent = '\u2014';
+      customMatch.className = 'text-lg font-bold text-slate-500';
+      return;
+    }
+    customRatio.textContent = ratioString(w, h);
+    customPixels.textContent = (w * h).toLocaleString('en-US');
+
+    const matches = w === currentAsset.w && h === currentAsset.h;
+    customMatch.textContent = matches ? '\u2705 Yes' : '\u274C No';
+    customMatch.className = `text-lg font-bold ${matches ? 'text-emerald-400' : 'text-amber-400'}`;
+  }
+
+  customWidth.addEventListener('input', updateCustom);
+  customHeight.addEventListener('input', updateCustom);
+
+  renderAssetRow();
+  renderPreset();
+  updateCustom();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'thumbnail-helper';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

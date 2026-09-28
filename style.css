@@ -1,0 +1,132 @@
+/* ============================================================
+   Toolbox — shared stylesheet
+   Every tool page links to this (as ../style.css) so the whole
+   site shares one consistent look. Keep tool-specific rules
+   (unique colors, one-off layouts) in that page's own <style>
+   block instead of here.
+   ============================================================ */
+
+body {
+  background: radial-gradient(circle at top left, #111827 0%, #0b0f19 60%, #05070c 100%);
+  min-height: 100vh;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
+
+/* Native form controls rendered dark to match the theme */
+input[type="time"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="color"],
+input[type="number"],
+textarea,
+select {
+  color-scheme: dark;
+}
+
+/* ── Range sliders ─────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 3px solid #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+  transition: box-shadow 0.15s ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.22);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 3px solid #3b82f6;
+  cursor: pointer;
+}
+
+/* ── Pill / tab / chip style toggle buttons ───────────────────
+   Used for: category chips, view tabs, unit/asset/risk pickers,
+   quick-amount buttons, preset buttons — anything that's a small
+   rounded button which can be "selected". */
+.chip,
+.tab-btn,
+.preset-btn,
+.cat-btn,
+.asset-btn,
+.risk-btn,
+.quick-btn,
+.fmt-btn {
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.chip:hover,
+.tab-btn:hover,
+.preset-btn:hover,
+.cat-btn:hover,
+.asset-btn:hover,
+.risk-btn:hover,
+.quick-btn:hover,
+.fmt-btn:hover {
+  transform: translateY(-1px);
+}
+.chip.active,
+.tab-btn.active,
+.cat-btn.active,
+.asset-btn.active,
+.risk-btn.active,
+.fmt-btn.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+/* ── Checkbox "pill" toggle rows (e.g. scenario on/off rows) ──
+   Dims the whole row when its checkbox is unchecked, so turning
+   something off has an obvious visual result, not just a side
+   effect elsewhere on the page. */
+.checkbox-pill {
+  transition: opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.checkbox-pill:has(input[type="checkbox"]:not(:checked)) {
+  opacity: 0.45;
+}
+
+/* ── Favorite star ─────────────────────────────────────────── */
+#favToggle,
+.fav-btn {
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+#favToggle:hover,
+.fav-btn:hover {
+  transform: scale(1.15);
+}
+
+/* ── Focus visibility everywhere (belt-and-braces alongside
+   Tailwind's focus:ring utilities used inline) ────────────── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

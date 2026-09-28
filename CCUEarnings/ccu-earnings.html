@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCU Earnings Simulator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .stat-card { transition: border-color 0.15s ease; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">CCU Earnings Simulator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">If you're holding a steady average CCU, roughly what might that be worth per day?</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="ccuInput" class="block text-sm font-medium text-slate-300 mb-2">Average concurrent players (CCU)</label>
+        <input type="text" inputmode="numeric" id="ccuInput" value="200"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="daysInput" class="block text-sm font-medium text-slate-300 mb-2">Days to simulate</label>
+        <input type="text" inputmode="numeric" id="daysInput" value="30"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-1">Monetization Stats</h2>
+    <p class="text-xs text-slate-500 mb-5">
+      Net Robux earned per average CCU per day, for each stream. There's no official published median for any of
+      these &mdash; the numbers below are rough illustrative starting points, not verified statistics.
+      Replace them with your own game's real numbers from the Creator Dashboard as soon as you have them.
+    </p>
+
+    <div class="space-y-3">
+      <div class="stat-card flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-3">
+        <div>
+          <p class="text-sm font-medium text-white">Passes & Developer Products</p>
+          <p class="text-xs text-slate-500">Direct Robux purchases, net of Roblox's marketplace fee.</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <input type="text" inputmode="decimal" id="ratePasses" value="8"
+            class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <span class="text-xs text-slate-500">R$/CCU/day</span>
+        </div>
+      </div>
+
+      <div class="stat-card flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-3">
+        <div>
+          <p class="text-sm font-medium text-white">Creator Rewards</p>
+          <p class="text-xs text-slate-500">Roblox's engagement-based payout pool (replaced the old Premium Engagement-Based Payouts program in 2025).</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <input type="text" inputmode="decimal" id="rateCreatorRewards" value="4"
+            class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <span class="text-xs text-slate-500">R$/CCU/day</span>
+        </div>
+      </div>
+
+      <div class="stat-card flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-3">
+        <div>
+          <p class="text-sm font-medium text-white">Immersive Ads</p>
+          <p class="text-xs text-slate-500">Portal / immersive ad revenue share.</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <input type="text" inputmode="decimal" id="rateAds" value="2"
+            class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <span class="text-xs text-slate-500">R$/CCU/day</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <div>
+        <p class="text-sm font-medium text-slate-300">Day-to-day volatility</p>
+        <p class="text-xs text-slate-500">Spread used for the Best/Worst case around your average.</p>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <input type="text" inputmode="numeric" id="volatilityInput" value="30"
+          class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <span class="text-xs text-slate-500">%</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <label class="checkbox-pill flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 cursor-pointer hover:border-red-500/50">
+        <span class="flex items-center gap-2 text-sm">
+          <span class="w-3 h-3 rounded-sm" style="background:#ef4444"></span>
+          Worst Case
+        </span>
+        <input type="checkbox" id="toggleWorst" checked class="accent-red-500 w-4 h-4">
+      </label>
+      <label class="checkbox-pill flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 cursor-pointer hover:border-blue-500/50">
+        <span class="flex items-center gap-2 text-sm">
+          <span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span>
+          Average Case
+        </span>
+        <input type="checkbox" id="toggleAverage" checked class="accent-blue-500 w-4 h-4">
+      </label>
+      <label class="checkbox-pill flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/50 px-3 py-2 cursor-pointer hover:border-emerald-500/50">
+        <span class="flex items-center gap-2 text-sm">
+          <span class="w-3 h-3 rounded-sm" style="background:#10b981"></span>
+          Best Case
+        </span>
+        <input type="checkbox" id="toggleBest" checked class="accent-emerald-500 w-4 h-4">
+      </label>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5" id="resultCards"></div>
+
+  <div class="glass rounded-2xl p-5">
+    <p class="text-xs text-slate-400 leading-relaxed">
+      <strong class="text-slate-300">This is a simulation, not a guarantee.</strong> Roblox doesn't publish a per-CCU
+      earnings rate for any of these programs &mdash; Creator Rewards in particular is distributed from a shared pool
+      based on engagement share, not a fixed per-player amount. Real numbers vary enormously by genre, region,
+      retention, and monetization design. Use this for a rough sense of scale, then swap in your own Creator
+      Dashboard data once you have it.
+    </p>
+    <a href="https://create.roblox.com/docs/en-us/creator-rewards" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 inline-block mt-2">Read about Creator Rewards &#8599;</a>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // DevEx rate reused from the DevEx Calculator — see that tool for sourcing/last-verified date.
+  const DEVEX_RATE = 0.0038;
+
+  const ccuInput = document.getElementById('ccuInput');
+  const daysInput = document.getElementById('daysInput');
+  const ratePasses = document.getElementById('ratePasses');
+  const rateCreatorRewards = document.getElementById('rateCreatorRewards');
+  const rateAds = document.getElementById('rateAds');
+  const volatilityInput = document.getElementById('volatilityInput');
+  const toggleWorst = document.getElementById('toggleWorst');
+  const toggleAverage = document.getElementById('toggleAverage');
+  const toggleBest = document.getElementById('toggleBest');
+  const resultCards = document.getElementById('resultCards');
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+
+  function fmtRobux(n) { return `${Math.round(n).toLocaleString('en-US')} R$`; }
+  function fmtUsd(n) { return `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`; }
+
+  function cardHTML(label, color, robuxPerDay, days) {
+    const usdPerDay = robuxPerDay * DEVEX_RATE;
+    const totalRobux = robuxPerDay * days;
+    const totalUsd = totalRobux * DEVEX_RATE;
+    return `
+      <div class="glass rounded-xl p-4 border-l-4" style="border-left-color:${color}">
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">${label}</p>
+        <p class="text-xl font-bold text-white">${fmtRobux(robuxPerDay)}<span class="text-sm text-slate-500 font-normal"> /day</span></p>
+        <p class="text-sm text-slate-400 mt-1">${fmtUsd(usdPerDay)}/day</p>
+        <p class="text-sm text-slate-300 mt-3 pt-3 border-t border-slate-700/60">Over ${days} day${days === 1 ? '' : 's'}: <span class="font-semibold text-white">${fmtRobux(totalRobux)}</span></p>
+        <p class="text-xs text-slate-500">&asymp; ${fmtUsd(totalUsd)}</p>
+      </div>
+    `;
+  }
+
+  function update() {
+    const ccu = parseNum(ccuInput.value);
+    const days = Math.max(1, Math.round(parseNum(daysInput.value)) || 30);
+    const perCcuTotal = parseNum(ratePasses.value) + parseNum(rateCreatorRewards.value) + parseNum(rateAds.value);
+    const volatility = Math.min(100, parseNum(volatilityInput.value)) / 100;
+
+    const avgRobux = ccu * perCcuTotal;
+    const bestRobux = avgRobux * (1 + volatility);
+    const worstRobux = Math.max(0, avgRobux * (1 - volatility));
+
+    let html = '';
+    if (toggleWorst.checked) html += cardHTML('Worst Case', '#ef4444', worstRobux, days);
+    if (toggleAverage.checked) html += cardHTML('Average Case', '#3b82f6', avgRobux, days);
+    if (toggleBest.checked) html += cardHTML('Best Case', '#10b981', bestRobux, days);
+
+    resultCards.innerHTML = html || '<p class="text-sm text-slate-500 col-span-3 text-center py-4">Toggle at least one case above to see results.</p>';
+  }
+
+  [ccuInput, daysInput, ratePasses, rateCreatorRewards, rateAds, volatilityInput].forEach(el => el.addEventListener('input', update));
+  [toggleWorst, toggleAverage, toggleBest].forEach(el => el.addEventListener('change', update));
+
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'ccu-earnings';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

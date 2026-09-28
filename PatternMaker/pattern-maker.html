@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pattern Maker</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .tab-btn { transition: all 0.15s ease; }
+  .tab-btn.active { background: rgba(59,130,246,0.15); border-color: #3b82f6; color: #93c5fd; }
+  .app-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+  @media (min-width: 1024px) {
+    .app-grid { grid-template-columns: 1fr 360px; }
+  }
+  .controls-scroll {
+    max-height: 78vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .preview-bg {
+    background-color: #0b0f19;
+    background-image: radial-gradient(circle, #334155 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .field-label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; display: block; }
+  .num-input {
+    width: 3.75rem; background: #1e293b; border: 1px solid #334155; border-radius: 0.375rem;
+    padding: 0.15rem 0.3rem; font-size: 0.72rem; color: white; text-align: center;
+  }
+  .slider-row { margin-bottom: 0.85rem; }
+  .slider-row .row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #cbd5e1; margin-bottom: 0.75rem; }
+  select.mini, input.color-mini {
+    background: #1e293b; border: 1px solid #334155; border-radius: 0.375rem; color: white; font-size: 0.8rem;
+  }
+  input[type="color"].color-mini { width: 100%; height: 2rem; padding: 2px; cursor: pointer; }
+  .preset-btn { transition: all 0.15s ease; }
+  .preset-btn.active { background: rgba(59,130,246,0.18); border-color: #3b82f6; color: #93c5fd; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Pattern Maker</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Sunbursts, halftones, and controlled generative patterns. Export as SVG or PNG.</p>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-apptab="sunburst">Sunburst</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-apptab="halftone">Halftone</button>
+  </div>
+
+  <!-- ═══════════════════════ SUNBURST ═══════════════════════ -->
+  <div id="panelSunburst">
+    <div class="app-grid">
+
+      <!-- Preview -->
+      <div class="glass rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <span class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Preview</span>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="zoomOutBtn" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 text-sm">&minus;</button>
+            <input type="text" id="zoomNum" value="100" class="num-input">
+            <span class="text-xs text-slate-500">%</span>
+            <button type="button" id="zoomInBtn" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 text-sm">+</button>
+            <button type="button" id="fitBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Fit</button>
+            <button type="button" id="resetTabBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset tab</button>
+          </div>
+        </div>
+
+        <div class="preview-bg rounded-xl overflow-hidden flex-1" style="min-height: 480px;">
+          <div id="zoomWrap" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; transform-origin: center center;">
+            <svg id="sunSvg" viewBox="0 0 800 800" width="640" height="640"></svg>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-3 text-xs text-slate-500 flex-wrap gap-2">
+          <span id="statusLine">36 rays &middot; Editable vectors</span>
+          <span>Scroll wheel over preview to zoom</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <button type="button" id="copySvgBtn" class="text-sm px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:border-blue-500 font-medium">Copy SVG</button>
+          <button type="button" id="copyPngBtn" class="text-sm px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Copy PNG</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2 text-center" id="copyStatus">Ready</p>
+      </div>
+
+      <!-- Controls -->
+      <div class="glass rounded-2xl p-5">
+        <div class="controls-scroll">
+
+          <!-- Starting points -->
+          <div class="mb-6">
+            <p class="section-title">Starting points</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="classic">Classic</button>
+              <button type="button" class="preset-btn active text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="shards">Shards</button>
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="speedlines">Speed lines</button>
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="fan5">5-ray fan</button>
+            </div>
+          </div>
+
+          <!-- Color & gradient -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Color &amp; gradient</p>
+            <label class="field-label" for="fillMode">Fill mode</label>
+            <select id="fillMode" class="mini w-full px-2 py-1.5 mb-3">
+              <option value="solid">Solid / alternating</option>
+              <option value="linear">Linear gradient</option>
+              <option value="radial">Radial gradient</option>
+              <option value="along">Along each ray</option>
+            </select>
+
+            <label class="field-label" for="primaryColor">Primary</label>
+            <input type="color" id="primaryColor" value="#f6a623" class="color-mini mb-3">
+
+            <label class="inline-flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer">
+              <input type="checkbox" id="twoColors" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+              Two colors
+            </label>
+
+            <label class="field-label" for="secondaryColor">Secondary</label>
+            <input type="color" id="secondaryColor" value="#fff2cf" class="color-mini mb-3">
+
+            <div class="slider-row">
+              <div class="row-head"><label class="field-label mb-0" for="overallAlpha">Overall alpha %</label><input type="text" id="overallAlphaNum" class="num-input" value="100"></div>
+              <input type="range" id="overallAlpha" min="0" max="100" value="100" class="w-full">
+            </div>
+          </div>
+
+          <!-- Rays -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Rays</p>
+
+            <label class="field-label" for="shape">Shape</label>
+            <select id="shape" class="mini w-full px-2 py-1.5 mb-3">
+              <option value="wedges">Wedges</option>
+              <option value="shards" selected>Pointed shards</option>
+              <option value="lines">Lines</option>
+            </select>
+
+            <label class="field-label" for="wedgeEnds">Wedge ends</label>
+            <select id="wedgeEnds" class="mini w-full px-2 py-1.5 mb-3">
+              <option value="circular">Circular</option>
+              <option value="flat">Flat</option>
+            </select>
+
+            <label class="field-label" for="lineCaps">Line caps</label>
+            <select id="lineCaps" class="mini w-full px-2 py-1.5 mb-3">
+              <option value="round">Round</option>
+              <option value="flat">Flat</option>
+              <option value="square">Square</option>
+            </select>
+
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Amount</label><input type="text" id="amountNum" class="num-input" value="36"></div><input type="range" id="amount" min="1" max="180" value="36" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Length %</label><input type="text" id="lengthNum" class="num-input" value="49"></div><input type="range" id="length" min="1" max="100" value="49" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Width %</label><input type="text" id="widthNum" class="num-input" value="48"></div><input type="range" id="width" min="0" max="100" value="48" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Inner hole %</label><input type="text" id="innerHoleNum" class="num-input" value="0"></div><input type="range" id="innerHole" min="0" max="90" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Shard tip %</label><input type="text" id="shardTipNum" class="num-input" value="70"></div><input type="range" id="shardTip" min="0" max="100" value="70" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Shoulder %</label><input type="text" id="shoulderNum" class="num-input" value="30"></div><input type="range" id="shoulder" min="0" max="100" value="30" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Outer fade %</label><input type="text" id="outerFadeNum" class="num-input" value="0"></div><input type="range" id="outerFade" min="0" max="100" value="0" class="w-full"></div>
+          </div>
+
+          <!-- Placement -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Placement</p>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rotation &deg;</label><input type="text" id="rotationNum" class="num-input" value="0"></div><input type="range" id="rotation" min="0" max="360" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Sweep &deg;</label><input type="text" id="sweepNum" class="num-input" value="360"></div><input type="range" id="sweep" min="1" max="360" value="360" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Twist &deg;</label><input type="text" id="twistNum" class="num-input" value="0"></div><input type="range" id="twist" min="-180" max="180" value="0" class="w-full"></div>
+          </div>
+
+          <!-- Variation -->
+          <div>
+            <p class="section-title">Variation</p>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Alt. length %</label><input type="text" id="altLengthNum" class="num-input" value="0"></div><input type="range" id="altLength" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Alt. width %</label><input type="text" id="altWidthNum" class="num-input" value="0"></div><input type="range" id="altWidth" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rnd. length %</label><input type="text" id="rndLengthNum" class="num-input" value="0"></div><input type="range" id="rndLength" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rnd. width %</label><input type="text" id="rndWidthNum" class="num-input" value="0"></div><input type="range" id="rndWidth" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rnd. angle %</label><input type="text" id="rndAngleNum" class="num-input" value="0"></div><input type="range" id="rndAngle" min="0" max="100" value="0" class="w-full"></div>
+
+            <div class="flex items-center gap-2 mt-4">
+              <div class="flex-1">
+                <label class="field-label" for="seedInput">Seed</label>
+                <input type="text" inputmode="numeric" id="seedInput" value="1" class="mini w-full px-2 py-1.5">
+              </div>
+              <button type="button" id="shuffleBtn" class="text-xs px-3 py-2 mt-4 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 whitespace-nowrap">Shuffle variation</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ HALFTONE (coming next) ═══════════════════════ -->
+  <div id="panelHalftone" class="hidden">
+    <div class="glass rounded-2xl p-8 text-center">
+      <p class="text-lg font-semibold text-white mb-2">Halftone is next</p>
+      <p class="text-sm text-slate-400 max-w-md mx-auto">
+        This tab covers a lot more ground &mdash; gradient-driven tone mapping, dot/square/star/line marks, a paintable brush layer with undo/redo,
+        and converting an uploaded image into a halftone. Building it properly as its own pass rather than rushing it in alongside Sunburst.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ── App-level tabs (Sunburst / Halftone) ──
+  const appTabs = document.querySelectorAll('.tab-btn[data-apptab]');
+  const appPanels = { sunburst: document.getElementById('panelSunburst'), halftone: document.getElementById('panelHalftone') };
+  appTabs.forEach(btn => btn.addEventListener('click', () => {
+    const tab = btn.getAttribute('data-apptab');
+    appTabs.forEach(b => b.classList.toggle('active', b === btn));
+    Object.keys(appPanels).forEach(k => appPanels[k].classList.toggle('hidden', k !== tab));
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // SUNBURST ENGINE
+  // ══════════════════════════════════════════════════════════════
+  const svg = document.getElementById('sunSvg');
+  const CENTER = 400;
+  const MAX_RADIUS = 330;
+
+  let p = {
+    fillMode: 'solid', primary: '#f6a623', twoColors: false, secondary: '#fff2cf', overallAlpha: 100,
+    shape: 'shards', wedgeEnds: 'circular', lineCaps: 'round',
+    amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0,
+    rotation: 0, sweep: 360, twist: 0,
+    altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, seed: 1
+  };
+
+  const PRESETS = {
+    classic: { shape: 'wedges', wedgeEnds: 'circular', amount: 24, length: 78, width: 55, innerHole: 10, shardTip: 0, shoulder: 50, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: true },
+    shards: { shape: 'shards', amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false },
+    speedlines: { shape: 'lines', lineCaps: 'round', amount: 60, length: 85, width: 12, innerHole: 35, shardTip: 0, shoulder: 0, outerFade: 30, sweep: 360, twist: 0, altLength: 25, altWidth: 0, rndLength: 10, rndWidth: 0, rndAngle: 2, fillMode: 'solid', twoColors: false },
+    fan5: { shape: 'shards', amount: 5, length: 90, width: 60, innerHole: 5, shardTip: 55, shoulder: 40, outerFade: 0, sweep: 80, twist: 0, rotation: -40, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false }
+  };
+
+  // Simple seeded PRNG (mulberry32) so the same seed always reproduces the same jitter.
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function rngFor(seed, i) { return mulberry32((seed * 2654435761 + i * 40503) >>> 0); }
+
+  function rotate(x, y, deg) {
+    const a = deg * Math.PI / 180;
+    return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+  }
+  function pt(localX, localY, angleDeg) {
+    const [x, y] = rotate(localX, localY, angleDeg);
+    return [CENTER + x, CENTER + y];
+  }
+  function fmtPt([x, y]) { return `${x.toFixed(2)},${y.toFixed(2)}`; }
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function buildRayPath(angleDeg, innerR, outerR, halfW, tipHalfW, shoulderFrac) {
+    const shoulderR = innerR + shoulderFrac * (outerR - innerR);
+    const baseHalfW = halfW * 0.35;
+    const pts = [
+      pt(innerR, -baseHalfW, angleDeg),
+      pt(shoulderR, -halfW, angleDeg),
+      pt(outerR, -tipHalfW, angleDeg),
+      pt(outerR, tipHalfW, angleDeg),
+      pt(shoulderR, halfW, angleDeg),
+      pt(innerR, baseHalfW, angleDeg)
+    ];
+    return `M${fmtPt(pts[0])} L${fmtPt(pts[1])} L${fmtPt(pts[2])} L${fmtPt(pts[3])} L${fmtPt(pts[4])} L${fmtPt(pts[5])} Z`;
+  }
+
+  function buildWedgePath(angleDeg, innerR, outerR, halfW, wedgeEnds) {
+    const a0 = pt(innerR, -halfW, angleDeg);
+    const a1 = pt(outerR, -halfW, angleDeg);
+    const a2 = pt(outerR, halfW, angleDeg);
+    const a3 = pt(innerR, halfW, angleDeg);
+    if (wedgeEnds === 'circular') {
+      const rOuter = Math.hypot(a1[0] - CENTER, a1[1] - CENTER);
+      return `M${fmtPt(a0)} L${fmtPt(a1)} A${rOuter.toFixed(2)},${rOuter.toFixed(2)} 0 0 1 ${fmtPt(a2)} L${fmtPt(a3)} Z`;
+    }
+    return `M${fmtPt(a0)} L${fmtPt(a1)} L${fmtPt(a2)} L${fmtPt(a3)} Z`;
+  }
+
+  function renderSunburst() {
+    const n = Math.max(1, Math.round(p.amount));
+    const angleStep = n > 1 ? p.sweep / n : 0;
+
+    let defs = '<defs>';
+    let body = '';
+
+    if (p.fillMode === 'linear') {
+      defs += `<linearGradient id="fillGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="${p.primary}"/><stop offset="100%" stop-color="${p.twoColors ? p.secondary : p.primary}"/>
+      </linearGradient>`;
+    } else if (p.fillMode === 'radial') {
+      defs += `<radialGradient id="fillGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${p.primary}"/><stop offset="100%" stop-color="${p.twoColors ? p.secondary : p.primary}"/>
+      </radialGradient>`;
+    }
+
+    let maskAttr = '';
+    if (p.outerFade > 0) {
+      const fadeStart = clamp(100 - p.outerFade, 0, 99);
+      defs += `<radialGradient id="fadeMaskGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="white"/>
+        <stop offset="${fadeStart}%" stop-color="white"/>
+        <stop offset="100%" stop-color="black"/>
+      </radialGradient>
+      <mask id="fadeMask"><rect x="0" y="0" width="800" height="800" fill="url(#fadeMaskGrad)"/></mask>`;
+      maskAttr = ' mask="url(#fadeMask)"';
+    }
+
+    for (let i = 0; i < n; i++) {
+      const rng = rngFor(Math.round(p.seed), i);
+      const isAlt = i % 2 === 1;
+
+      const angleJitter = (rng() - 0.5) * 2 * (p.rndAngle / 100) * (angleStep || 10);
+      const angleDeg = p.rotation + i * angleStep + p.twist * (n > 1 ? i / (n - 1) : 0) + angleJitter;
+
+      const altLenFactor = isAlt ? (1 - p.altLength / 100) : 1;
+      const altWidFactor = isAlt ? (1 - p.altWidth / 100) : 1;
+      const rndLenFactor = 1 + (rng() - 0.5) * 2 * (p.rndLength / 100);
+      const rndWidFactor = 1 + (rng() - 0.5) * 2 * (p.rndWidth / 100);
+
+      const lengthPct = clamp(p.length * altLenFactor * rndLenFactor, 1, 100);
+      const widthPct = clamp(p.width * altWidFactor * rndWidFactor, 0, 100);
+
+      const innerR = (p.innerHole / 100) * MAX_RADIUS;
+      const outerR = Math.max(innerR + 2, (lengthPct / 100) * MAX_RADIUS);
+      const halfW = (widthPct / 100) * 34 + 1;
+
+      let fill;
+      if (p.fillMode === 'solid') fill = (p.twoColors && isAlt) ? p.secondary : p.primary;
+      else if (p.fillMode === 'along') fill = `url(#rayGrad${i})`;
+      else fill = 'url(#fillGrad)';
+
+      if (p.fillMode === 'along') {
+        const from = pt(innerR, 0, angleDeg), to = pt(outerR, 0, angleDeg);
+        defs += `<linearGradient id="rayGrad${i}" gradientUnits="userSpaceOnUse" x1="${from[0].toFixed(2)}" y1="${from[1].toFixed(2)}" x2="${to[0].toFixed(2)}" y2="${to[1].toFixed(2)}">
+          <stop offset="0%" stop-color="${p.primary}"/><stop offset="100%" stop-color="${p.twoColors ? p.secondary : p.primary}"/>
+        </linearGradient>`;
+      }
+
+      if (p.shape === 'lines') {
+        const a = pt(innerR, 0, angleDeg), b = pt(outerR, 0, angleDeg);
+        const strokeW = halfW * 2;
+        const cap = p.lineCaps === 'round' ? 'round' : p.lineCaps === 'square' ? 'square' : 'butt';
+        body += `<line x1="${a[0].toFixed(2)}" y1="${a[1].toFixed(2)}" x2="${b[0].toFixed(2)}" y2="${b[1].toFixed(2)}" stroke="${fill.startsWith('url') ? p.primary : fill}" stroke-width="${strokeW.toFixed(2)}" stroke-linecap="${cap}"/>`;
+      } else if (p.shape === 'wedges') {
+        const d = buildWedgePath(angleDeg, innerR, outerR, halfW, p.wedgeEnds);
+        body += `<path d="${d}" fill="${fill}"/>`;
+      } else {
+        const tipHalfW = halfW * (1 - p.shardTip / 100);
+        const d = buildRayPath(angleDeg, innerR, outerR, halfW, tipHalfW, clamp(p.shoulder / 100, 0.05, 0.95));
+        body += `<path d="${d}" fill="${fill}"/>`;
+      }
+    }
+
+    defs += '</defs>';
+    svg.innerHTML = `${defs}<g opacity="${(p.overallAlpha / 100).toFixed(2)}"${maskAttr}>${body}</g>`;
+
+    document.getElementById('statusLine').textContent = `${n} ray${n === 1 ? '' : 's'} \u00B7 Editable vectors`;
+  }
+
+  const FIELD_IDS = ['amount', 'length', 'width', 'innerHole', 'shardTip', 'shoulder', 'outerFade', 'rotation', 'sweep', 'twist', 'altLength', 'altWidth', 'rndLength', 'rndWidth', 'rndAngle', 'overallAlpha'];
+
+  function syncFromControls() {
+    FIELD_IDS.forEach(id => { p[id] = parseFloat(document.getElementById(id).value) || 0; });
+    p.fillMode = document.getElementById('fillMode').value;
+    p.primary = document.getElementById('primaryColor').value;
+    p.secondary = document.getElementById('secondaryColor').value;
+    p.twoColors = document.getElementById('twoColors').checked;
+    p.shape = document.getElementById('shape').value;
+    p.wedgeEnds = document.getElementById('wedgeEnds').value;
+    p.lineCaps = document.getElementById('lineCaps').value;
+    p.seed = parseInt(document.getElementById('seedInput').value, 10) || 0;
+  }
+
+  function pushToControls() {
+    FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      const numEl = document.getElementById(id + 'Num');
+      if (p[id] !== undefined) { el.value = p[id]; if (numEl) numEl.value = p[id]; }
+    });
+    document.getElementById('fillMode').value = p.fillMode;
+    document.getElementById('primaryColor').value = p.primary;
+    document.getElementById('secondaryColor').value = p.secondary;
+    document.getElementById('twoColors').checked = p.twoColors;
+    document.getElementById('shape').value = p.shape;
+    document.getElementById('wedgeEnds').value = p.wedgeEnds;
+    document.getElementById('lineCaps').value = p.lineCaps;
+    document.getElementById('seedInput').value = p.seed;
+  }
+
+  function update() { syncFromControls(); renderSunburst(); }
+
+  FIELD_IDS.forEach(id => {
+    const range = document.getElementById(id);
+    const num = document.getElementById(id + 'Num');
+    range.addEventListener('input', () => { num.value = range.value; update(); });
+    num.addEventListener('input', () => {
+      const v = clamp(parseFloat(num.value) || 0, parseFloat(range.min), parseFloat(range.max));
+      range.value = v; update();
+    });
+  });
+  ['fillMode', 'primaryColor', 'secondaryColor', 'twoColors', 'shape', 'wedgeEnds', 'lineCaps'].forEach(id => {
+    document.getElementById(id).addEventListener('input', update);
+  });
+  document.getElementById('seedInput').addEventListener('input', update);
+
+  document.getElementById('shuffleBtn').addEventListener('click', () => {
+    document.getElementById('seedInput').value = Math.floor(Math.random() * 100000);
+    update();
+  });
+
+  const presetBtns = document.querySelectorAll('.preset-btn[data-preset]');
+  presetBtns.forEach(btn => btn.addEventListener('click', () => {
+    presetBtns.forEach(b => b.classList.toggle('active', b === btn));
+    const key = btn.getAttribute('data-preset');
+    Object.assign(p, PRESETS[key]);
+    pushToControls();
+    renderSunburst();
+  }));
+
+  const zoomWrap = document.getElementById('zoomWrap');
+  const zoomNum = document.getElementById('zoomNum');
+  let zoom = 100;
+  function applyZoom() {
+    zoomWrap.style.transform = `scale(${zoom / 100})`;
+    zoomNum.value = Math.round(zoom);
+  }
+  document.getElementById('zoomInBtn').addEventListener('click', () => { zoom = clamp(zoom + 10, 20, 400); applyZoom(); });
+  document.getElementById('zoomOutBtn').addEventListener('click', () => { zoom = clamp(zoom - 10, 20, 400); applyZoom(); });
+  zoomNum.addEventListener('input', () => { zoom = clamp(parseFloat(zoomNum.value) || 100, 20, 400); applyZoom(); });
+  document.getElementById('fitBtn').addEventListener('click', () => { zoom = 100; applyZoom(); });
+  document.querySelector('.preview-bg').addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = clamp(zoom + (e.deltaY < 0 ? 8 : -8), 20, 400);
+    applyZoom();
+  }, { passive: false });
+
+  document.getElementById('resetTabBtn').addEventListener('click', () => {
+    Object.assign(p, PRESETS.shards);
+    presetBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-preset') === 'shards'));
+    pushToControls();
+    zoom = 100; applyZoom();
+    renderSunburst();
+  });
+
+  const copyStatus = document.getElementById('copyStatus');
+  function flashStatus(msg) {
+    copyStatus.textContent = msg;
+    setTimeout(() => { copyStatus.textContent = 'Ready'; }, 1800);
+  }
+
+  document.getElementById('copySvgBtn').addEventListener('click', async () => {
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">${serialized.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+    try {
+      await navigator.clipboard.writeText(full);
+      flashStatus('\u2713 SVG copied to clipboard');
+    } catch (e) {
+      flashStatus('Could not copy \u2014 try again');
+    }
+  });
+
+  document.getElementById('copyPngBtn').addEventListener('click', async () => {
+    try {
+      const serialized = new XMLSerializer().serializeToString(svg);
+      const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">${serialized.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+      const svgBlob = new Blob([full], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1600; canvas.height = 1600;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 1600, 1600);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(async (blob) => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            flashStatus('\u2713 PNG copied to clipboard');
+          } catch (e) {
+            const link = document.createElement('a');
+            link.download = 'sunburst.png';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            flashStatus('Clipboard unavailable \u2014 downloaded instead');
+          }
+        }, 'image/png');
+      };
+      img.src = url;
+    } catch (e) {
+      flashStatus('Could not export \u2014 try again');
+    }
+  });
+
+  renderSunburst();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'pattern-maker';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

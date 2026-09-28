@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Number Generator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Random Number Generator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Generate one or many random numbers with full control over the range.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+      <div>
+        <label for="minInput" class="block text-sm font-medium text-slate-300 mb-2">Minimum</label>
+        <input type="text" inputmode="decimal" id="minInput" value="1"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="maxInput" class="block text-sm font-medium text-slate-300 mb-2">Maximum</label>
+        <input type="text" inputmode="decimal" id="maxInput" value="100"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="countInput" class="block text-sm font-medium text-slate-300 mb-2">Results</label>
+        <input type="text" inputmode="numeric" id="countInput" value="5"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-x-6 gap-y-3 mb-5 text-sm">
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="wholeNumbers" checked class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Whole numbers
+      </label>
+      <label class="inline-flex items-center gap-2 cursor-pointer" id="noDupLabel">
+        <input type="checkbox" id="noDuplicates" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        No duplicates
+      </label>
+      <div class="inline-flex items-center gap-2">
+        <label for="sortOrder" class="text-slate-300">Sort:</label>
+        <select id="sortOrder" class="bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="none">None</option>
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mb-5">
+      <button type="button" id="generateBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors">
+        &#127922; Generate
+      </button>
+      <button type="button" id="copyBtn" class="text-sm px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">
+        Copy Results
+      </button>
+    </div>
+
+    <p class="text-xs text-amber-400 mb-3 hidden" id="errorNote"></p>
+
+    <div class="flex flex-wrap gap-2 min-h-[3rem]" id="resultsRow"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const minInput = document.getElementById('minInput');
+  const maxInput = document.getElementById('maxInput');
+  const countInput = document.getElementById('countInput');
+  const wholeNumbers = document.getElementById('wholeNumbers');
+  const noDuplicates = document.getElementById('noDuplicates');
+  const noDupLabel = document.getElementById('noDupLabel');
+  const sortOrder = document.getElementById('sortOrder');
+  const generateBtn = document.getElementById('generateBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const errorNote = document.getElementById('errorNote');
+  const resultsRow = document.getElementById('resultsRow');
+
+  let lastResults = [];
+
+  function showError(msg) {
+    errorNote.textContent = msg;
+    errorNote.classList.remove('hidden');
+  }
+  function clearError() {
+    errorNote.classList.add('hidden');
+  }
+
+  function updateDupToggleAvailability() {
+    const isWhole = wholeNumbers.checked;
+    noDuplicates.disabled = !isWhole;
+    noDupLabel.classList.toggle('opacity-40', !isWhole);
+    if (!isWhole) noDuplicates.checked = false;
+  }
+
+  function randomInRange(min, max, whole) {
+    const r = min + Math.random() * (max - min);
+    return whole ? Math.floor(r + 0.5) : r;
+  }
+
+  function generate() {
+    clearError();
+    const min = parseFloat(minInput.value);
+    const max = parseFloat(maxInput.value);
+    let count = parseInt(countInput.value, 10);
+    const whole = wholeNumbers.checked;
+    const noDup = noDuplicates.checked && whole;
+
+    if (isNaN(min) || isNaN(max)) { showError('Please enter valid numbers for minimum and maximum.'); return; }
+    if (min > max) { showError('Minimum must be less than or equal to maximum.'); return; }
+    if (isNaN(count) || count < 1) { showError('Please enter a valid number of results (1 or more).'); return; }
+    count = Math.min(count, 1000);
+
+    let results = [];
+
+    if (noDup) {
+      const rangeSize = Math.floor(max) - Math.ceil(min) + 1;
+      if (count > rangeSize) {
+        showError(`Only ${rangeSize} unique whole number${rangeSize === 1 ? '' : 's'} exist in that range \u2014 reduce the result count or allow duplicates.`);
+        return;
+      }
+      const pool = [];
+      for (let i = Math.ceil(min); i <= Math.floor(max); i++) pool.push(i);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      results = pool.slice(0, count);
+    } else {
+      for (let i = 0; i < count; i++) {
+        results.push(randomInRange(min, max, whole));
+      }
+    }
+
+    if (sortOrder.value === 'asc') results.sort((a, b) => a - b);
+    else if (sortOrder.value === 'desc') results.sort((a, b) => b - a);
+
+    lastResults = results;
+    renderResults();
+  }
+
+  function formatVal(v) {
+    return wholeNumbers.checked ? v.toString() : (Math.round(v * 1000) / 1000).toString();
+  }
+
+  function renderResults() {
+    resultsRow.innerHTML = lastResults.map(v => `
+      <span class="text-sm font-mono px-3 py-1.5 rounded-lg bg-slate-900/70 border border-slate-700 text-white">${formatVal(v)}</span>
+    `).join('');
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    if (!lastResults.length) return;
+    const text = lastResults.map(formatVal).join(', ');
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = copyBtn.textContent;
+      copyBtn.textContent = '\u2713 Copied';
+      setTimeout(() => { copyBtn.textContent = original; }, 1500);
+    } catch (e) {
+      showError('Could not copy automatically \u2014 select and copy the results manually.');
+    }
+  });
+
+  wholeNumbers.addEventListener('change', updateDupToggleAvailability);
+  generateBtn.addEventListener('click', generate);
+
+  updateDupToggleAvailability();
+  generate();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'random-number';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Difference Tool</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .diff-line { white-space: pre-wrap; word-break: break-word; }
+  .diff-add { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .diff-remove { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Text Difference Tool</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Compare two pieces of text, line by line.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Version A</p>
+        <textarea id="textA" rows="8" spellcheck="false" placeholder="Paste the original text..."
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Version B</p>
+        <textarea id="textB" rows="8" spellcheck="false" placeholder="Paste the changed text..."
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+    </div>
+    <button type="button" id="compareBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Compare</button>
+    <p class="text-xs text-amber-400 mt-2 hidden" id="truncateNote"></p>
+  </div>
+
+  <div class="glass rounded-2xl p-6 hidden" id="resultsPanel">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex gap-2">
+        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="unified">Unified</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="side">Side-by-Side</button>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-500" id="diffSummary"></span>
+        <button type="button" id="copyDiffBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Copy Diff</button>
+      </div>
+    </div>
+    <div id="unifiedView" class="text-xs font-mono bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-[420px] overflow-auto"></div>
+    <div id="sideView" class="hidden grid grid-cols-2 gap-px bg-slate-700 text-xs font-mono border border-slate-700 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
+      <div id="sideA" class="bg-slate-900/50 p-3"></div>
+      <div id="sideB" class="bg-slate-900/50 p-3"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const textA = document.getElementById('textA');
+  const textB = document.getElementById('textB');
+  const compareBtn = document.getElementById('compareBtn');
+  const truncateNote = document.getElementById('truncateNote');
+  const resultsPanel = document.getElementById('resultsPanel');
+  const unifiedView = document.getElementById('unifiedView');
+  const sideView = document.getElementById('sideView');
+  const sideA = document.getElementById('sideA');
+  const sideB = document.getElementById('sideB');
+  const diffSummary = document.getElementById('diffSummary');
+  const copyDiffBtn = document.getElementById('copyDiffBtn');
+  const viewTabs = document.querySelectorAll('.tab-btn');
+
+  const MAX_LINES = 1200; // keeps the O(n*m) LCS comfortably fast in-browser
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Classic LCS-based line diff -> list of {type: 'equal'|'add'|'remove', line}
+  function diffLines(a, b) {
+    const n = a.length, m = b.length;
+    const dp = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    const ops = [];
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { ops.push({ type: 'equal', line: a[i] }); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push({ type: 'remove', line: a[i] }); i++; }
+      else { ops.push({ type: 'add', line: b[j] }); j++; }
+    }
+    while (i < n) { ops.push({ type: 'remove', line: a[i] }); i++; }
+    while (j < m) { ops.push({ type: 'add', line: b[j] }); j++; }
+    return ops;
+  }
+
+  function compare() {
+    let linesA = textA.value.split('\n');
+    let linesB = textB.value.split('\n');
+
+    truncateNote.classList.add('hidden');
+    if (linesA.length > MAX_LINES || linesB.length > MAX_LINES) {
+      linesA = linesA.slice(0, MAX_LINES);
+      linesB = linesB.slice(0, MAX_LINES);
+      truncateNote.textContent = `Only the first ${MAX_LINES} lines of each version are compared, to keep this responsive.`;
+      truncateNote.classList.remove('hidden');
+    }
+
+    const ops = diffLines(linesA, linesB);
+    const added = ops.filter(o => o.type === 'add').length;
+    const removed = ops.filter(o => o.type === 'remove').length;
+    diffSummary.textContent = `+${added} / -${removed}`;
+
+    unifiedView.innerHTML = ops.map(op => {
+      const prefix = op.type === 'add' ? '+ ' : op.type === 'remove' ? '- ' : '  ';
+      const cls = op.type === 'add' ? 'diff-add' : op.type === 'remove' ? 'diff-remove' : '';
+      return `<div class="diff-line ${cls}">${esc(prefix + op.line)}</div>`;
+    }).join('');
+
+    const rowsA = [];
+    const rowsB = [];
+    ops.forEach(op => {
+      if (op.type === 'equal') {
+        rowsA.push(`<div class="diff-line">${esc(op.line)}</div>`);
+        rowsB.push(`<div class="diff-line">${esc(op.line)}</div>`);
+      } else if (op.type === 'remove') {
+        rowsA.push(`<div class="diff-line diff-remove">${esc(op.line)}</div>`);
+        rowsB.push(`<div class="diff-line">&nbsp;</div>`);
+      } else {
+        rowsA.push(`<div class="diff-line">&nbsp;</div>`);
+        rowsB.push(`<div class="diff-line diff-add">${esc(op.line)}</div>`);
+      }
+    });
+    sideA.innerHTML = rowsA.join('');
+    sideB.innerHTML = rowsB.join('');
+
+    resultsPanel.classList.remove('hidden');
+  }
+
+  function switchView(view) {
+    viewTabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-view') === view));
+    unifiedView.classList.toggle('hidden', view !== 'unified');
+    sideView.classList.toggle('hidden', view !== 'side');
+  }
+
+  viewTabs.forEach(btn => btn.addEventListener('click', () => switchView(btn.getAttribute('data-view'))));
+  compareBtn.addEventListener('click', compare);
+
+  copyDiffBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(unifiedView.innerText);
+      const original = copyDiffBtn.textContent;
+      copyDiffBtn.textContent = '\u2713 Copied';
+      setTimeout(() => { copyDiffBtn.textContent = original; }, 1200);
+    } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'text-diff';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

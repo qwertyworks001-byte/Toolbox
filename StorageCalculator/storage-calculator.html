@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storage Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Storage Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">How many files fit &mdash; or how much room is left.</p>
+  </header>
+
+  <div class="flex gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="capacity">Total Capacity</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="remaining">Used / Remaining</button>
+  </div>
+
+  <!-- Total capacity mode -->
+  <div id="panelCapacity" class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Storage capacity</label>
+        <div class="flex gap-2 min-w-0">
+          <input type="text" inputmode="decimal" id="capValue" value="128" class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="capUnit" class="shrink-0 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">File size</label>
+        <div class="flex gap-2 min-w-0">
+          <input type="text" inputmode="decimal" id="fileValue" value="5" class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="fileUnit" class="shrink-0 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+        </div>
+      </div>
+    </div>
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-3xl font-bold text-white" id="capResult">25,600 files</p>
+    </div>
+  </div>
+
+  <!-- Used/remaining mode -->
+  <div id="panelRemaining" class="glass rounded-2xl p-6 hidden">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Drive capacity</label>
+        <div class="flex gap-2 min-w-0">
+          <input type="text" inputmode="decimal" id="driveValue" value="1" class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="driveUnit" class="shrink-0 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Already used</label>
+        <div class="flex gap-2 min-w-0">
+          <input type="text" inputmode="decimal" id="usedValue" value="350" class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select id="usedUnit" class="shrink-0 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+        </div>
+      </div>
+    </div>
+    <div class="mb-5">
+      <label class="block text-sm font-medium text-slate-300 mb-2">File size</label>
+      <div class="flex gap-2 min-w-0">
+        <input type="text" inputmode="decimal" id="fileValue2" value="2.5" class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <select id="fileUnit2" class="shrink-0 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4 text-center border-t border-slate-700/60 pt-5">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Remaining</p>
+        <p class="text-lg font-bold text-white" id="remainingOut">650 GB</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Additional Files</p>
+        <p class="text-lg font-bold text-white" id="additionalFilesOut">260</p>
+      </div>
+    </div>
+    <p class="text-xs text-amber-400 text-center mt-4 hidden" id="overUsedNote">Used storage exceeds drive capacity.</p>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-5" id="systemNote"></p>
+
+</div>
+
+<script>
+(function () {
+  // Decimal (1000-based) vs binary (1024-based) data units, base = bytes.
+  const UNITS = [
+    { key: 'MB', label: 'MB', factor: 1e6 },
+    { key: 'GB', label: 'GB', factor: 1e9 },
+    { key: 'TB', label: 'TB', factor: 1e12 },
+    { key: 'MiB', label: 'MiB', factor: 1024 ** 2 },
+    { key: 'GiB', label: 'GiB', factor: 1024 ** 3 },
+    { key: 'TiB', label: 'TiB', factor: 1024 ** 4 }
+  ];
+
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panelCapacity = document.getElementById('panelCapacity');
+  const panelRemaining = document.getElementById('panelRemaining');
+  const systemNote = document.getElementById('systemNote');
+
+  const capValue = document.getElementById('capValue');
+  const capUnit = document.getElementById('capUnit');
+  const fileValue = document.getElementById('fileValue');
+  const fileUnit = document.getElementById('fileUnit');
+  const capResult = document.getElementById('capResult');
+
+  const driveValue = document.getElementById('driveValue');
+  const driveUnit = document.getElementById('driveUnit');
+  const usedValue = document.getElementById('usedValue');
+  const usedUnit = document.getElementById('usedUnit');
+  const fileValue2 = document.getElementById('fileValue2');
+  const fileUnit2 = document.getElementById('fileUnit2');
+  const remainingOut = document.getElementById('remainingOut');
+  const additionalFilesOut = document.getElementById('additionalFilesOut');
+  const overUsedNote = document.getElementById('overUsedNote');
+
+  function populate(select, defaultKey) {
+    select.innerHTML = UNITS.map(u => `<option value="${u.key}" ${u.key === defaultKey ? 'selected' : ''}>${u.label}</option>`).join('');
+  }
+  [capUnit, driveUnit, usedUnit].forEach(sel => populate(sel, 'GB'));
+  populate(fileUnit, 'MB');
+  populate(fileUnit2, 'MB');
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+  function toBytes(value, unitKey) {
+    const unit = UNITS.find(u => u.key === unitKey);
+    return value * (unit ? unit.factor : 1);
+  }
+  function fmtBytesAs(bytes, unitKey) {
+    const unit = UNITS.find(u => u.key === unitKey) || UNITS[1];
+    return `${(bytes / unit.factor).toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit.key}`;
+  }
+
+  function updateCapacity() {
+    const capBytes = toBytes(parseNum(capValue.value), capUnit.value);
+    const fileBytes = toBytes(parseNum(fileValue.value), fileUnit.value);
+    if (fileBytes <= 0) { capResult.textContent = 'Enter a file size'; return; }
+    const count = Math.floor(capBytes / fileBytes);
+    capResult.textContent = `Approximately ${count.toLocaleString('en-US')} files`;
+  }
+
+  function updateRemaining() {
+    const driveBytes = toBytes(parseNum(driveValue.value), driveUnit.value);
+    const usedBytes = toBytes(parseNum(usedValue.value), usedUnit.value);
+    const fileBytes = toBytes(parseNum(fileValue2.value), fileUnit2.value);
+
+    const remainingBytes = driveBytes - usedBytes;
+    overUsedNote.classList.toggle('hidden', remainingBytes >= 0);
+
+    remainingOut.textContent = fmtBytesAs(Math.max(0, remainingBytes), driveUnit.value);
+    additionalFilesOut.textContent = fileBytes > 0 && remainingBytes > 0
+      ? Math.floor(remainingBytes / fileBytes).toLocaleString('en-US')
+      : '0';
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+    panelCapacity.classList.toggle('hidden', tab !== 'capacity');
+    panelRemaining.classList.toggle('hidden', tab !== 'remaining');
+    systemNote.textContent = 'Decimal units (MB/GB/TB) use 1000-based math; binary units (MiB/GiB/TiB) use 1024-based math. Mixing them slightly changes the file count.';
+  }
+
+  tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+  [capValue, capUnit, fileValue, fileUnit].forEach(el => el.addEventListener('input', updateCapacity));
+  [driveValue, driveUnit, usedValue, usedUnit, fileValue2, fileUnit2].forEach(el => el.addEventListener('input', updateRemaining));
+
+  switchTab('capacity');
+  updateCapacity();
+  updateRemaining();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'storage-calculator';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

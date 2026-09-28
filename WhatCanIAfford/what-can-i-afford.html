@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Can I Afford?</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">What Can I Afford?</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">A plain spending calculator &mdash; not financial advice, just the math.</p>
+  </header>
+
+  <div class="flex gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="single">Single Item</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="multi">Multiple Items</button>
+  </div>
+
+  <!-- Single item -->
+  <div id="panelSingle" class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div>
+        <label for="moneyInput" class="block text-sm font-medium text-slate-300 mb-2">Money available</label>
+        <input type="text" inputmode="decimal" id="moneyInput" value="100"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="itemPriceInput" class="block text-sm font-medium text-slate-300 mb-2">Item price</label>
+        <input type="text" inputmode="decimal" id="itemPriceInput" value="24.99"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div>
+        <label for="taxInput" class="block text-sm font-medium text-slate-300 mb-2">Tax % (optional)</label>
+        <input type="text" inputmode="decimal" id="taxInput" value="15"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="extraCostInput" class="block text-sm font-medium text-slate-300 mb-2">Additional cost (optional)</label>
+        <input type="text" inputmode="decimal" id="extraCostInput" value="5"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 text-center border-t border-slate-700/60 pt-5 mb-5">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Final Item Cost</p>
+        <p class="text-lg font-bold text-white" id="finalCostOut">$33.74</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Money Remaining</p>
+        <p class="text-lg font-bold text-white" id="remainingOut">$66.26</p>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 text-center mb-4" id="pctSpentOut">33.7% of available money</p>
+    <p class="text-center text-lg font-semibold" id="affordVerdict"></p>
+  </div>
+
+  <!-- Multi item -->
+  <div id="panelMulti" class="glass rounded-2xl p-6 hidden">
+    <div class="mb-4">
+      <label for="moneyInput2" class="block text-sm font-medium text-slate-300 mb-2">Money available</label>
+      <input type="text" inputmode="decimal" id="moneyInput2" value="100"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+
+    <div class="space-y-2 mb-3" id="itemsList"></div>
+    <button type="button" id="addItemBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 mb-5">
+      + Add item
+    </button>
+
+    <div class="grid grid-cols-2 gap-4 text-center border-t border-slate-700/60 pt-5 mb-4">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Total</p>
+        <p class="text-lg font-bold text-white" id="multiTotalOut">$43.00</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Remaining</p>
+        <p class="text-lg font-bold text-white" id="multiRemainingOut">$57.00</p>
+      </div>
+    </div>
+    <p class="text-center text-lg font-semibold" id="multiVerdict"></p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panelSingle = document.getElementById('panelSingle');
+  const panelMulti = document.getElementById('panelMulti');
+
+  const moneyInput = document.getElementById('moneyInput');
+  const itemPriceInput = document.getElementById('itemPriceInput');
+  const taxInput = document.getElementById('taxInput');
+  const extraCostInput = document.getElementById('extraCostInput');
+  const finalCostOut = document.getElementById('finalCostOut');
+  const remainingOut = document.getElementById('remainingOut');
+  const pctSpentOut = document.getElementById('pctSpentOut');
+  const affordVerdict = document.getElementById('affordVerdict');
+
+  const moneyInput2 = document.getElementById('moneyInput2');
+  const itemsList = document.getElementById('itemsList');
+  const addItemBtn = document.getElementById('addItemBtn');
+  const multiTotalOut = document.getElementById('multiTotalOut');
+  const multiRemainingOut = document.getElementById('multiRemainingOut');
+  const multiVerdict = document.getElementById('multiVerdict');
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) ? 0 : v;
+  }
+  function fmt(n) { return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+
+  function updateSingle() {
+    const money = parseNum(moneyInput.value);
+    const price = parseNum(itemPriceInput.value);
+    const tax = parseNum(taxInput.value);
+    const extra = parseNum(extraCostInput.value);
+
+    const finalCost = price * (1 + tax / 100) + extra;
+    const remaining = money - finalCost;
+    const pctSpent = money > 0 ? (finalCost / money) * 100 : 0;
+
+    finalCostOut.textContent = fmt(finalCost);
+    remainingOut.textContent = fmt(remaining);
+    pctSpentOut.textContent = `${pctSpent.toFixed(1)}% of available money`;
+
+    if (remaining >= 0) {
+      affordVerdict.textContent = '\u2705 You can afford this.';
+      affordVerdict.className = 'text-center text-lg font-semibold text-emerald-400';
+    } else {
+      affordVerdict.textContent = `\u274C You would be ${fmt(Math.abs(remaining))} short.`;
+      affordVerdict.className = 'text-center text-lg font-semibold text-red-400';
+    }
+  }
+
+  let itemCount = 0;
+  function addItemRow(price) {
+    itemCount++;
+    const id = `item-${itemCount}`;
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    row.innerHTML = `
+      <span class="text-xs text-slate-500 w-14 shrink-0">Item ${itemCount}</span>
+      <input type="text" inputmode="decimal" value="${price !== undefined ? price : ''}" placeholder="Price"
+        class="item-price flex-1 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <button type="button" class="remove-item-btn text-xs px-2 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-500 hover:border-red-500/60 hover:text-red-400">&times;</button>
+    `;
+    itemsList.appendChild(row);
+    row.querySelector('.item-price').addEventListener('input', updateMulti);
+    row.querySelector('.remove-item-btn').addEventListener('click', () => {
+      row.remove();
+      updateMulti();
+    });
+  }
+
+  function updateMulti() {
+    const money = parseNum(moneyInput2.value);
+    const prices = Array.from(itemsList.querySelectorAll('.item-price')).map(el => parseNum(el.value));
+    const total = prices.reduce((a, b) => a + b, 0);
+    const remaining = money - total;
+
+    multiTotalOut.textContent = fmt(total);
+    multiRemainingOut.textContent = fmt(remaining);
+
+    if (remaining >= 0) {
+      multiVerdict.textContent = '\u2705 You can afford all of these.';
+      multiVerdict.className = 'text-center text-lg font-semibold text-emerald-400';
+    } else {
+      multiVerdict.textContent = `\u274C You would be ${fmt(Math.abs(remaining))} short.`;
+      multiVerdict.className = 'text-center text-lg font-semibold text-red-400';
+    }
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+    panelSingle.classList.toggle('hidden', tab !== 'single');
+    panelMulti.classList.toggle('hidden', tab !== 'multi');
+  }
+
+  tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+  [moneyInput, itemPriceInput, taxInput, extraCostInput].forEach(el => el.addEventListener('input', updateSingle));
+  moneyInput2.addEventListener('input', updateMulti);
+  addItemBtn.addEventListener('click', () => addItemRow());
+
+  addItemRow(20);
+  addItemRow(15);
+  addItemRow(8);
+
+  updateSingle();
+  updateMulti();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'what-can-i-afford';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

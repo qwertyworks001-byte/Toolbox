@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Screen Resolution Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Screen Resolution Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Aspect ratio, total pixels, and megapixels for any resolution.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-2 gap-4 mb-4 items-center">
+      <div>
+        <label for="widthInput" class="block text-sm font-medium text-slate-300 mb-2">Width</label>
+        <input type="text" inputmode="numeric" id="widthInput" value="1920"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="heightInput" class="block text-sm font-medium text-slate-300 mb-2">Height</label>
+        <input type="text" inputmode="numeric" id="heightInput" value="1080"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-6" id="presetRow"></div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center border-t border-slate-700/60 pt-6">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Aspect Ratio</p>
+        <p class="text-2xl font-bold text-white" id="aspectRatio">16:9</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Total Pixels</p>
+        <p class="text-2xl font-bold text-white" id="totalPixels">2,073,600</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Megapixels</p>
+        <p class="text-2xl font-bold text-white" id="megapixels">2.07 MP</p>
+      </div>
+    </div>
+    <p class="text-xs text-amber-400 text-center mt-4 hidden" id="invalidNote">Enter positive whole numbers for width and height.</p>
+  </div>
+
+  <button type="button" id="resetBtn" class="mt-5 text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400">
+    Reset
+  </button>
+
+</div>
+
+<script>
+(function () {
+  const PRESETS = [
+    { label: '1280 \u00D7 720', w: 1280, h: 720 },
+    { label: '1920 \u00D7 1080', w: 1920, h: 1080 },
+    { label: '2560 \u00D7 1440', w: 2560, h: 1440 },
+    { label: '3840 \u00D7 2160', w: 3840, h: 2160 }
+  ];
+
+  const widthInput = document.getElementById('widthInput');
+  const heightInput = document.getElementById('heightInput');
+  const presetRow = document.getElementById('presetRow');
+  const aspectRatio = document.getElementById('aspectRatio');
+  const totalPixels = document.getElementById('totalPixels');
+  const megapixels = document.getElementById('megapixels');
+  const invalidNote = document.getElementById('invalidNote');
+  const resetBtn = document.getElementById('resetBtn');
+
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+
+  function renderPresets() {
+    presetRow.innerHTML = PRESETS.map(p => `
+      <button type="button" class="preset-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-w="${p.w}" data-h="${p.h}">
+        ${p.label}
+      </button>
+    `).join('');
+    presetRow.querySelectorAll('[data-w]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        widthInput.value = btn.getAttribute('data-w');
+        heightInput.value = btn.getAttribute('data-h');
+        update();
+      });
+    });
+  }
+
+  function update() {
+    const w = parseInt(widthInput.value, 10);
+    const h = parseInt(heightInput.value, 10);
+
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+      aspectRatio.textContent = '\u2014';
+      totalPixels.textContent = '\u2014';
+      megapixels.textContent = '\u2014';
+      invalidNote.classList.remove('hidden');
+      return;
+    }
+    invalidNote.classList.add('hidden');
+
+    const divisor = gcd(w, h) || 1;
+    aspectRatio.textContent = `${w / divisor}:${h / divisor}`;
+
+    const pixels = w * h;
+    totalPixels.textContent = pixels.toLocaleString('en-US');
+    megapixels.textContent = `${(pixels / 1e6).toFixed(2)} MP`;
+  }
+
+  widthInput.addEventListener('input', update);
+  heightInput.addEventListener('input', update);
+  resetBtn.addEventListener('click', () => {
+    widthInput.value = '1920';
+    heightInput.value = '1080';
+    update();
+  });
+
+  renderPresets();
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'screen-resolution';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

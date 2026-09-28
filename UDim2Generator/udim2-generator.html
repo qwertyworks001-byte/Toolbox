@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UDim2 Generator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  #previewFrame {
+    background:
+      linear-gradient(45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1e293b 75%),
+      linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color: #0b0f19;
+  }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">UDim2 Generator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Build Roblox UDim2 values for UI positioning and sizing.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-6">
+    <div class="grid grid-cols-2 gap-4 mb-5">
+      <div>
+        <label for="xScale" class="block text-sm font-medium text-slate-300 mb-2">X Scale</label>
+        <input type="text" inputmode="decimal" id="xScale" value="0.5"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="xOffset" class="block text-sm font-medium text-slate-300 mb-2">X Offset</label>
+        <input type="text" inputmode="decimal" id="xOffset" value="0"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="yScale" class="block text-sm font-medium text-slate-300 mb-2">Y Scale</label>
+        <input type="text" inputmode="decimal" id="yScale" value="0.1"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="yOffset" class="block text-sm font-medium text-slate-300 mb-2">Y Offset</label>
+        <input type="text" inputmode="decimal" id="yOffset" value="20"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="space-y-2" id="codeOutputs"></div>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Preview</h2>
+      <div class="flex gap-2">
+        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-mode="position">Position</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-mode="size">Size</button>
+      </div>
+    </div>
+    <div id="previewFrame" class="relative w-full rounded-lg border border-slate-700 overflow-hidden" style="height: 200px;">
+      <div id="previewElement" class="absolute bg-blue-500/70 border-2 border-blue-400 rounded-sm flex items-center justify-center text-[10px] text-white font-mono"></div>
+    </div>
+    <p class="text-xs text-slate-500 mt-3">Approximate preview only &mdash; assumes a 320&times;200px reference frame. Offsets are shown at a reduced scale so they stay visible; your real UI will look different depending on your actual frame size.</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const xScale = document.getElementById('xScale');
+  const xOffset = document.getElementById('xOffset');
+  const yScale = document.getElementById('yScale');
+  const yOffset = document.getElementById('yOffset');
+  const codeOutputs = document.getElementById('codeOutputs');
+  const previewFrame = document.getElementById('previewFrame');
+  const previewElement = document.getElementById('previewElement');
+  const modeTabs = document.querySelectorAll('.tab-btn');
+
+  let mode = 'position';
+  const REF_W = 320, REF_H = 200;
+  const OFFSET_SCALE = 0.4; // shrink raw pixel offsets so large values stay visible in the small preview
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) ? 0 : v;
+  }
+
+  function codeRow(code) {
+    return `
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <code class="text-sm text-emerald-300 font-mono truncate">${code}</code>
+        <button type="button" class="copy-code-btn text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0" data-copy="${code}">Copy</button>
+      </div>
+    `;
+  }
+
+  function update() {
+    const xs = parseNum(xScale.value);
+    const xo = parseNum(xOffset.value);
+    const ys = parseNum(yScale.value);
+    const yo = parseNum(yOffset.value);
+
+    const lines = [`UDim2.new(${xs}, ${xo}, ${ys}, ${yo})`];
+    if (xo === 0 && yo === 0) lines.push(`UDim2.fromScale(${xs}, ${ys})`);
+    if (xs === 0 && ys === 0) lines.push(`UDim2.fromOffset(${xo}, ${yo})`);
+
+    codeOutputs.innerHTML = lines.map(codeRow).join('');
+    codeOutputs.querySelectorAll('.copy-code-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(btn.getAttribute('data-copy'));
+          const original = btn.textContent;
+          btn.textContent = '\u2713 Copied';
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        } catch (e) {}
+      });
+    });
+
+    updatePreview(xs, xo, ys, yo);
+  }
+
+  function updatePreview(xs, xo, ys, yo) {
+    const pxX = xs * REF_W + xo * OFFSET_SCALE;
+    const pxY = ys * REF_H + yo * OFFSET_SCALE;
+
+    if (mode === 'position') {
+      previewElement.style.width = '48px';
+      previewElement.style.height = '32px';
+      previewElement.style.left = `${Math.max(0, Math.min(REF_W - 48, pxX))}px`;
+      previewElement.style.top = `${Math.max(0, Math.min(REF_H - 32, pxY))}px`;
+      previewElement.textContent = 'pos';
+    } else {
+      previewElement.style.left = '0px';
+      previewElement.style.top = '0px';
+      previewElement.style.width = `${Math.max(4, Math.min(REF_W, pxX))}px`;
+      previewElement.style.height = `${Math.max(4, Math.min(REF_H, pxY))}px`;
+      previewElement.textContent = 'size';
+    }
+  }
+
+  modeTabs.forEach(btn => btn.addEventListener('click', () => {
+    mode = btn.getAttribute('data-mode');
+    modeTabs.forEach(b => b.classList.toggle('active', b === btn));
+    update();
+  }));
+
+  [xScale, xOffset, yScale, yOffset].forEach(el => el.addEventListener('input', update));
+
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'udim2-generator';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

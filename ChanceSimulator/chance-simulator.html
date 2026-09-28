@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chance Simulator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Chance Simulator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">See how a probability actually behaves over repeated attempts.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div>
+        <label for="chanceInput" class="block text-sm font-medium text-slate-300 mb-2">Chance per attempt (%)</label>
+        <input type="text" inputmode="decimal" id="chanceInput" value="1"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="attemptsInput" class="block text-sm font-medium text-slate-300 mb-2">Attempts</label>
+        <input type="text" inputmode="numeric" id="attemptsInput" value="100"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="simsInput" class="block text-sm font-medium text-slate-300 mb-2">Simulations</label>
+        <input type="text" inputmode="numeric" id="simsInput" value="10000"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <p class="text-xs text-amber-400 mb-4 hidden" id="errorNote"></p>
+
+    <div class="text-center border-t border-slate-700/60 pt-6 mb-6">
+      <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Theoretical Probability (at least one success)</p>
+      <p class="text-3xl sm:text-4xl font-bold text-blue-400" id="theoreticalOut">63.40%</p>
+      <p class="text-xs text-slate-500 mt-2">1 &minus; (1 &minus; p)<sup>n</sup></p>
+    </div>
+
+    <button type="button" id="runSimBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors mb-5">
+      Run Simulations
+    </button>
+
+    <div id="simResults" class="hidden">
+      <div class="grid grid-cols-2 gap-4 text-center border-t border-slate-700/60 pt-5">
+        <div>
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Successful</p>
+          <p class="text-2xl font-bold text-emerald-400" id="successOut">6,312</p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-1">Failed</p>
+          <p class="text-2xl font-bold text-red-400" id="failOut">3,688</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 text-center mt-4">Simulated rate: <span id="simRateOut" class="text-slate-300 font-medium">63.12%</span> &mdash; random simulations vary a little between runs.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const chanceInput = document.getElementById('chanceInput');
+  const attemptsInput = document.getElementById('attemptsInput');
+  const simsInput = document.getElementById('simsInput');
+  const errorNote = document.getElementById('errorNote');
+  const theoreticalOut = document.getElementById('theoreticalOut');
+  const runSimBtn = document.getElementById('runSimBtn');
+  const simResults = document.getElementById('simResults');
+  const successOut = document.getElementById('successOut');
+  const failOut = document.getElementById('failOut');
+  const simRateOut = document.getElementById('simRateOut');
+
+  const MAX_WORK_UNITS = 20_000_000; // simulations * attempts safety cap
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) ? null : v;
+  }
+
+  function updateTheoretical() {
+    const chancePct = parseNum(chanceInput.value);
+    const attempts = parseInt(attemptsInput.value, 10);
+
+    if (chancePct === null || chancePct < 0 || chancePct > 100 || !Number.isFinite(attempts) || attempts < 1) {
+      theoreticalOut.textContent = '\u2014';
+      return;
+    }
+    const p = chancePct / 100;
+    const probability = 1 - Math.pow(1 - p, attempts);
+    theoreticalOut.textContent = `${(probability * 100).toFixed(2)}%`;
+  }
+
+  function runSimulations() {
+    errorNote.classList.add('hidden');
+
+    const chancePct = parseNum(chanceInput.value);
+    const attempts = parseInt(attemptsInput.value, 10);
+    let sims = parseInt(simsInput.value, 10);
+
+    if (chancePct === null || chancePct < 0 || chancePct > 100) {
+      errorNote.textContent = 'Enter a chance between 0 and 100.';
+      errorNote.classList.remove('hidden');
+      return;
+    }
+    if (!Number.isFinite(attempts) || attempts < 1) {
+      errorNote.textContent = 'Enter a valid number of attempts (1 or more).';
+      errorNote.classList.remove('hidden');
+      return;
+    }
+    if (!Number.isFinite(sims) || sims < 1) {
+      errorNote.textContent = 'Enter a valid number of simulations (1 or more).';
+      errorNote.classList.remove('hidden');
+      return;
+    }
+
+    if (attempts * sims > MAX_WORK_UNITS) {
+      sims = Math.max(1, Math.floor(MAX_WORK_UNITS / attempts));
+      errorNote.textContent = `Reduced to ${sims.toLocaleString('en-US')} simulations to keep this responsive in-browser.`;
+      errorNote.classList.remove('hidden');
+    }
+
+    const p = chancePct / 100;
+    let successCount = 0;
+    for (let s = 0; s < sims; s++) {
+      let success = false;
+      for (let a = 0; a < attempts; a++) {
+        if (Math.random() < p) { success = true; break; }
+      }
+      if (success) successCount++;
+    }
+    const failCount = sims - successCount;
+
+    successOut.textContent = successCount.toLocaleString('en-US');
+    failOut.textContent = failCount.toLocaleString('en-US');
+    simRateOut.textContent = `${((successCount / sims) * 100).toFixed(2)}%`;
+    simResults.classList.remove('hidden');
+  }
+
+  [chanceInput, attemptsInput].forEach(el => el.addEventListener('input', () => {
+    updateTheoretical();
+    simResults.classList.add('hidden');
+  }));
+  runSimBtn.addEventListener('click', runSimulations);
+
+  updateTheoretical();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'chance-simulator';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

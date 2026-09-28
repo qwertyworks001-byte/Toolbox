@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timestamp Converter</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .copy-row { transition: background 0.15s ease; }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Timestamp Converter</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Convert Unix timestamps to readable dates &mdash; and back.</p>
+  </header>
+
+  <div class="flex gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="toDate">Timestamp &rarr; Date</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="toUnix">Date &rarr; Timestamp</button>
+  </div>
+
+  <!-- Timestamp -> Date -->
+  <div id="panelToDate" class="glass rounded-2xl p-6">
+    <div class="flex gap-3 mb-2">
+      <input type="text" inputmode="numeric" id="tsInput" value="1750000000"
+        class="flex-1 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="tsUnit" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="s">Seconds</option>
+        <option value="ms">Milliseconds</option>
+      </select>
+    </div>
+    <button type="button" id="nowBtn" class="text-xs text-blue-400 hover:text-blue-300 mb-5">Use current time</button>
+    <p class="text-xs text-amber-400 mb-3 hidden" id="tsError"></p>
+
+    <div class="space-y-2" id="tsResults"></div>
+  </div>
+
+  <!-- Date -> Timestamp -->
+  <div id="panelToUnix" class="glass rounded-2xl p-6 hidden">
+    <input type="datetime-local" id="dateInput" step="1"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5">
+    <p class="text-xs text-slate-500 mb-5">Interpreted in your browser's local timezone.</p>
+    <div class="space-y-2" id="unixResults"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panelToDate = document.getElementById('panelToDate');
+  const panelToUnix = document.getElementById('panelToUnix');
+
+  const tsInput = document.getElementById('tsInput');
+  const tsUnit = document.getElementById('tsUnit');
+  const nowBtn = document.getElementById('nowBtn');
+  const tsError = document.getElementById('tsError');
+  const tsResults = document.getElementById('tsResults');
+
+  const dateInput = document.getElementById('dateInput');
+  const unixResults = document.getElementById('unixResults');
+
+  function pad(n) { return n.toString().padStart(2, '0'); }
+
+  function resultRow(label, value) {
+    return `
+      <div class="copy-row flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <div class="min-w-0">
+          <p class="text-xs text-slate-500">${label}</p>
+          <p class="text-sm font-mono text-white truncate">${value}</p>
+        </div>
+        <button type="button" class="copy-btn text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0" data-copy="${String(value).replace(/"/g, '&quot;')}">
+          Copy
+        </button>
+      </div>
+    `;
+  }
+
+  function attachCopyHandlers(container) {
+    container.querySelectorAll('[data-copy]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(btn.getAttribute('data-copy'));
+          const original = btn.textContent;
+          btn.textContent = '\u2713 Copied';
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        } catch (e) {}
+      });
+    });
+  }
+
+  function updateToDate() {
+    const raw = tsInput.value.trim();
+    const num = Number(raw);
+    if (raw === '' || !Number.isFinite(num)) {
+      tsError.textContent = 'Please enter a valid numeric timestamp.';
+      tsError.classList.remove('hidden');
+      tsResults.innerHTML = '';
+      return;
+    }
+    tsError.classList.add('hidden');
+
+    const ms = tsUnit.value === 's' ? num * 1000 : num;
+    const date = new Date(ms);
+    if (isNaN(date.getTime())) {
+      tsError.textContent = 'That timestamp is out of range.';
+      tsError.classList.remove('hidden');
+      tsResults.innerHTML = '';
+      return;
+    }
+
+    const utc = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())} UTC`;
+
+    tsResults.innerHTML = [
+      resultRow('Local time', date.toLocaleString()),
+      resultRow('UTC', utc),
+      resultRow('Unix (seconds)', Math.floor(ms / 1000)),
+      resultRow('Unix (milliseconds)', Math.floor(ms))
+    ].join('');
+    attachCopyHandlers(tsResults);
+  }
+
+  function updateToUnix() {
+    if (!dateInput.value) { unixResults.innerHTML = ''; return; }
+    const date = new Date(dateInput.value);
+    if (isNaN(date.getTime())) { unixResults.innerHTML = ''; return; }
+
+    unixResults.innerHTML = [
+      resultRow('Unix (seconds)', Math.floor(date.getTime() / 1000)),
+      resultRow('Unix (milliseconds)', date.getTime()),
+      resultRow('UTC', date.toUTCString())
+    ].join('');
+    attachCopyHandlers(unixResults);
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+    panelToDate.classList.toggle('hidden', tab !== 'toDate');
+    panelToUnix.classList.toggle('hidden', tab !== 'toUnix');
+  }
+
+  tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+
+  tsInput.addEventListener('input', updateToDate);
+  tsUnit.addEventListener('change', updateToDate);
+  nowBtn.addEventListener('click', () => {
+    tsUnit.value = 's';
+    tsInput.value = Math.floor(Date.now() / 1000).toString();
+    updateToDate();
+  });
+  dateInput.addEventListener('input', updateToUnix);
+
+  const now = new Date();
+  dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  updateToDate();
+  updateToUnix();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'timestamp-converter';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

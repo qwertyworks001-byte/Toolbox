@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number Formatter</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Number Formatter</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Turn huge numbers into compact, readable leaderboard-style values.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+    <label for="numInput" class="block text-sm font-medium text-slate-300 mb-2">Number</label>
+    <input type="text" inputmode="decimal" id="numInput" value="123456789"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5">
+
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-fmt="1">1 decimal</button>
+      <button type="button" class="fmt-btn active text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-fmt="2">2 decimals</button>
+      <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-fmt="3">3 decimals</button>
+      <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-fmt="full">Full number</button>
+      <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-fmt="sci">Scientific</button>
+    </div>
+
+    <div class="text-center border-t border-slate-700/60 pt-6 mb-4">
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="resultOut">123.46M</p>
+    </div>
+
+    <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+      <code class="text-sm text-emerald-300 font-mono truncate" id="luaOut">"123.46M"</code>
+      <button type="button" id="copyLuaBtn" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0">Copy Lua</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const numInput = document.getElementById('numInput');
+  const fmtBtns = document.querySelectorAll('.fmt-btn');
+  const resultOut = document.getElementById('resultOut');
+  const luaOut = document.getElementById('luaOut');
+  const copyLuaBtn = document.getElementById('copyLuaBtn');
+
+  const TIERS = [
+    { value: 1e15, symbol: 'Qa' }, // quadrillion
+    { value: 1e12, symbol: 'T' },
+    { value: 1e9, symbol: 'B' },
+    { value: 1e6, symbol: 'M' },
+    { value: 1e3, symbol: 'K' }
+  ];
+
+  let precision = 2;
+
+  function formatCompact(n, decimals) {
+    const sign = n < 0 ? '-' : '';
+    const abs = Math.abs(n);
+    for (const tier of TIERS) {
+      if (abs >= tier.value) {
+        return `${sign}${(abs / tier.value).toFixed(decimals)}${tier.symbol}`;
+      }
+    }
+    return `${sign}${abs.toFixed(abs % 1 === 0 ? 0 : decimals)}`;
+  }
+
+  function update() {
+    const raw = numInput.value.trim();
+    const n = Number(raw);
+    if (raw === '' || !Number.isFinite(n)) {
+      resultOut.textContent = 'Enter a valid number';
+      luaOut.textContent = '""';
+      return;
+    }
+
+    let formatted;
+    if (precision === 'full') {
+      formatted = n.toLocaleString('en-US', { maximumFractionDigits: 6 });
+    } else if (precision === 'sci') {
+      formatted = n.toExponential(2);
+    } else {
+      formatted = formatCompact(n, precision);
+    }
+
+    resultOut.textContent = formatted;
+    luaOut.textContent = `"${formatted}"`;
+  }
+
+  fmtBtns.forEach(btn => btn.addEventListener('click', () => {
+    const val = btn.getAttribute('data-fmt');
+    precision = (val === 'full' || val === 'sci') ? val : parseInt(val, 10);
+    fmtBtns.forEach(b => b.classList.toggle('active', b === btn));
+    update();
+  }));
+
+  numInput.addEventListener('input', update);
+
+  copyLuaBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(luaOut.textContent);
+      const original = copyLuaBtn.textContent;
+      copyLuaBtn.textContent = '\u2713 Copied';
+      setTimeout(() => { copyLuaBtn.textContent = original; }, 1200);
+    } catch (e) {}
+  });
+
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'number-formatter';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

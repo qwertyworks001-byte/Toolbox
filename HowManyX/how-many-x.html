@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Many X?</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">&#129301; How Many X?</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Turn any total into "how many of that other thing?" &mdash; you define both sides.</p>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-5">
+    <button type="button" class="preset-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="100,dollars,5,items">$100 &divide; $5 items</button>
+    <button type="button" class="preset-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="10000,Robux,400,gamepasses">10,000 R$ &divide; 400 R$ gamepasses</button>
+    <button type="button" class="preset-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="500,seconds,25,video clips">500s &divide; 25s clips</button>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2">
+      <div>
+        <label for="totalValue" class="block text-sm font-medium text-slate-300 mb-2">I have&hellip;</label>
+        <input type="text" inputmode="decimal" id="totalValue" value="100"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="totalUnit" class="block text-sm font-medium text-slate-300 mb-2">&hellip;of what?</label>
+        <input type="text" id="totalUnit" value="dollars" placeholder="e.g. dollars, seconds"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div>
+        <label for="eachValue" class="block text-sm font-medium text-slate-300 mb-2">Each one costs&hellip;</label>
+        <input type="text" inputmode="decimal" id="eachValue" value="5"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="eachUnit" class="block text-sm font-medium text-slate-300 mb-2">&hellip;of what thing?</label>
+        <input type="text" id="eachUnit" value="items" placeholder="e.g. items, clips"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="resultMain">20 items</p>
+      <p class="text-sm text-slate-400 mt-2" id="resultSentence">100 dollars \u00F7 5 dollars each = 20 items</p>
+      <p class="text-xs text-slate-500 mt-1" id="leftoverNote"></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const totalValue = document.getElementById('totalValue');
+  const totalUnit = document.getElementById('totalUnit');
+  const eachValue = document.getElementById('eachValue');
+  const eachUnit = document.getElementById('eachUnit');
+  const resultMain = document.getElementById('resultMain');
+  const resultSentence = document.getElementById('resultSentence');
+  const leftoverNote = document.getElementById('leftoverNote');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) || v < 0 ? null : v;
+  }
+
+  function update() {
+    const total = parseNum(totalValue.value);
+    const each = parseNum(eachValue.value);
+    const unitLabel = totalUnit.value.trim() || 'units';
+    const itemLabel = eachUnit.value.trim() || 'things';
+
+    if (total === null || each === null || each === 0) {
+      resultMain.textContent = each === 0 ? "Can't divide by zero" : 'Enter both amounts';
+      resultSentence.textContent = '';
+      leftoverNote.textContent = '';
+      return;
+    }
+
+    const count = Math.floor(total / each);
+    const leftover = total - count * each;
+
+    resultMain.textContent = `${count.toLocaleString('en-US')} ${itemLabel}`;
+    resultSentence.textContent = `${total.toLocaleString('en-US')} ${unitLabel} \u00F7 ${each.toLocaleString('en-US')} ${unitLabel} each = ${count.toLocaleString('en-US')} ${itemLabel}`;
+    leftoverNote.textContent = leftover > 0
+      ? `(with ${Math.round(leftover * 100) / 100} ${unitLabel} left over)`
+      : '';
+  }
+
+  presetBtns.forEach(btn => btn.addEventListener('click', () => {
+    const [t, tu, e, eu] = btn.getAttribute('data-preset').split(',');
+    totalValue.value = t;
+    totalUnit.value = tu;
+    eachValue.value = e;
+    eachUnit.value = eu;
+    update();
+  }));
+
+  [totalValue, totalUnit, eachValue, eachUnit].forEach(el => el.addEventListener('input', update));
+
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'how-many-x';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

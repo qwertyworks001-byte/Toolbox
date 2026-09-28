@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roblox DevEx Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  #resultValue { transition: opacity 0.15s ease; }
+  select#currencySelect {
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .swap-btn {
+    transition: transform 0.2s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .swap-btn:hover { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+  .swap-btn.spin { transform: rotate(180deg); }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/>
+          <path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Roblox DevEx Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Convert Robux to estimated DevEx value in your currency — or calculate how much Robux you'd need for a target amount.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+
+    <div class="flex items-center justify-between mb-5 gap-3">
+      <h2 class="text-sm font-semibold text-white" id="modeTitle">R$ DevEx &rarr; Currency</h2>
+      <div class="relative">
+        <select id="currencySelect"
+          class="bg-slate-900/70 border border-slate-700 rounded-lg pl-3 pr-8 py-1.5 text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+        </select>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="mb-2">
+      <label for="inputAmount" class="block text-sm font-medium text-slate-300 mb-2" id="inputLabel">Robux</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm" id="inputPrefix">R$</span>
+        <input
+          type="text"
+          inputmode="decimal"
+          id="inputAmount"
+          value="100,000"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg pl-10 pr-3 py-3 text-lg text-white font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-3 mb-6" id="quickAmounts"></div>
+
+    <div class="flex justify-center mb-6">
+      <button type="button" id="swapBtn" aria-label="Swap direction" class="swap-btn w-11 h-11 rounded-full border border-slate-700 bg-slate-900/50 flex items-center justify-center text-blue-400">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+          <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+          <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-xs uppercase tracking-wider text-slate-500 mb-2" id="resultLabel">Estimated DevEx Value</p>
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="resultValue">&nbsp;</p>
+      <p class="text-xs text-slate-500 mt-2" id="rateLine"></p>
+    </div>
+
+    <div class="flex justify-center mt-6">
+      <button type="button" id="clearBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400 transition-colors">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-5 mt-5">
+    <p class="text-sm font-semibold text-white mb-1.5">DevEx value, not purchase price</p>
+    <p class="text-xs text-slate-400 leading-relaxed">
+      This calculator estimates how much money earned Robux could be worth through Roblox's Developer Exchange (DevEx) program.
+      This is different from the retail price of buying Robux. Actual DevEx eligibility, minimum balance requirements, fees, taxes,
+      and payout conditions may affect what a developer ultimately receives — and DevEx itself pays out in USD, so any non-USD
+      figure here also carries normal currency-conversion uncertainty on top of that.
+    </p>
+  </div>
+
+  <div class="glass rounded-2xl p-5 mt-5 space-y-3">
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <p class="text-sm font-medium text-slate-300">DevEx rate last verified: <span id="verifiedDate" class="text-slate-400"></span></p>
+        <p class="text-xs text-slate-500 mt-1">Roblox can change the DevEx rate — check the official page if you're unsure this is current.</p>
+      </div>
+      <a href="https://create.roblox.com/docs/production/monetization/developer-exchange" target="_blank" rel="noopener noreferrer"
+         class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-blue-400 hover:border-blue-500 whitespace-nowrap">
+        Check official rate &#8599;
+      </a>
+    </div>
+    <div class="flex items-center justify-between gap-4 flex-wrap pt-3 border-t border-slate-700/60">
+      <p class="text-xs" id="fxStatus">Loading exchange rates&hellip;</p>
+      <button type="button" id="refreshRatesBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 whitespace-nowrap">
+        Refresh rates
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ── DevEx config ────────────────────────────────────────
+  // Update these two values if Roblox changes the standard DevEx rate.
+  // Source: https://create.roblox.com/docs/production/monetization/developer-exchange
+  const DEVEX_RATE = 0.0038;              // USD per 1 Earned Robux
+  const RATE_VERIFIED_ON = 'September 14, 2026';
+  // ────────────────────────────────────────────────────────
+
+  // ── Currency config ─────────────────────────────────────
+  const DEFAULT_CURRENCY = 'NZD';
+
+  const CURRENCIES = [
+    { code: 'NZD', name: 'New Zealand Dollar' },
+    { code: 'USD', name: 'US Dollar' },
+    { code: 'AUD', name: 'Australian Dollar' },
+    { code: 'GBP', name: 'British Pound' },
+    { code: 'EUR', name: 'Euro' },
+    { code: 'CAD', name: 'Canadian Dollar' },
+    { code: 'JPY', name: 'Japanese Yen' },
+    { code: 'CNY', name: 'Chinese Yuan' },
+    { code: 'INR', name: 'Indian Rupee' },
+    { code: 'PHP', name: 'Philippine Peso' },
+    { code: 'IDR', name: 'Indonesian Rupiah' },
+    { code: 'BRL', name: 'Brazilian Real' },
+    { code: 'MXN', name: 'Mexican Peso' },
+    { code: 'SGD', name: 'Singapore Dollar' },
+    { code: 'ZAR', name: 'South African Rand' },
+    { code: 'KRW', name: 'South Korean Won' },
+    { code: 'TRY', name: 'Turkish Lira' },
+    { code: 'SEK', name: 'Swedish Krona' },
+    { code: 'CHF', name: 'Swiss Franc' },
+    { code: 'HKD', name: 'Hong Kong Dollar' }
+  ];
+
+  // Approximate fallback (USD-based) rates — only used if the live lookup fails,
+  // e.g. no internet connection. Deliberately rough; real values come from the
+  // live fetch below whenever it succeeds.
+  const FALLBACK_RATES = {
+    USD: 1, NZD: 1.65, AUD: 1.55, GBP: 0.75, EUR: 0.86, CAD: 1.38, JPY: 149,
+    CNY: 7.1, INR: 87, PHP: 56, IDR: 15800, BRL: 5.3, MXN: 18.5, SGD: 1.3,
+    ZAR: 17.5, KRW: 1380, TRY: 34, SEK: 9.6, CHF: 0.8, HKD: 7.8
+  };
+  // ────────────────────────────────────────────────────────
+
+  const inputAmount = document.getElementById('inputAmount');
+  const inputLabel = document.getElementById('inputLabel');
+  const inputPrefix = document.getElementById('inputPrefix');
+  const modeTitle = document.getElementById('modeTitle');
+  const resultLabel = document.getElementById('resultLabel');
+  const resultValue = document.getElementById('resultValue');
+  const rateLine = document.getElementById('rateLine');
+  const verifiedDate = document.getElementById('verifiedDate');
+  const swapBtn = document.getElementById('swapBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const quickAmounts = document.getElementById('quickAmounts');
+  const currencySelect = document.getElementById('currencySelect');
+  const fxStatus = document.getElementById('fxStatus');
+  const refreshRatesBtn = document.getElementById('refreshRatesBtn');
+
+  const QUICK_TARGETS = [10, 50, 100, 250, 500, 1000];
+  const ROBUX_QUICK = [10000, 25000, 50000, 100000, 250000, 1000000];
+
+  let mode = 'robuxToCurrency'; // or 'currencyToRobux'
+  let selectedCurrency = DEFAULT_CURRENCY;
+  let rates = { ...FALLBACK_RATES };
+  let ratesLive = false;
+  let ratesDate = null;
+
+  verifiedDate.textContent = RATE_VERIFIED_ON;
+
+  // Populate currency dropdown
+  CURRENCIES.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.code;
+    opt.textContent = `${c.code} — ${c.name}`;
+    if (c.code === DEFAULT_CURRENCY) opt.selected = true;
+    currencySelect.appendChild(opt);
+  });
+
+  function currencySymbol(code) {
+    try {
+      const parts = new Intl.NumberFormat('en', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).formatToParts(1);
+      const symbolPart = parts.find(p => p.type === 'currency');
+      return symbolPart ? symbolPart.value : code;
+    } catch (e) {
+      return code;
+    }
+  }
+
+  function formatMoney(value, code) {
+    try {
+      return new Intl.NumberFormat('en', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).format(value);
+    } catch (e) {
+      return `${value.toFixed(2)} ${code}`;
+    }
+  }
+
+  function formatNumber(n) {
+    return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function parseInputValue(raw) {
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    const value = parseFloat(cleaned);
+    return isNaN(value) || value < 0 ? 0 : value;
+  }
+
+  // Effective currency units per 1 Robux
+  function currencyPerRobux() {
+    return DEVEX_RATE * (rates[selectedCurrency] || 1);
+  }
+
+  function renderQuickAmounts() {
+    quickAmounts.innerHTML = '';
+    if (mode === 'robuxToCurrency') {
+      ROBUX_QUICK.forEach(val => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quick-btn text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400';
+        btn.textContent = `${val / 1000}K`;
+        btn.addEventListener('click', () => { inputAmount.value = formatNumber(val); update(); });
+        quickAmounts.appendChild(btn);
+      });
+    } else {
+      QUICK_TARGETS.forEach(val => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quick-btn text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400';
+        btn.textContent = formatMoney(val, selectedCurrency).replace(/\.00$/, '');
+        btn.addEventListener('click', () => { inputAmount.value = val.toString(); update(); });
+        quickAmounts.appendChild(btn);
+      });
+    }
+  }
+
+  function applyModeLabels() {
+    if (mode === 'robuxToCurrency') {
+      modeTitle.textContent = 'R$ DevEx \u2192 ' + selectedCurrency;
+      inputLabel.textContent = 'Robux';
+      inputPrefix.textContent = 'R$';
+      resultLabel.textContent = 'Estimated DevEx Value';
+    } else {
+      modeTitle.textContent = selectedCurrency + ' \u2192 R$ DevEx';
+      inputLabel.textContent = selectedCurrency;
+      inputPrefix.textContent = currencySymbol(selectedCurrency);
+      resultLabel.textContent = 'Robux Required';
+    }
+  }
+
+  function update() {
+    const value = parseInputValue(inputAmount.value);
+    const perRobux = currencyPerRobux();
+
+    if (mode === 'robuxToCurrency') {
+      const amount = value * perRobux;
+      resultValue.textContent = `${formatMoney(amount, selectedCurrency)} ${selectedCurrency}`;
+    } else {
+      const robux = perRobux > 0 ? value / perRobux : 0;
+      resultValue.textContent = `${formatNumber(Math.round(robux))} R$`;
+    }
+
+    const per1000 = perRobux * 1000;
+    rateLine.textContent = `Rate: 1,000 R$ \u2248 ${formatMoney(per1000, selectedCurrency)} ${selectedCurrency}`;
+  }
+
+  function formatInputOnBlur() {
+    const value = parseInputValue(inputAmount.value);
+    if (mode === 'robuxToCurrency') {
+      inputAmount.value = value ? formatNumber(value) : '';
+    } else {
+      inputAmount.value = value ? value.toString() : '';
+    }
+  }
+
+  function swap() {
+    const currentValue = parseInputValue(inputAmount.value);
+    const perRobux = currencyPerRobux();
+    let carryOver;
+
+    if (mode === 'robuxToCurrency') {
+      carryOver = currentValue * perRobux;
+      mode = 'currencyToRobux';
+      inputAmount.value = carryOver ? carryOver.toFixed(2).replace(/\.00$/, '') : '';
+    } else {
+      carryOver = perRobux > 0 ? Math.round(currentValue / perRobux) : 0;
+      mode = 'robuxToCurrency';
+      inputAmount.value = carryOver ? formatNumber(carryOver) : '';
+    }
+
+    swapBtn.classList.add('spin');
+    setTimeout(() => swapBtn.classList.remove('spin'), 200);
+
+    applyModeLabels();
+    renderQuickAmounts();
+    update();
+  }
+
+  function renderFxStatus() {
+    if (ratesLive) {
+      fxStatus.innerHTML = `<span class="text-emerald-400">&#9679;</span> Live exchange rates &middot; as of ${ratesDate}`;
+    } else {
+      fxStatus.innerHTML = `<span class="text-amber-400">&#9679;</span> Offline fallback rates (approximate) &mdash; connect to the internet for live rates`;
+    }
+  }
+
+  async function loadLiveRates() {
+    fxStatus.textContent = 'Checking for live exchange rates\u2026';
+    const codes = CURRENCIES.map(c => c.code).filter(c => c !== 'USD').join(',');
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${codes}`);
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      if (!data || !data.rates) throw new Error('Malformed response');
+      rates = { USD: 1, ...data.rates };
+      ratesDate = data.date;
+      ratesLive = true;
+    } catch (e) {
+      rates = { ...FALLBACK_RATES };
+      ratesLive = false;
+    }
+    renderFxStatus();
+    update();
+  }
+
+  currencySelect.addEventListener('change', () => {
+    selectedCurrency = currencySelect.value;
+    applyModeLabels();
+    renderQuickAmounts();
+    update();
+  });
+
+  inputAmount.addEventListener('input', update);
+  inputAmount.addEventListener('blur', formatInputOnBlur);
+  inputAmount.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      formatInputOnBlur();
+      update();
+    }
+  });
+
+  swapBtn.addEventListener('click', swap);
+
+  clearBtn.addEventListener('click', () => {
+    inputAmount.value = '';
+    update();
+    inputAmount.focus();
+  });
+
+  refreshRatesBtn.addEventListener('click', loadLiveRates);
+
+  applyModeLabels();
+  renderQuickAmounts();
+  update();
+  loadLiveRates();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'devex';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timers</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .tab-btn { transition: all 0.15s ease; }
+  .tab-btn.active { background: rgba(59,130,246,0.15); border-color: #3b82f6; color: #93c5fd; }
+  .big-display { font-variant-numeric: tabular-nums; }
+  .interval-pill { transition: all 0.15s ease; }
+  .interval-pill.active { border-color: #3b82f6; background: rgba(59,130,246,0.12); }
+  .flash { animation: flashBg 1s ease-in-out infinite; }
+  @keyframes flashBg {
+    0%, 100% { background-color: rgba(239,68,68,0.08); }
+    50% { background-color: rgba(239,68,68,0.22); }
+  }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Timers</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Stopwatch, countdown timer, alarm, and a repeating interval loop.</p>
+  </header>
+
+  <div class="flex flex-wrap gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="stopwatch">Stopwatch</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="timer">Timer</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="alarm">Alarm</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="loop">Timer Loop</button>
+  </div>
+
+  <!-- ═══════════════ STOPWATCH ═══════════════ -->
+  <div id="panelStopwatch" class="glass rounded-2xl p-6">
+    <div class="text-center mb-6">
+      <p class="big-display text-5xl sm:text-6xl font-bold text-white" id="swDisplay">0:00.00</p>
+    </div>
+    <div class="flex justify-center gap-3 mb-5">
+      <button type="button" id="swStartBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Start</button>
+      <button type="button" id="swLapBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500" disabled>Lap</button>
+      <button type="button" id="swResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset</button>
+    </div>
+    <div class="space-y-1.5 max-h-56 overflow-y-auto" id="swLapsList"></div>
+  </div>
+
+  <!-- ═══════════════ TIMER ═══════════════ -->
+  <div id="panelTimer" class="glass rounded-2xl p-6 hidden">
+    <div class="flex items-center justify-center gap-2 mb-5" id="timerInputRow">
+      <div class="text-center">
+        <input type="text" inputmode="numeric" id="timerH" value="0" class="w-16 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-white text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-slate-500 mt-1">hr</p>
+      </div>
+      <span class="text-2xl text-slate-600 pb-5">:</span>
+      <div class="text-center">
+        <input type="text" inputmode="numeric" id="timerM" value="5" class="w-16 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-white text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-slate-500 mt-1">min</p>
+      </div>
+      <span class="text-2xl text-slate-600 pb-5">:</span>
+      <div class="text-center">
+        <input type="text" inputmode="numeric" id="timerS" value="0" class="w-16 bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-2.5 text-white text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <p class="text-xs text-slate-500 mt-1">sec</p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-2 mb-6" id="timerPresets">
+      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="60">1 min</button>
+      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="300">5 min</button>
+      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="600">10 min</button>
+      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="900">15 min</button>
+      <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="1800">30 min</button>
+    </div>
+
+    <div class="text-center mb-6 rounded-xl py-4" id="timerDisplayWrap">
+      <p class="big-display text-5xl sm:text-6xl font-bold text-white" id="timerDisplay">5:00</p>
+      <p class="text-sm text-red-400 font-medium mt-2 hidden" id="timerDoneNote">Time&rsquo;s up!</p>
+    </div>
+
+    <div class="flex justify-center gap-3">
+      <button type="button" id="timerStartBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Start</button>
+      <button type="button" id="timerResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset</button>
+      <button type="button" id="timerStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ ALARM ═══════════════ -->
+  <div id="panelAlarm" class="glass rounded-2xl p-6 hidden">
+    <p class="text-center text-sm text-slate-500 mb-1">Current time</p>
+    <p class="big-display text-2xl font-semibold text-slate-300 text-center mb-6" id="alarmClock">--:--:--</p>
+
+    <div class="flex flex-col items-center gap-4 mb-6">
+      <input type="time" id="alarmTimeInput" class="bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3 text-white text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" id="alarmRepeatDaily" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
+        Repeat daily
+      </label>
+    </div>
+
+    <p class="text-center text-sm text-slate-400 mb-6 hidden" id="alarmArmedNote"></p>
+    <p class="text-center text-lg font-semibold text-red-400 mb-6 hidden" id="alarmFiringNote">&#9200; Alarm!</p>
+
+    <div class="flex justify-center gap-3">
+      <button type="button" id="alarmSetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Set Alarm</button>
+      <button type="button" id="alarmCancelBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hidden">Cancel Alarm</button>
+      <button type="button" id="alarmStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TIMER LOOP ═══════════════ -->
+  <div id="panelLoop" class="glass rounded-2xl p-6 hidden">
+    <div class="flex flex-wrap gap-2 justify-center mb-6" id="loopPills"></div>
+
+    <div class="text-center mb-6 rounded-xl py-4" id="loopDisplayWrap">
+      <p class="text-sm text-slate-500 mb-1" id="loopCurrentLabel">Interval 1 of 2</p>
+      <p class="big-display text-5xl sm:text-6xl font-bold text-white" id="loopDisplay">1:30:00</p>
+    </div>
+
+    <div class="flex justify-center gap-3 mb-6">
+      <button type="button" id="loopStartBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Start</button>
+      <button type="button" id="loopResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset</button>
+      <button type="button" id="loopStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
+    </div>
+
+    <div class="border-t border-slate-700/60 pt-5">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Intervals</h2>
+      <div class="space-y-2 mb-3" id="loopIntervalsList"></div>
+      <button type="button" id="loopAddBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+ Add interval</button>
+      <p class="text-xs text-slate-500 mt-3">Stopping the alarm sound never skips or pauses the loop &mdash; it keeps counting down to the next interval regardless.</p>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-5 text-center">
+    Alarm sounds may be blocked by your browser if this tab has been inactive a long time without any interaction &mdash; if a long timer seems silent when it finishes, click anywhere on the page and check again.
+  </p>
+
+</div>
+
+<script>
+(function () {
+  const T = window.ToolboxTimers;
+
+  // ── Tabs ──────────────────────────────────────────────────────
+  const tabs = document.querySelectorAll('.tab-btn[data-tab]');
+  const panels = {
+    stopwatch: document.getElementById('panelStopwatch'),
+    timer: document.getElementById('panelTimer'),
+    alarm: document.getElementById('panelAlarm'),
+    loop: document.getElementById('panelLoop')
+  };
+  function activateTab(tab) {
+    if (!panels[tab]) return;
+    tabs.forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+    Object.keys(panels).forEach(k => panels[k].classList.toggle('hidden', k !== tab));
+  }
+  tabs.forEach(btn => btn.addEventListener('click', () => activateTab(btn.getAttribute('data-tab'))));
+
+  // Deep-link from the floating widget (e.g. Timers/timers.html?tab=loop)
+  const requestedTab = new URLSearchParams(window.location.search).get('tab');
+  if (requestedTab) activateTab(requestedTab);
+
+  // ═══════════════ STOPWATCH ═══════════════
+  const swDisplay = document.getElementById('swDisplay');
+  const swStartBtn = document.getElementById('swStartBtn');
+  const swLapBtn = document.getElementById('swLapBtn');
+  const swResetBtn = document.getElementById('swResetBtn');
+  const swLapsList = document.getElementById('swLapsList');
+
+  function renderLaps(laps) {
+    swLapsList.innerHTML = laps.slice().reverse().map((lap, i) => {
+      const num = laps.length - i;
+      return `<div class="flex items-center justify-between text-sm bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2">
+        <span class="text-slate-400">Lap ${num}</span>
+        <span class="font-mono text-slate-300">+${T.formatStopwatch(lap.split)}</span>
+        <span class="font-mono text-white">${T.formatStopwatch(lap.total)}</span>
+      </div>`;
+    }).join('');
+  }
+  function renderStopwatch(state) {
+    const d = T.getDerived(state);
+    swDisplay.textContent = T.formatStopwatch(d.swElapsed);
+    swStartBtn.textContent = state.stopwatch.status === 'running' ? 'Pause' : (state.stopwatch.status === 'paused' ? 'Resume' : 'Start');
+    swLapBtn.disabled = state.stopwatch.status !== 'running';
+    renderLaps(state.stopwatch.laps);
+  }
+
+  swStartBtn.addEventListener('click', () => {
+    const s = T.getState();
+    if (s.stopwatch.status === 'running') T.stopwatchPause(); else T.stopwatchStart();
+  });
+  swLapBtn.addEventListener('click', () => T.stopwatchLap());
+  swResetBtn.addEventListener('click', () => T.stopwatchReset());
+
+  // ═══════════════ TIMER ═══════════════
+  const timerH = document.getElementById('timerH');
+  const timerM = document.getElementById('timerM');
+  const timerS = document.getElementById('timerS');
+  const timerInputRow = document.getElementById('timerInputRow');
+  const timerPresets = document.getElementById('timerPresets');
+  const timerDisplay = document.getElementById('timerDisplay');
+  const timerDisplayWrap = document.getElementById('timerDisplayWrap');
+  const timerDoneNote = document.getElementById('timerDoneNote');
+  const timerStartBtn = document.getElementById('timerStartBtn');
+  const timerResetBtn = document.getElementById('timerResetBtn');
+  const timerStopAlarmBtn = document.getElementById('timerStopAlarmBtn');
+
+  function readTimerInputs() {
+    const h = parseInt(timerH.value, 10) || 0;
+    const m = parseInt(timerM.value, 10) || 0;
+    const s = parseInt(timerS.value, 10) || 0;
+    return (h * 3600 + m * 60 + s) * 1000;
+  }
+  function setTimerInputsFromSeconds(totalSeconds) {
+    timerH.value = Math.floor(totalSeconds / 3600);
+    timerM.value = Math.floor((totalSeconds % 3600) / 60);
+    timerS.value = totalSeconds % 60;
+  }
+  function renderTimer(state) {
+    const d = T.getDerived(state);
+    const isActive = state.timer.status === 'running' || state.timer.status === 'paused';
+    timerDisplay.textContent = T.formatCountdown(isActive ? d.timerRemaining : (state.timer.status === 'finished' ? 0 : readTimerInputs()));
+    timerStartBtn.textContent = state.timer.status === 'running' ? 'Pause' : (state.timer.status === 'paused' ? 'Resume' : 'Start');
+    timerInputRow.classList.toggle('opacity-40', isActive);
+    timerDoneNote.classList.toggle('hidden', state.timer.status !== 'finished');
+    timerDisplayWrap.classList.toggle('flash', state.timer.status === 'finished');
+  }
+
+  timerStartBtn.addEventListener('click', () => {
+    const s = T.getState();
+    if (s.timer.status === 'running') { T.timerPause(); return; }
+    if (s.timer.status === 'paused') { T.timerStart(); return; }
+    const ms = readTimerInputs();
+    if (ms <= 0) return;
+    timerDoneNote.classList.add('hidden');
+    timerDisplayWrap.classList.remove('flash');
+    T.timerStart(ms);
+  });
+  timerResetBtn.addEventListener('click', () => T.timerReset());
+  timerStopAlarmBtn.addEventListener('click', () => T.timerStopAlarm());
+  timerPresets.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (T.getState().timer.status !== 'idle' && T.getState().timer.status !== 'finished') return;
+      setTimerInputsFromSeconds(parseInt(btn.getAttribute('data-preset'), 10));
+      renderTimer(T.getState());
+    });
+  });
+  [timerH, timerM, timerS].forEach(el => el.addEventListener('input', () => {
+    const s = T.getState();
+    if (s.timer.status === 'idle' || s.timer.status === 'finished') timerDisplay.textContent = T.formatCountdown(readTimerInputs());
+  }));
+
+  // ═══════════════ ALARM ═══════════════
+  const alarmClock = document.getElementById('alarmClock');
+  const alarmTimeInput = document.getElementById('alarmTimeInput');
+  const alarmRepeatDaily = document.getElementById('alarmRepeatDaily');
+  const alarmArmedNote = document.getElementById('alarmArmedNote');
+  const alarmFiringNote = document.getElementById('alarmFiringNote');
+  const alarmSetBtn = document.getElementById('alarmSetBtn');
+  const alarmCancelBtn = document.getElementById('alarmCancelBtn');
+  const alarmStopAlarmBtn = document.getElementById('alarmStopAlarmBtn');
+
+  function pad2(n) { return n.toString().padStart(2, '0'); }
+  function updateClock() {
+    const now = new Date();
+    alarmClock.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  }
+  function renderAlarm(state) {
+    const armed = state.alarm.status === 'armed';
+    const firing = state.alarm.status === 'firing';
+    alarmSetBtn.classList.toggle('hidden', armed || firing);
+    alarmCancelBtn.classList.toggle('hidden', !armed);
+    alarmTimeInput.disabled = armed || firing;
+    alarmFiringNote.classList.toggle('hidden', !firing);
+    alarmStopAlarmBtn.classList.toggle('hidden', !firing);
+
+    if (armed) {
+      const diffMs = state.alarm.targetMs - Date.now();
+      const mins = Math.max(0, Math.round(diffMs / 60000));
+      const h = Math.floor(mins / 60), m = mins % 60;
+      const inText = h > 0 ? `${h}h ${m}m` : `${m}m`;
+      alarmArmedNote.textContent = `Alarm set for ${state.alarm.timeStr} \u2014 in about ${inText}${state.alarm.repeatDaily ? ' (repeats daily)' : ''}`;
+      alarmArmedNote.classList.remove('hidden');
+    } else {
+      alarmArmedNote.classList.add('hidden');
+    }
+  }
+
+  alarmSetBtn.addEventListener('click', () => {
+    if (!alarmTimeInput.value) return;
+    T.alarmArm(alarmTimeInput.value, alarmRepeatDaily.checked);
+  });
+  alarmCancelBtn.addEventListener('click', () => T.alarmCancel());
+  alarmStopAlarmBtn.addEventListener('click', () => T.alarmStopAlarm());
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ═══════════════ TIMER LOOP ═══════════════
+  const loopPills = document.getElementById('loopPills');
+  const loopCurrentLabel = document.getElementById('loopCurrentLabel');
+  const loopDisplay = document.getElementById('loopDisplay');
+  const loopStartBtn = document.getElementById('loopStartBtn');
+  const loopResetBtn = document.getElementById('loopResetBtn');
+  const loopStopAlarmBtn = document.getElementById('loopStopAlarmBtn');
+  const loopIntervalsList = document.getElementById('loopIntervalsList');
+  const loopAddBtn = document.getElementById('loopAddBtn');
+
+  function loopLabelFor(iv) { return iv.label ? iv.label : `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''}`; }
+
+  function renderPills(state) {
+    const intervals = state.loop.intervals;
+    loopPills.innerHTML = intervals.map((iv, idx) => `
+      <span class="interval-pill text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50 ${idx === state.loop.currentIndex ? 'active' : ''}">${loopLabelFor(iv)}</span>
+    `).join('');
+  }
+
+  function renderLoopHeader(state) {
+    const d = T.getDerived(state);
+    const intervals = state.loop.intervals;
+    const isActive = state.loop.status === 'running' || state.loop.status === 'paused';
+    if (!intervals.length) {
+      loopCurrentLabel.textContent = 'No intervals';
+      loopDisplay.textContent = '0:00';
+      return;
+    }
+    loopCurrentLabel.textContent = `Interval ${state.loop.currentIndex + 1} of ${intervals.length} \u2014 ${loopLabelFor(intervals[state.loop.currentIndex])}`;
+    const ms = isActive ? d.loopRemaining : (intervals[state.loop.currentIndex] ? (intervals[state.loop.currentIndex].minutes * 60 + intervals[state.loop.currentIndex].seconds) * 1000 : 0);
+    loopDisplay.textContent = T.formatCountdown(ms);
+    loopStartBtn.textContent = state.loop.status === 'running' ? 'Pause' : (state.loop.status === 'paused' ? 'Resume' : 'Start');
+  }
+
+  // Slides rows to their new position whenever the list is rebuilt, so a
+  // swap/move/removal is always visibly a swap/move/removal.
+  function animatedRebuild(mutatorCall) {
+    const firstRects = {};
+    loopIntervalsList.querySelectorAll('[data-id]').forEach(el => { firstRects[el.dataset.id] = el.getBoundingClientRect(); });
+    mutatorCall();
+    requestAnimationFrame(() => {
+      loopIntervalsList.querySelectorAll('[data-id]').forEach(el => {
+        const first = firstRects[el.dataset.id];
+        if (!first) return;
+        const last = el.getBoundingClientRect();
+        const deltaY = first.top - last.top;
+        if (Math.abs(deltaY) > 0.5) {
+          el.style.transition = 'none';
+          el.style.transform = `translateY(${deltaY}px)`;
+          requestAnimationFrame(() => { el.style.transition = 'transform 180ms ease'; el.style.transform = ''; });
+        }
+      });
+    });
+  }
+
+  let dragSrcId = null;
+
+  function renderIntervalsList(state) {
+    const intervals = state.loop.intervals;
+    const running = state.loop.status === 'running';
+    loopIntervalsList.innerHTML = intervals.map((iv, idx) => `
+      <div class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2" data-id="${iv.id}" draggable="${running ? 'false' : 'true'}">
+        <span class="drag-handle text-slate-600 ${running ? '' : 'cursor-grab'} select-none" title="Drag to reorder">&#8942;&#8942;</span>
+        <input type="text" placeholder="Label (optional)" value="${iv.label ? iv.label.replace(/"/g, '&quot;') : ''}"
+          class="loop-label flex-1 min-w-0 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none" data-id="${iv.id}" ${running ? 'disabled' : ''}>
+        <input type="text" inputmode="numeric" value="${iv.minutes}" class="loop-min w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-sm text-white text-center focus:outline-none" data-id="${iv.id}" ${running ? 'disabled' : ''}>
+        <span class="text-xs text-slate-500">m</span>
+        <input type="text" inputmode="numeric" value="${iv.seconds}" class="loop-sec w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-sm text-white text-center focus:outline-none" data-id="${iv.id}" ${running ? 'disabled' : ''}>
+        <span class="text-xs text-slate-500">s</span>
+        <button type="button" class="loop-up text-slate-500 hover:text-blue-400 disabled:opacity-30 disabled:pointer-events-none" data-idx="${idx}" ${running || idx === 0 ? 'disabled' : ''} aria-label="Move up">&#9650;</button>
+        <button type="button" class="loop-down text-slate-500 hover:text-blue-400 disabled:opacity-30 disabled:pointer-events-none" data-idx="${idx}" ${running || idx === intervals.length - 1 ? 'disabled' : ''} aria-label="Move down">&#9660;</button>
+        <button type="button" class="loop-remove text-slate-500 hover:text-red-400 disabled:opacity-30 disabled:pointer-events-none" data-id="${iv.id}" ${running || intervals.length <= 1 ? 'disabled' : ''} aria-label="Remove">&times;</button>
+      </div>
+    `).join('');
+
+    loopIntervalsList.querySelectorAll('.loop-label').forEach(el => el.addEventListener('input', () => {
+      T.loopUpdateInterval(parseInt(el.dataset.id, 10), { label: el.value });
+    }));
+    loopIntervalsList.querySelectorAll('.loop-min').forEach(el => el.addEventListener('input', () => {
+      T.loopUpdateInterval(parseInt(el.dataset.id, 10), { minutes: Math.max(0, parseInt(el.value, 10) || 0) });
+    }));
+    loopIntervalsList.querySelectorAll('.loop-sec').forEach(el => el.addEventListener('input', () => {
+      T.loopUpdateInterval(parseInt(el.dataset.id, 10), { seconds: Math.max(0, Math.min(59, parseInt(el.value, 10) || 0)) });
+    }));
+    loopIntervalsList.querySelectorAll('.loop-up').forEach(el => el.addEventListener('click', () => {
+      const i = parseInt(el.dataset.idx, 10);
+      animatedRebuild(() => T.loopSwap(i - 1, i));
+    }));
+    loopIntervalsList.querySelectorAll('.loop-down').forEach(el => el.addEventListener('click', () => {
+      const i = parseInt(el.dataset.idx, 10);
+      animatedRebuild(() => T.loopSwap(i, i + 1));
+    }));
+    loopIntervalsList.querySelectorAll('.loop-remove').forEach(el => el.addEventListener('click', () => {
+      animatedRebuild(() => T.loopRemoveInterval(parseInt(el.dataset.id, 10)));
+    }));
+
+    loopIntervalsList.querySelectorAll('[data-id]').forEach(row => {
+      row.addEventListener('dragstart', (e) => {
+        if (T.getState().loop.status === 'running') { e.preventDefault(); return; }
+        dragSrcId = row.dataset.id;
+        row.classList.add('opacity-40');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('opacity-40');
+        loopIntervalsList.querySelectorAll('[data-id]').forEach(r => r.classList.remove('border-blue-500'));
+        dragSrcId = null;
+      });
+      row.addEventListener('dragover', (e) => {
+        if (T.getState().loop.status === 'running' || dragSrcId === null) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (row.dataset.id !== dragSrcId) row.classList.add('border-blue-500');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('border-blue-500'));
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('border-blue-500');
+        if (T.getState().loop.status === 'running' || dragSrcId === null || row.dataset.id === dragSrcId) return;
+        const srcId = parseInt(dragSrcId, 10);
+        const targetId = parseInt(row.dataset.id, 10);
+        animatedRebuild(() => T.loopReorder(srcId, targetId));
+      });
+    });
+  }
+
+  loopStartBtn.addEventListener('click', () => {
+    const s = T.getState();
+    if (s.loop.status === 'running') T.loopPause(); else T.loopStart();
+  });
+  loopResetBtn.addEventListener('click', () => {
+    T.loopReset();
+    renderIntervalsList(T.getState());
+  });
+  loopStopAlarmBtn.addEventListener('click', () => T.loopStopAlarm());
+  loopAddBtn.addEventListener('click', () => {
+    if (T.getState().loop.status === 'running') return;
+    animatedRebuild(() => T.loopAddInterval());
+  });
+
+  // ── Master tick: cheap display-only updates every tick. The editable
+  // interval rows are rebuilt only from explicit structural actions above
+  // (add/remove/reorder), never from this loop, so typing in a label or
+  // duration field never gets its focus yanked out from under it. ──
+  function renderAll(state) {
+    const now = Date.now();
+    renderStopwatch(state);
+    renderTimer(state);
+    timerStopAlarmBtn.classList.toggle('hidden', !(state.timer.alarmUntil && now < state.timer.alarmUntil));
+    renderAlarm(state);
+    renderLoopHeader(state);
+    renderPills(state);
+    loopStopAlarmBtn.classList.toggle('hidden', !(state.loop.alarmUntil && now < state.loop.alarmUntil));
+  }
+
+  T.subscribe(renderAll);
+  renderAll(T.getState());
+  renderIntervalsList(T.getState());
+})();
+</script>
+
+<script>
+(function () {
+  const TOOL_ID = 'timers';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

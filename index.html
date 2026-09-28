@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toolbox</title>
+<link rel="icon" type="image/png" href="Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="tools-data.js"></script>
+<link rel="stylesheet" href="style.css">
+<script src="timer-engine.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #ff5f2e;
+    --accent-soft: rgba(255, 95, 46, 0.14);
+    --accent-2: #ffcf4d;
+  }
+  body { font-family: 'Public Sans', ui-sans-serif, system-ui, sans-serif; }
+  .font-display { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
+
+  .search-wrap {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+    transition: border-color 0.15s ease;
+  }
+  .search-wrap:focus-within {
+    border-color: var(--accent);
+  }
+  #searchInput:focus { outline: none; }
+
+  .random-btn {
+    background: var(--accent-2);
+    color: #241a05;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 0 0 #c99f2e;
+  }
+  .random-btn:hover {
+    transform: translateY(-1px) rotate(-1deg);
+    box-shadow: 0 3px 0 0 #c99f2e;
+  }
+  .random-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 0 #c99f2e;
+  }
+
+  .cat-tag {
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .cat-tag.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #1a0d06;
+  }
+  .cat-tag:not(.active):hover {
+    border-color: rgba(255, 95, 46, 0.5);
+  }
+
+  .tool-panel {
+    background: #14171c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .tool-panel:hover {
+    transform: translateY(-2px);
+  }
+  .tool-panel:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .fav-btn { transition: transform 0.15s ease, color 0.15s ease; }
+  .fav-btn:hover { transform: scale(1.15); }
+</style>
+</head>
+<body class="text-slate-200 antialiased">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+
+  <!-- Hero -->
+  <header class="mb-10">
+    <div class="flex items-baseline gap-3 flex-wrap">
+      <h1 class="font-display text-4xl sm:text-5xl font-bold text-white tracking-tight">Toolbox</h1>
+      <span class="text-sm text-slate-500" id="toolStat"></span>
+    </div>
+    <p class="text-slate-400 mt-2 text-base sm:text-lg max-w-xl">A workbench of small, fast tools &mdash; for the things you need to figure out but don't want to open ten tabs for.</p>
+  </header>
+
+  <!-- Search -->
+  <div class="search-wrap mb-6 pb-3">
+    <div class="flex items-center gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-500 shrink-0">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="What do you need to figure out?"
+        class="w-full bg-transparent text-lg sm:text-xl text-white placeholder:text-slate-500 py-1">
+    </div>
+  </div>
+
+  <!-- Category tags + random tool -->
+  <div class="flex flex-wrap items-center gap-2 mb-10">
+    <div class="flex flex-wrap gap-2" id="chipRow"></div>
+    <button type="button" id="randomToolBtn" class="random-btn text-sm font-semibold px-4 py-1.5 rounded-md inline-flex items-center gap-1.5 ml-auto">
+      &#127922; Random tool
+    </button>
+  </div>
+
+  <!-- Favorites -->
+  <section class="mb-10 hidden" id="favoritesSection">
+    <h2 class="font-display text-lg font-semibold text-white mb-3">&#11088; Favorites</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="favoritesGrid"></div>
+  </section>
+
+  <!-- Popular Tools -->
+  <section class="mb-10" id="popularSection">
+    <h2 class="font-display text-lg font-semibold text-white mb-3">Popular</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="popularGrid"></div>
+  </section>
+
+  <!-- Recently Used -->
+  <section class="mb-10 hidden" id="recentSection">
+    <h2 class="font-display text-lg font-semibold text-white mb-3">Recently used</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="recentGrid"></div>
+  </section>
+
+  <!-- Main grid (filtered by search / category / favorites) -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-display text-lg font-semibold text-white" id="mainGridLabel">All tools</h2>
+      <span class="text-xs text-slate-500" id="mainGridCount"></span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="mainGrid"></div>
+    <p class="text-sm text-slate-500 text-center py-8 hidden" id="emptyState">No tools match that search yet.</p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  const TOOLS = window.TOOLBOX_TOOLS || [];
+  const CATEGORIES = window.TOOLBOX_CATEGORIES || [];
+  const FAV_KEY = 'toolbox:favorites';
+  const RECENT_KEY = 'toolbox:recent';
+
+  const toolStat = document.getElementById('toolStat');
+  const searchInput = document.getElementById('searchInput');
+  const chipRow = document.getElementById('chipRow');
+  const mainGrid = document.getElementById('mainGrid');
+  const mainGridLabel = document.getElementById('mainGridLabel');
+  const mainGridCount = document.getElementById('mainGridCount');
+  const emptyState = document.getElementById('emptyState');
+  const popularSection = document.getElementById('popularSection');
+  const popularGrid = document.getElementById('popularGrid');
+  const favoritesSection = document.getElementById('favoritesSection');
+  const favoritesGrid = document.getElementById('favoritesGrid');
+  const recentSection = document.getElementById('recentSection');
+  const recentGrid = document.getElementById('recentGrid');
+  const randomToolBtn = document.getElementById('randomToolBtn');
+
+  let activeFilter = 'all'; // 'all' | 'favorites' | category key
+  let query = '';
+
+  toolStat.textContent = `${TOOLS.length} tools across ${CATEGORIES.length} categories`;
+
+  function getFavorites() {
+    try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; }
+  }
+  function setFavorites(list) {
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  function isFavorite(id) { return getFavorites().includes(id); }
+  function toggleFavorite(id) {
+    const favs = getFavorites();
+    const idx = favs.indexOf(id);
+    if (idx === -1) favs.push(id); else favs.splice(idx, 1);
+    setFavorites(favs);
+  }
+
+  function getRecent() {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) { return []; }
+  }
+  function pushRecent(id) {
+    let recent = getRecent().filter(x => x !== id);
+    recent.unshift(id);
+    recent = recent.slice(0, 6);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch (e) {}
+  }
+
+  function toolById(id) { return TOOLS.find(t => t.id === id); }
+
+  function cardHTML(tool) {
+    const fav = isFavorite(tool.id);
+    return `
+      <a href="${tool.path}" data-tool-id="${tool.id}" class="tool-panel rounded-xl p-5 flex flex-col gap-2 border-l-[3px] relative" style="border-left-color:${tool.color}">
+        <button type="button" class="fav-btn absolute top-3 right-3 text-lg ${fav ? 'text-amber-400' : 'text-slate-600'}" data-fav-toggle="${tool.id}" aria-label="${fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${fav}">
+          ${fav ? '★' : '☆'}
+        </button>
+        <h3 class="font-display text-base font-semibold text-white pr-6">${tool.name}</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">${tool.description}</p>
+      </a>
+    `;
+  }
+
+  function attachCardHandlers(container) {
+    container.querySelectorAll('[data-fav-toggle]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFavorite(btn.getAttribute('data-fav-toggle'));
+        render();
+      });
+    });
+    container.querySelectorAll('a[data-tool-id]').forEach(a => {
+      a.addEventListener('click', () => pushRecent(a.getAttribute('data-tool-id')));
+    });
+  }
+
+  function countFor(key) {
+    if (key === 'all') return TOOLS.length;
+    if (key === 'favorites') return getFavorites().length;
+    return TOOLS.filter(t => (t.categories || []).includes(key)).length;
+  }
+
+  function renderChips() {
+    const chips = [
+      { key: 'all', label: 'All', emoji: '' },
+      { key: 'favorites', label: 'Favorites', emoji: '\u2b50' },
+      ...CATEGORIES.map(c => ({ key: c.key, label: c.label, emoji: c.emoji }))
+    ];
+    chipRow.innerHTML = chips.map(c => `
+      <button type="button" class="cat-tag text-xs font-medium px-3 py-1.5 rounded-md border border-slate-700 bg-slate-900/50 text-slate-300 ${activeFilter === c.key ? 'active' : ''}" data-chip="${c.key}">
+        ${c.emoji ? c.emoji + ' ' : ''}${c.label} <span class="opacity-60">${countFor(c.key)}</span>
+      </button>
+    `).join('');
+    chipRow.querySelectorAll('[data-chip]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeFilter = btn.getAttribute('data-chip');
+        render();
+      });
+    });
+  }
+
+  function matchesQuery(tool, q) {
+    if (!q) return true;
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const haystack = [tool.name, tool.description, ...(tool.keywords || [])].join(' ').toLowerCase();
+    return words.every(w => haystack.includes(w));
+  }
+
+  function filteredTools() {
+    const results = TOOLS.filter(tool => {
+      if (!matchesQuery(tool, query)) return false;
+      if (activeFilter === 'all') return true;
+      if (activeFilter === 'favorites') return isFavorite(tool.id);
+      return (tool.categories || []).includes(activeFilter);
+    });
+    // Favorited tools float to the top, wherever they'd otherwise land.
+    return results.sort((a, b) => (isFavorite(b.id) ? 1 : 0) - (isFavorite(a.id) ? 1 : 0));
+  }
+
+  function render() {
+    renderChips();
+
+    const results = filteredTools();
+    mainGrid.innerHTML = results.map(cardHTML).join('');
+    attachCardHandlers(mainGrid);
+    emptyState.classList.toggle('hidden', results.length > 0);
+
+    const catMeta = CATEGORIES.find(c => c.key === activeFilter);
+    if (activeFilter === 'all') mainGridLabel.textContent = 'All tools';
+    else if (activeFilter === 'favorites') mainGridLabel.textContent = 'Favorites';
+    else mainGridLabel.textContent = catMeta ? `${catMeta.emoji} ${catMeta.label}` : 'Tools';
+    mainGridCount.textContent = `${results.length} tool${results.length === 1 ? '' : 's'}`;
+
+    // Favorites + Popular + Recent only show on the default, unfiltered view
+    const showExtras = activeFilter === 'all' && !query;
+
+    const favoriteTools = TOOLS.filter(t => isFavorite(t.id));
+    favoritesSection.classList.toggle('hidden', !showExtras || favoriteTools.length === 0);
+    if (showExtras && favoriteTools.length) {
+      favoritesGrid.innerHTML = favoriteTools.map(cardHTML).join('');
+      attachCardHandlers(favoritesGrid);
+    }
+
+    popularSection.classList.toggle('hidden', !showExtras);
+    if (showExtras) {
+      popularGrid.innerHTML = TOOLS.filter(t => t.popular).map(cardHTML).join('');
+      attachCardHandlers(popularGrid);
+    }
+
+    const recentIds = getRecent().map(toolById).filter(Boolean);
+    recentSection.classList.toggle('hidden', !showExtras || recentIds.length === 0);
+    if (showExtras && recentIds.length) {
+      recentGrid.innerHTML = recentIds.map(cardHTML).join('');
+      attachCardHandlers(recentGrid);
+    }
+  }
+
+  searchInput.addEventListener('input', () => {
+    query = searchInput.value.trim();
+    render();
+  });
+
+  randomToolBtn.addEventListener('click', () => {
+    if (!TOOLS.length) return;
+    const pick = TOOLS[Math.floor(Math.random() * TOOLS.length)];
+    pushRecent(pick.id);
+    window.location.href = pick.path;
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

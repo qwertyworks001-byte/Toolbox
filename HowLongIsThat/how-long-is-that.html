@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Long Is That?</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">How Long Is That?</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Turn a big confusing number of time units into something readable.</p>
+  </header>
+
+  <div class="flex gap-2 mb-5">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="exact">Exact breakdown</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="approx">Approx. years/months</button>
+  </div>
+
+  <!-- Exact breakdown (fixed units, no calendar assumptions) -->
+  <div id="panelExact" class="glass rounded-2xl p-6">
+    <div class="flex gap-3 mb-6">
+      <input type="text" inputmode="decimal" id="exactValue" value="1000000"
+        class="flex-1 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="exactUnit" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="0.001">Milliseconds</option>
+        <option value="1" selected>Seconds</option>
+        <option value="60">Minutes</option>
+        <option value="3600">Hours</option>
+        <option value="86400">Days</option>
+        <option value="604800">Weeks</option>
+      </select>
+    </div>
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-xl sm:text-2xl font-bold text-white" id="exactResult">11 days, 13 hours, 46 minutes, 40 seconds</p>
+      <p class="text-xs text-slate-500 mt-2">Exact &mdash; fixed-length units only, no calendar assumptions.</p>
+    </div>
+  </div>
+
+  <!-- Approximate calendar breakdown -->
+  <div id="panelApprox" class="glass rounded-2xl p-6 hidden">
+    <div class="flex gap-3 mb-6">
+      <input type="text" inputmode="decimal" id="approxValue" value="500"
+        class="flex-1 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="approxUnit" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="1" selected>Days</option>
+        <option value="7">Weeks</option>
+      </select>
+    </div>
+    <div class="text-center border-t border-slate-700/60 pt-6">
+      <p class="text-xl sm:text-2xl font-bold text-amber-300" id="approxResult">1 year, 4 months, 15 days</p>
+      <p class="text-xs text-amber-400 mt-2">Approximate &mdash; months don't have a fixed number of days, so this uses an average (30.44 days/month, 365.25 days/year).</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panelExact = document.getElementById('panelExact');
+  const panelApprox = document.getElementById('panelApprox');
+
+  const exactValue = document.getElementById('exactValue');
+  const exactUnit = document.getElementById('exactUnit');
+  const exactResult = document.getElementById('exactResult');
+
+  const approxValue = document.getElementById('approxValue');
+  const approxUnit = document.getElementById('approxUnit');
+  const approxResult = document.getElementById('approxResult');
+
+  const DAYS_PER_YEAR = 365.25;
+  const DAYS_PER_MONTH = DAYS_PER_YEAR / 12; // 30.4375
+
+  function parseNum(str) {
+    const v = parseFloat(str);
+    return isNaN(v) || v < 0 ? null : v;
+  }
+
+  function updateExact() {
+    const value = parseNum(exactValue.value);
+    if (value === null) { exactResult.textContent = 'Enter a valid number'; return; }
+
+    let totalSeconds = Math.round(value * parseFloat(exactUnit.value));
+    const days = Math.floor(totalSeconds / 86400); totalSeconds -= days * 86400;
+    const hours = Math.floor(totalSeconds / 3600); totalSeconds -= hours * 3600;
+    const minutes = Math.floor(totalSeconds / 60); totalSeconds -= minutes * 60;
+    const seconds = totalSeconds;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+    if (hours > 0 || days > 0) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+    if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+    parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+
+    exactResult.textContent = parts.join(', ');
+  }
+
+  function updateApprox() {
+    const value = parseNum(approxValue.value);
+    if (value === null) { approxResult.textContent = 'Enter a valid number'; return; }
+
+    let totalDays = value * parseFloat(approxUnit.value);
+    const years = Math.floor(totalDays / DAYS_PER_YEAR); totalDays -= years * DAYS_PER_YEAR;
+    const months = Math.floor(totalDays / DAYS_PER_MONTH); totalDays -= months * DAYS_PER_MONTH;
+    const days = Math.round(totalDays);
+
+    const parts = [];
+    if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+    if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+    if (days > 0 || parts.length === 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+
+    approxResult.textContent = parts.join(', ') + ' (approximately)';
+  }
+
+  function switchTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === tab));
+    panelExact.classList.toggle('hidden', tab !== 'exact');
+    panelApprox.classList.toggle('hidden', tab !== 'approx');
+  }
+
+  tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+  [exactValue, exactUnit].forEach(el => el.addEventListener('input', updateExact));
+  exactUnit.addEventListener('change', updateExact);
+  [approxValue, approxUnit].forEach(el => el.addEventListener('input', updateApprox));
+  approxUnit.addEventListener('change', updateApprox);
+
+  updateExact();
+  updateApprox();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'how-long-is-that';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

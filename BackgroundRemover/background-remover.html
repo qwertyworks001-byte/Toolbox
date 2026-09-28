@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Background Remover</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .checker {
+    background-image:
+      linear-gradient(45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1e293b 75%),
+      linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: #0b0f19;
+  }
+  .drop-zone { transition: border-color 0.15s ease, background 0.15s ease; }
+  .drop-zone.drag-over,
+  #appRoot.drag-over { border-color: #3b82f6; background: rgba(59, 130, 246, 0.06); }
+  .spinner {
+    border: 3px solid rgba(255,255,255,0.15);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    animation: spin 0.8s linear infinite;
+  }
+  .spinner-sm {
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #originalImg, #resultImg { cursor: zoom-in; }
+
+  #lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 7, 12, 0.92);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  #lightbox.hidden { display: none; } /* .hidden alone loses to the ID selector above without this */
+  #lightboxImg {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0.5rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #lightboxClose {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.5rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    transition: background 0.15s ease;
+  }
+  #lightboxClose:hover { background: rgba(255,255,255,0.18); }
+
+  #editorOverlay {
+    position: fixed;
+    inset: 0;
+    background: #05070c;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+  }
+  #editorOverlay.hidden { display: none; }
+  .editor-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .editor-canvas-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow: auto;
+  }
+  #editCanvas {
+    max-width: 100%;
+    max-height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+    border-radius: 0.25rem;
+  }
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .card-thumb {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .card-thumb:hover { transform: translateY(-2px); }
+  .card-thumb.selected { border-color: #3b82f6; }
+  .card-remove {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  .card-wrap:hover .card-remove { opacity: 1; }
+  .add-card {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .add-card:hover { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="appRoot">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Background Remover</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Drop an image, paste one with <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-xs">Ctrl</kbd>+<kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-xs">V</kbd>, or click below. Everything runs in your browser &mdash; nothing is uploaded.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6">
+
+    <div class="flex items-center justify-between gap-3 mb-5">
+      <div>
+        <p class="text-sm font-medium text-slate-300">Mode</p>
+        <p class="text-xs text-slate-500" id="modeDescription">Faster, lighter on memory &mdash; good for most images and big batches.</p>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-mode="speed">Speed</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-mode="quality">Quality</button>
+      </div>
+    </div>
+
+    <!-- Empty state: only shown before the first image is added -->
+    <div id="dropZone" class="drop-zone border-2 border-dashed border-slate-700 rounded-xl p-8 text-center cursor-pointer">
+      <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 mx-auto text-slate-500 mb-3">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p class="text-sm text-slate-300 font-medium">Click to choose an image, paste one, or drag one here</p>
+      <p class="text-xs text-slate-500 mt-1">PNG, JPG, or WEBP</p>
+    </div>
+
+    <!-- Main preview for the currently selected image -->
+    <div id="previewBlock" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-slate-300 font-medium truncate" id="selectedName"></p>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="selectedStatus" class="text-xs text-slate-500"></span>
+          <button type="button" id="editBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hidden">Erase / Restore</button>
+          <a id="downloadBtn" download="background-removed.png" class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold hidden">Download PNG</a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        <div>
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Original</p>
+          <div class="rounded-xl overflow-hidden border border-slate-700">
+            <img id="originalImg" class="w-full h-48 object-contain bg-slate-900/50" alt="Original image">
+          </div>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Background removed</p>
+          <div class="rounded-xl overflow-hidden border border-slate-700 checker relative">
+            <img id="resultImg" class="w-full h-48 object-contain" alt="Image with background removed">
+            <div id="selectedSpinnerWrap" class="absolute inset-0 hidden flex items-center justify-center bg-slate-900/40">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-amber-400 mb-4 hidden text-center" id="selectedError"></p>
+
+      <!-- Filmstrip: "+" to add another, plus one card per image -->
+      <div class="flex items-center gap-3 overflow-x-auto pb-1" id="filmstrip">
+        <button type="button" id="addCardBtn" class="add-card rounded-lg border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500 hover:text-blue-400" aria-label="Add another image">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <div id="cardsRow" class="flex items-center gap-3"></div>
+      </div>
+      <p class="text-xs text-slate-500 mt-3 hidden" id="queueNote"></p>
+    </div>
+
+    <p class="text-sm text-amber-400 mt-5 hidden text-center" id="globalError"></p>
+
+  </div>
+
+  <div class="glass rounded-2xl p-5 mt-5">
+    <p class="text-xs text-slate-400 leading-relaxed">
+      This tool uses <a href="https://github.com/imgly/background-removal-js" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300">@imgly/background-removal</a>,
+      an open-source AI model (AGPL-3.0 licensed) that runs entirely on your device via WebAssembly &mdash; your images are never sent to a server.
+      The first run downloads the model itself, which your browser then caches, so later runs are much faster.
+      Images are processed one at a time to keep your browser responsive, and a cleanup pass patches small interior
+      "holes" the AI sometimes leaves on flat-colored or low-contrast subjects. Each image uses whichever
+      Speed/Quality mode was selected when it was added.
+      Worth knowing: this is a general-purpose open-source model, not the specialized, purpose-trained one a paid
+      service like remove.bg runs on a server &mdash; on some images (especially flat, cartoon-style, or low-contrast
+      ones) it just won't be as clean, and there's no config tweak here that fully closes that gap.
+    </p>
+  </div>
+
+</div>
+
+<div id="lightbox" class="hidden" role="dialog" aria-modal="true" aria-label="Enlarged image">
+  <button type="button" id="lightboxClose" aria-label="Close">&times;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<div id="editorOverlay" class="hidden" role="dialog" aria-modal="true" aria-label="Erase or restore areas of the image">
+  <div class="editor-topbar">
+    <p class="text-sm text-slate-300 font-medium truncate" id="editorName"></p>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" id="editorCancelBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Cancel</button>
+      <button type="button" id="editorApplyBtn" class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Apply</button>
+    </div>
+  </div>
+
+  <div class="editor-canvas-wrap checker">
+    <canvas id="editCanvas"></canvas>
+  </div>
+
+  <div class="editor-toolbar">
+    <div class="flex gap-2">
+      <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/70" data-brush-mode="erase">&#8854; Erase</button>
+      <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/70" data-brush-mode="restore">&#8853; Restore</button>
+    </div>
+    <div class="flex items-center gap-2">
+      <label for="brushSizeInput" class="text-xs text-slate-400 whitespace-nowrap">Brush size</label>
+      <input type="range" id="brushSizeInput" min="5" max="120" value="30" class="w-32 sm:w-40" title="How large an area the brush covers">
+    </div>
+    <div class="flex items-center gap-2">
+      <label for="toleranceInput" class="text-xs text-slate-400 whitespace-nowrap">Tolerance</label>
+      <input type="range" id="toleranceInput" min="0" max="150" value="45" class="w-32 sm:w-40" title="How similar a color needs to be to the spot where you started dragging, to get affected. Low = only very close colors; high = almost everything in the brush.">
+    </div>
+    <button type="button" id="editorResetBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 hover:border-amber-500/60 hover:text-amber-400">Reset to AI result</button>
+  </div>
+</div>
+
+
+<script type="module">
+  import { removeBackground } from 'https://esm.run/@imgly/background-removal@1.7.0';
+
+  const appRoot = document.getElementById('appRoot');
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const previewBlock = document.getElementById('previewBlock');
+  const originalImg = document.getElementById('originalImg');
+  const resultImg = document.getElementById('resultImg');
+  const selectedSpinnerWrap = document.getElementById('selectedSpinnerWrap');
+  const selectedName = document.getElementById('selectedName');
+  const selectedStatus = document.getElementById('selectedStatus');
+  const selectedError = document.getElementById('selectedError');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const addCardBtn = document.getElementById('addCardBtn');
+  const cardsRow = document.getElementById('cardsRow');
+  const queueNote = document.getElementById('queueNote');
+  const globalErrorEl = document.getElementById('globalError');
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxClose = document.getElementById('lightboxClose');
+  const editBtn = document.getElementById('editBtn');
+  const editorOverlay = document.getElementById('editorOverlay');
+  const editorName = document.getElementById('editorName');
+  const editorCancelBtn = document.getElementById('editorCancelBtn');
+  const editorApplyBtn = document.getElementById('editorApplyBtn');
+  const editorResetBtn = document.getElementById('editorResetBtn');
+  const editCanvas = document.getElementById('editCanvas');
+  const editCtx = editCanvas.getContext('2d');
+  const brushModeButtons = document.querySelectorAll('[data-brush-mode]');
+  const brushSizeInput = document.getElementById('brushSizeInput');
+  const toleranceInput = document.getElementById('toleranceInput');
+  const modeButtons = document.querySelectorAll('[data-mode]');
+  const modeDescription = document.getElementById('modeDescription');
+
+  const MAX_FILE_MB = 20;
+
+  /** @type {{id:number, file:File, name:string, originalUrl:string, status:'queued'|'processing'|'done'|'error', resultUrl:string|null, errorMsg:string|null}[]} */
+  let jobs = [];
+  let selectedId = null;
+  let nextId = 1;
+  let processing = false;
+  let qualityMode = 'speed'; // 'speed' (default) or 'quality'
+
+  const MODE_INFO = {
+    speed: 'Faster, lighter on memory \u2014 good for most images and big batches.',
+    quality: 'Uses a larger, full-precision model for cleaner edges \u2014 slower, and more likely to hit browser memory limits partway through a big batch.'
+  };
+
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      qualityMode = btn.getAttribute('data-mode');
+      modeButtons.forEach(b => b.classList.toggle('active', b === btn));
+      modeDescription.textContent = MODE_INFO[qualityMode];
+    });
+  });
+
+  function showGlobalError(msg) {
+    globalErrorEl.textContent = msg;
+    globalErrorEl.classList.remove('hidden');
+    setTimeout(() => globalErrorEl.classList.add('hidden'), 4000);
+  }
+
+  // Patches transparent "holes" that aren't actually connected to the true
+  // background — i.e. interior spots the AI mistakenly marked as background
+  // in the middle of the subject. Anything transparent that touches the
+  // image's edge is left alone (that's real background); anything transparent
+  // and fully enclosed by opaque pixels gets its opacity restored.
+  function cleanupHoles(blob) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth, h = img.naturalHeight;
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const data = imageData.data;
+          const ALPHA_THRESHOLD = 10;
+          const visited = new Uint8Array(w * h);
+          const stack = [];
+
+          function maybeSeed(x, y) {
+            const i = y * w + x;
+            if (!visited[i] && data[i * 4 + 3] <= ALPHA_THRESHOLD) {
+              visited[i] = 1;
+              stack.push(i);
+            }
+          }
+          for (let x = 0; x < w; x++) { maybeSeed(x, 0); maybeSeed(x, h - 1); }
+          for (let y = 0; y < h; y++) { maybeSeed(0, y); maybeSeed(w - 1, y); }
+
+          while (stack.length) {
+            const i = stack.pop();
+            const x = i % w, y = (i / w) | 0;
+            if (x > 0) maybeSeed(x - 1, y);
+            if (x < w - 1) maybeSeed(x + 1, y);
+            if (y > 0) maybeSeed(x, y - 1);
+            if (y < h - 1) maybeSeed(x, y + 1);
+          }
+
+          let patched = 0;
+          for (let i = 0; i < w * h; i++) {
+            if (data[i * 4 + 3] <= ALPHA_THRESHOLD && !visited[i]) {
+              data[i * 4 + 3] = 255;
+              patched++;
+            }
+          }
+
+          if (patched === 0) { resolve(blob); return; } // nothing to fix, keep the original blob
+          ctx.putImageData(imageData, 0, 0);
+          canvas.toBlob((patchedBlob) => resolve(patchedBlob || blob), 'image/png');
+        } catch (e) {
+          resolve(blob); // if cleanup itself fails for any reason, just use the unpatched result
+        } finally {
+          URL.revokeObjectURL(img.src);
+        }
+      };
+      img.onerror = () => resolve(blob);
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  // Reverted from the forced full-precision GPU config: it didn't clearly
+  // improve results but does appear to be why the browser runs out of steam
+  // (or the UI gets unresponsive) after several images in one session.
+  // Sticking with the library's own default model/device selection is
+  // lighter-weight and more reliable across a batch of images. "Quality"
+  // mode is an explicit opt-in back into the heavier model for people who
+  // want to trade some of that reliability for cleaner edges.
+  async function runRemoveBackground(job) {
+    const attempts = job.qualityMode === 'quality'
+      ? [{ model: 'isnet' }, { model: 'isnet', device: 'cpu' }, {}]
+      : [{ model: 'isnet_quint8' }, {}];
+    let lastErr;
+    for (const cfg of attempts) {
+      try {
+        return await removeBackground(job.file, {
+          ...cfg,
+          progress: (key, current, total) => {
+            if (total && selectedId === job.id) {
+              selectedStatus.textContent = `${key} \u2013 ${Math.round((current / total) * 100)}%`;
+            }
+          }
+        });
+      } catch (err) {
+        lastErr = err;
+        console.warn('Background removal attempt failed, trying a fallback config:', cfg, err);
+      }
+    }
+    throw lastErr;
+  }
+
+  function jobById(id) { return jobs.find(j => j.id === id); }
+
+  function openLightbox(src) {
+    lightboxImg.src = src;
+    lightbox.classList.remove('hidden');
+  }
+  function closeLightbox() {
+    lightbox.classList.add('hidden');
+    lightboxImg.src = '';
+  }
+  originalImg.addEventListener('click', () => openLightbox(originalImg.src));
+  resultImg.addEventListener('click', () => openLightbox(resultImg.src));
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox(); // click on the backdrop, not the image itself
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !lightbox.classList.contains('hidden')) closeLightbox();
+  });
+
+  // ── Erase / Restore editor ──────────────────────────────────
+  // The brush isn't a blind circle: it samples the color where you start
+  // dragging, then only affects pixels within the brush that are actually
+  // similar to that seed color. That keeps a stroke from eating into (or
+  // dragging back in) a differently-colored area just because your circle
+  // happened to overlap it — it naturally respects real edges in the image
+  // instead of a hard-edged stamp.
+  let editingJobId = null;
+  let originalImageData = null; // cached pixel data of the original photo, sampled for Restore
+  let brushMode = 'erase';
+  let isDrawing = false;
+  let lastPoint = null;
+  let seedColor = null; // [r,g,b] sampled once at the start of the current stroke
+
+  function openEditor(job) {
+    editingJobId = job.id;
+    editorName.textContent = job.name;
+    originalImageData = null;
+
+    const resultImgEl = new Image();
+    resultImgEl.onload = () => {
+      editCanvas.width = resultImgEl.naturalWidth;
+      editCanvas.height = resultImgEl.naturalHeight;
+      editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+      editCtx.drawImage(resultImgEl, 0, 0);
+
+      const originalImageEl = new Image();
+      originalImageEl.onload = () => {
+        const tmp = document.createElement('canvas');
+        tmp.width = editCanvas.width;
+        tmp.height = editCanvas.height;
+        const tmpCtx = tmp.getContext('2d');
+        tmpCtx.drawImage(originalImageEl, 0, 0, tmp.width, tmp.height);
+        originalImageData = tmpCtx.getImageData(0, 0, tmp.width, tmp.height);
+      };
+      originalImageEl.src = job.originalUrl;
+
+      editorOverlay.classList.remove('hidden');
+    };
+    resultImgEl.src = job.resultUrl;
+  }
+
+  function closeEditor() {
+    editorOverlay.classList.add('hidden');
+    editingJobId = null;
+    originalImageData = null;
+  }
+
+  function canvasPointFromEvent(e) {
+    const rect = editCanvas.getBoundingClientRect();
+    const scaleX = editCanvas.width / rect.width;
+    const scaleY = editCanvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+      scale: (scaleX + scaleY) / 2
+    };
+  }
+
+  function colorDistance(data, i, seed) {
+    const dr = data[i] - seed[0];
+    const dg = data[i + 1] - seed[1];
+    const db = data[i + 2] - seed[2];
+    return Math.sqrt(dr * dr + dg * dg + db * db);
+  }
+
+  // Paints one circular "stamp" centered at (cx, cy), only affecting pixels
+  // whose color (in the relevant source image) is within `tolerance` of seedColor.
+  function paintAt(cx, cy, radius, tolerance) {
+    const w = editCanvas.width, h = editCanvas.height;
+    const x0 = Math.max(0, Math.floor(cx - radius));
+    const y0 = Math.max(0, Math.floor(cy - radius));
+    const x1 = Math.min(w, Math.ceil(cx + radius));
+    const y1 = Math.min(h, Math.ceil(cy + radius));
+    const bw = x1 - x0, bh = y1 - y0;
+    if (bw <= 0 || bh <= 0 || !seedColor) return;
+
+    const editRegion = editCtx.getImageData(x0, y0, bw, bh);
+    const editData = editRegion.data;
+    const sourceData = brushMode === 'restore' && originalImageData ? originalImageData.data : null;
+
+    for (let ly = 0; ly < bh; ly++) {
+      for (let lx = 0; lx < bw; lx++) {
+        const dx = (x0 + lx) - cx, dy = (y0 + ly) - cy;
+        if (dx * dx + dy * dy > radius * radius) continue;
+
+        const globalI = ((y0 + ly) * w + (x0 + lx)) * 4;
+        const localI = (ly * bw + lx) * 4;
+
+        if (brushMode === 'erase') {
+          if (colorDistance(editData, localI, seedColor) <= tolerance) {
+            editData[localI + 3] = 0;
+          }
+        } else if (sourceData) {
+          if (colorDistance(sourceData, globalI, seedColor) <= tolerance) {
+            editData[localI] = sourceData[globalI];
+            editData[localI + 1] = sourceData[globalI + 1];
+            editData[localI + 2] = sourceData[globalI + 2];
+            editData[localI + 3] = sourceData[globalI + 3];
+          }
+        }
+      }
+    }
+    editCtx.putImageData(editRegion, x0, y0);
+  }
+
+  function sampleSeedColor(cx, cy) {
+    const w = editCanvas.width, h = editCanvas.height;
+    const x = Math.max(0, Math.min(w - 1, Math.round(cx)));
+    const y = Math.max(0, Math.min(h - 1, Math.round(cy)));
+    if (brushMode === 'restore' && originalImageData) {
+      const i = (y * w + x) * 4;
+      return [originalImageData.data[i], originalImageData.data[i + 1], originalImageData.data[i + 2]];
+    }
+    const pixel = editCtx.getImageData(x, y, 1, 1).data;
+    return [pixel[0], pixel[1], pixel[2]];
+  }
+
+  function strokeTo(x, y, radius, tolerance) {
+    if (lastPoint) {
+      const dist = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+      const steps = Math.max(1, Math.ceil(dist / Math.max(2, radius / 3)));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        paintAt(lastPoint.x + (x - lastPoint.x) * t, lastPoint.y + (y - lastPoint.y) * t, radius, tolerance);
+      }
+    } else {
+      paintAt(x, y, radius, tolerance);
+    }
+    lastPoint = { x, y };
+  }
+
+  editCanvas.addEventListener('pointerdown', (e) => {
+    if (brushMode === 'restore' && !originalImageData) return; // still loading, ignore this click
+    isDrawing = true;
+    lastPoint = null;
+    editCanvas.setPointerCapture(e.pointerId);
+    const p = canvasPointFromEvent(e);
+    seedColor = sampleSeedColor(p.x, p.y);
+    strokeTo(p.x, p.y, parseFloat(brushSizeInput.value) * p.scale, parseFloat(toleranceInput.value));
+  });
+  editCanvas.addEventListener('pointermove', (e) => {
+    if (!isDrawing) return;
+    const p = canvasPointFromEvent(e);
+    strokeTo(p.x, p.y, parseFloat(brushSizeInput.value) * p.scale, parseFloat(toleranceInput.value));
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(evt => {
+    editCanvas.addEventListener(evt, () => { isDrawing = false; lastPoint = null; seedColor = null; });
+  });
+
+  brushModeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      brushMode = btn.getAttribute('data-brush-mode');
+      brushModeButtons.forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  editBtn.addEventListener('click', () => {
+    const job = jobById(selectedId);
+    if (job && job.status === 'done') openEditor(job);
+  });
+
+  editorCancelBtn.addEventListener('click', closeEditor);
+
+  editorApplyBtn.addEventListener('click', () => {
+    const job = jobById(editingJobId);
+    editCanvas.toBlob((blob) => {
+      if (job && blob) {
+        if (job.resultUrl !== job.aiResultUrl) URL.revokeObjectURL(job.resultUrl);
+        job.resultUrl = URL.createObjectURL(blob);
+      }
+      closeEditor();
+      renderAll();
+    }, 'image/png');
+  });
+
+  editorResetBtn.addEventListener('click', () => {
+    const job = jobById(editingJobId);
+    if (!job || !job.aiResultUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+      editCtx.drawImage(img, 0, 0);
+    };
+    img.src = job.aiResultUrl;
+  });
+  // ─────────────────────────────────────────────────────────────
+
+  function addFiles(fileList) {
+    const files = Array.from(fileList || []).filter(f => f.type && f.type.startsWith('image/'));
+    if (files.length === 0) {
+      showGlobalError('That doesn\u2019t look like an image. Try a PNG, JPG, or WEBP.');
+      return;
+    }
+
+    let lastAddedId = null;
+    files.forEach(file => {
+      if (file.size > MAX_FILE_MB * 1024 * 1024) {
+        showGlobalError(`"${file.name}" is over ${MAX_FILE_MB}MB \u2014 skipped.`);
+        return;
+      }
+      const job = {
+        id: nextId++,
+        file,
+        name: file.name || 'Pasted image',
+        originalUrl: URL.createObjectURL(file),
+        status: 'queued',
+        resultUrl: null,
+        errorMsg: null,
+        qualityMode
+      };
+      jobs.push(job);
+      lastAddedId = job.id;
+    });
+
+    if (lastAddedId !== null) {
+      dropZone.classList.add('hidden');
+      previewBlock.classList.remove('hidden');
+      selectedId = lastAddedId;
+      renderAll();
+      processQueue();
+    }
+  }
+
+  async function processQueue() {
+    if (processing) return;
+    processing = true;
+
+    let job;
+    while ((job = jobs.find(j => j.status === 'queued'))) {
+      job.status = 'processing';
+      renderAll();
+
+      try {
+        if (selectedId === job.id) selectedStatus.textContent = 'Processing\u2026';
+        const rawResultBlob = await runRemoveBackground(job);
+        const cleanedBlob = await cleanupHoles(rawResultBlob);
+        job.resultUrl = URL.createObjectURL(cleanedBlob);
+        job.aiResultUrl = job.resultUrl; // pristine AI output, kept for "Reset to AI result"
+        job.status = 'done';
+      } catch (err) {
+        console.error(err);
+        job.status = 'error';
+        job.errorMsg = 'Couldn\u2019t process this image \u2014 try again, or try a different image.';
+      }
+      renderAll();
+    }
+
+    processing = false;
+  }
+
+  function selectJob(id) {
+    selectedId = id;
+    renderAll();
+  }
+
+  function removeJob(id) {
+    const job = jobById(id);
+    if (!job) return;
+    URL.revokeObjectURL(job.originalUrl);
+    if (job.resultUrl) URL.revokeObjectURL(job.resultUrl);
+    if (job.aiResultUrl && job.aiResultUrl !== job.resultUrl) URL.revokeObjectURL(job.aiResultUrl);
+    jobs = jobs.filter(j => j.id !== id);
+
+    if (selectedId === id) {
+      selectedId = jobs.length ? jobs[jobs.length - 1].id : null;
+    }
+    if (jobs.length === 0) {
+      previewBlock.classList.add('hidden');
+      dropZone.classList.remove('hidden');
+    }
+    renderAll();
+  }
+
+  function cardHTML(job) {
+    const thumbSrc = job.resultUrl || job.originalUrl;
+    const selectedClass = job.id === selectedId ? 'selected border-2' : 'border';
+    const spinnerOverlay = job.status === 'processing'
+      ? `<div class="absolute inset-0 flex items-center justify-center bg-slate-900/50 rounded-lg"><div class="spinner-sm"></div></div>`
+      : '';
+    const errorBadge = job.status === 'error'
+      ? `<div class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">!</div>`
+      : '';
+    return `
+      <div class="card-wrap relative">
+        <button type="button" class="card-thumb ${selectedClass} border-slate-700 rounded-lg overflow-hidden checker relative" data-select="${job.id}" aria-label="View ${job.name}">
+          <img src="${thumbSrc}" class="w-full h-full object-cover" alt="">
+          ${spinnerOverlay}
+          ${errorBadge}
+        </button>
+        <button type="button" class="card-remove absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-700 hover:bg-red-500 text-white text-[10px] flex items-center justify-center" data-remove="${job.id}" aria-label="Remove ${job.name}">&times;</button>
+      </div>
+    `;
+  }
+
+  function renderAll() {
+    cardsRow.innerHTML = jobs.map(cardHTML).join('');
+    cardsRow.querySelectorAll('[data-select]').forEach(btn => {
+      btn.addEventListener('click', () => selectJob(parseInt(btn.getAttribute('data-select'), 10)));
+    });
+    cardsRow.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeJob(parseInt(btn.getAttribute('data-remove'), 10));
+      });
+    });
+
+    const queuedOrProcessing = jobs.filter(j => j.status === 'queued' || j.status === 'processing').length;
+    queueNote.classList.toggle('hidden', queuedOrProcessing <= 1);
+    if (queuedOrProcessing > 1) {
+      queueNote.textContent = `${queuedOrProcessing} images in the queue \u2014 processed one at a time.`;
+    }
+
+    const job = selectedId !== null ? jobById(selectedId) : null;
+    if (!job) return;
+
+    selectedName.textContent = job.name;
+    originalImg.src = job.originalUrl;
+    downloadBtn.classList.add('hidden');
+    editBtn.classList.add('hidden');
+    selectedSpinnerWrap.classList.add('hidden');
+    selectedError.classList.add('hidden');
+
+    if (job.status === 'processing' || job.status === 'queued') {
+      resultImg.src = job.originalUrl;
+      selectedSpinnerWrap.classList.remove('hidden');
+      selectedStatus.textContent = job.status === 'processing' ? 'Processing\u2026' : 'Queued\u2026';
+    } else if (job.status === 'done') {
+      resultImg.src = job.resultUrl;
+      downloadBtn.href = job.resultUrl;
+      downloadBtn.download = (job.name.replace(/\.[^.]+$/, '') || 'image') + '-background-removed.png';
+      downloadBtn.classList.remove('hidden');
+      editBtn.classList.remove('hidden');
+      selectedStatus.textContent = '';
+    } else if (job.status === 'error') {
+      resultImg.src = job.originalUrl;
+      selectedStatus.textContent = '';
+      selectedError.textContent = job.errorMsg;
+      selectedError.classList.remove('hidden');
+    }
+  }
+
+  // ── Input sources: click, drag-and-drop, and paste — all active at any time ──
+  dropZone.addEventListener('click', () => fileInput.click());
+  addCardBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    addFiles(e.target.files);
+    fileInput.value = '';
+  });
+
+  ['dragover', 'dragenter'].forEach(evt => {
+    appRoot.addEventListener(evt, (e) => {
+      e.preventDefault();
+      appRoot.classList.add('drag-over');
+      dropZone.classList.add('drag-over');
+    });
+  });
+  ['dragleave', 'dragend'].forEach(evt => {
+    appRoot.addEventListener(evt, () => {
+      appRoot.classList.remove('drag-over');
+      dropZone.classList.remove('drag-over');
+    });
+  });
+  appRoot.addEventListener('drop', (e) => {
+    e.preventDefault();
+    appRoot.classList.remove('drag-over');
+    dropZone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+  });
+
+  document.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length) addFiles(files);
+  });
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'background-remover';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

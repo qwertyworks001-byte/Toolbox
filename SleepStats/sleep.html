@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sleep Stats</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .stage-card { transition: border-color 0.15s ease, background 0.15s ease; }
+  </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8 flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/>
+          <path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Sleep Stats</h1>
+      <p class="text-slate-400 mt-1 text-sm sm:text-base">Work out your total sleep time and break it down into stages.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+      <button type="button" id="loadExampleBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 whitespace-nowrap">
+        Load Example
+      </button>
+    </div>
+  </header>
+
+  <!-- Duration calculator -->
+  <div class="glass rounded-2xl p-6 mb-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-5">How long did I sleep?</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+      <div>
+        <label for="sleepTime" class="block text-sm font-medium text-slate-300 mb-2">Went to sleep</label>
+        <input type="time" id="sleepTime" value="23:00"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="wakeTime" class="block text-sm font-medium text-slate-300 mb-2">Woke up</label>
+        <input type="time" id="wakeTime" value="07:00"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <div class="text-center border-t border-slate-700/60 pt-5">
+      <p class="text-3xl sm:text-4xl font-bold text-white" id="totalDuration">8h 00m</p>
+      <p class="text-sm text-slate-400 mt-1">of sleep &middot; <span id="totalMinutes">480</span> minutes</p>
+    </div>
+  </div>
+
+  <!-- Stage breakdown inputs -->
+  <div class="glass rounded-2xl p-6 mb-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Sleep Stage Breakdown</h2>
+      <button type="button" id="resetBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400">
+        Reset
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <label for="pctLight" class="text-sm flex items-center gap-2"><span>&#127769;</span> Light Sleep</label>
+        <div class="flex items-center gap-1">
+          <input type="number" id="pctLight" value="50" min="0" max="100" step="0.1"
+            class="w-16 bg-transparent text-right text-white font-semibold focus:outline-none">
+          <span class="text-slate-500 text-sm">%</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <label for="pctDeep" class="text-sm flex items-center gap-2"><span>&#128164;</span> Deep Sleep</label>
+        <div class="flex items-center gap-1">
+          <input type="number" id="pctDeep" value="20" min="0" max="100" step="0.1"
+            class="w-16 bg-transparent text-right text-white font-semibold focus:outline-none">
+          <span class="text-slate-500 text-sm">%</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <label for="pctRem" class="text-sm flex items-center gap-2"><span>&#129504;</span> REM Sleep</label>
+        <div class="flex items-center gap-1">
+          <input type="number" id="pctRem" value="20" min="0" max="100" step="0.1"
+            class="w-16 bg-transparent text-right text-white font-semibold focus:outline-none">
+          <span class="text-slate-500 text-sm">%</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <label for="pctAwake" class="text-sm flex items-center gap-2"><span>&#128065;</span> Awake</label>
+        <div class="flex items-center gap-1">
+          <input type="number" id="pctAwake" value="10" min="0" max="100" step="0.1"
+            class="w-16 bg-transparent text-right text-white font-semibold focus:outline-none">
+          <span class="text-slate-500 text-sm">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg px-4 py-3 text-sm font-medium text-center" id="validationBanner"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="glass rounded-2xl p-6 mb-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-5">Sleep Breakdown</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+      <div class="stage-card rounded-xl p-4 text-center border-l-4" style="border-left-color:#3b82f6; background:rgba(59,130,246,0.06);">
+        <p class="text-xl mb-1">&#127769;</p>
+        <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Light Sleep</p>
+        <p class="text-sm font-mono text-blue-400 mb-1" id="pctLightDisplay">50%</p>
+        <p class="text-lg font-bold text-white" id="durLight">4h 00m</p>
+      </div>
+      <div class="stage-card rounded-xl p-4 text-center border-l-4" style="border-left-color:#8b5cf6; background:rgba(139,92,246,0.06);">
+        <p class="text-xl mb-1">&#128164;</p>
+        <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Deep Sleep</p>
+        <p class="text-sm font-mono text-purple-400 mb-1" id="pctDeepDisplay">20%</p>
+        <p class="text-lg font-bold text-white" id="durDeep">1h 36m</p>
+      </div>
+      <div class="stage-card rounded-xl p-4 text-center border-l-4" style="border-left-color:#10b981; background:rgba(16,185,129,0.06);">
+        <p class="text-xl mb-1">&#129504;</p>
+        <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">REM Sleep</p>
+        <p class="text-sm font-mono text-emerald-400 mb-1" id="pctRemDisplay">20%</p>
+        <p class="text-lg font-bold text-white" id="durRem">1h 36m</p>
+      </div>
+      <div class="stage-card rounded-xl p-4 text-center border-l-4" style="border-left-color:#f59e0b; background:rgba(245,158,11,0.06);">
+        <p class="text-xl mb-1">&#128065;</p>
+        <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Awake</p>
+        <p class="text-sm font-mono text-amber-400 mb-1" id="pctAwakeDisplay">10%</p>
+        <p class="text-lg font-bold text-white" id="durAwake">48m</p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-center gap-2 text-sm text-slate-400 border-t border-slate-700/60 pt-4">
+      Total: <span id="totalPct" class="font-semibold text-white">100%</span>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="glass rounded-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Chart</h2>
+      <span class="text-xs" id="chartStatus"></span>
+    </div>
+    <div class="relative mx-auto" style="max-width: 280px; height: 280px;">
+      <canvas id="sleepChart"></canvas>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-5 leading-relaxed text-center">
+    This tool is a calculator, not a medical diagnosis or sleep-quality assessment.
+  </p>
+
+</div>
+
+<script>
+(function () {
+  const sleepTime = document.getElementById('sleepTime');
+  const wakeTime = document.getElementById('wakeTime');
+  const totalDuration = document.getElementById('totalDuration');
+  const totalMinutesEl = document.getElementById('totalMinutes');
+
+  const pctInputs = {
+    light: document.getElementById('pctLight'),
+    deep: document.getElementById('pctDeep'),
+    rem: document.getElementById('pctRem'),
+    awake: document.getElementById('pctAwake')
+  };
+  const pctDisplays = {
+    light: document.getElementById('pctLightDisplay'),
+    deep: document.getElementById('pctDeepDisplay'),
+    rem: document.getElementById('pctRemDisplay'),
+    awake: document.getElementById('pctAwakeDisplay')
+  };
+  const durEls = {
+    light: document.getElementById('durLight'),
+    deep: document.getElementById('durDeep'),
+    rem: document.getElementById('durRem'),
+    awake: document.getElementById('durAwake')
+  };
+
+  const validationBanner = document.getElementById('validationBanner');
+  const totalPctEl = document.getElementById('totalPct');
+  const chartStatus = document.getElementById('chartStatus');
+  const loadExampleBtn = document.getElementById('loadExampleBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const DEFAULTS = {
+    sleep: '23:00', wake: '07:00',
+    light: 50, deep: 20, rem: 20, awake: 10
+  };
+  const EXAMPLE = {
+    sleep: '21:00', wake: '06:00',
+    light: 54, deep: 35, rem: 18, awake: 3
+  };
+
+  const STAGE_COLORS = { light: '#3b82f6', deep: '#8b5cf6', rem: '#10b981', awake: '#f59e0b' };
+
+  let chart;
+
+  function parseTimeToMinutes(value) {
+    if (!value) return null;
+    const [h, m] = value.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+
+  function formatDuration(totalMinutesFloat) {
+    const totalMins = Math.max(0, Math.round(totalMinutesFloat));
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+    return `${m}m`;
+  }
+
+  function clampPct(value) {
+    if (isNaN(value)) return 0;
+    return Math.min(100, Math.max(0, value));
+  }
+
+  function getPercentages() {
+    const result = {};
+    Object.keys(pctInputs).forEach(key => {
+      result[key] = clampPct(parseFloat(pctInputs[key].value));
+    });
+    return result;
+  }
+
+  function getTotalSleepMinutes() {
+    const sleepMins = parseTimeToMinutes(sleepTime.value);
+    const wakeMins = parseTimeToMinutes(wakeTime.value);
+    if (sleepMins === null || wakeMins === null) return 0;
+    let diff = wakeMins - sleepMins;
+    if (diff <= 0) diff += 24 * 60;
+    return diff;
+  }
+
+  function initChart() {
+    const ctx = document.getElementById('sleepChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Light Sleep', 'Deep Sleep', 'REM Sleep', 'Awake'],
+        datasets: [{
+          data: [50, 20, 20, 10],
+          backgroundColor: [STAGE_COLORS.light, STAGE_COLORS.deep, STAGE_COLORS.rem, STAGE_COLORS.awake],
+          borderColor: '#0b0f19',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#cbd5e1', usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11 } }
+          },
+          tooltip: {
+            backgroundColor: '#0f172a',
+            borderColor: '#334155',
+            borderWidth: 1,
+            titleColor: '#f8fafc',
+            bodyColor: '#e2e8f0',
+            callbacks: {
+              label: function (context) {
+                return `${context.label}: ${context.parsed}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function update() {
+    const totalMins = getTotalSleepMinutes();
+    totalDuration.textContent = formatDuration(totalMins);
+    totalMinutesEl.textContent = totalMins.toString();
+
+    const pct = getPercentages();
+    const totalPct = pct.light + pct.deep + pct.rem + pct.awake;
+    const isValid = Math.abs(totalPct - 100) < 0.05;
+
+    Object.keys(pct).forEach(key => {
+      pctDisplays[key].textContent = `${pct[key]}%`;
+      durEls[key].textContent = formatDuration(totalMins * (pct[key] / 100));
+    });
+
+    totalPctEl.textContent = `${Math.round(totalPct * 10) / 10}%`;
+    totalPctEl.className = isValid ? 'font-semibold text-emerald-400' : 'font-semibold text-amber-400';
+
+    if (isValid) {
+      validationBanner.textContent = '\u2713 Percentages add up to 100%';
+      validationBanner.className = 'rounded-lg px-4 py-3 text-sm font-medium text-center bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+    } else {
+      validationBanner.textContent = `\u26A0\uFE0F Your sleep percentages add up to ${Math.round(totalPct * 10) / 10}%. They should normally total 100%.`;
+      validationBanner.className = 'rounded-lg px-4 py-3 text-sm font-medium text-center bg-amber-500/10 text-amber-400 border border-amber-500/20';
+    }
+
+    chartStatus.textContent = isValid ? '' : 'Invalid \u2014 does not total 100%';
+    chartStatus.className = isValid ? 'text-xs text-slate-500' : 'text-xs text-amber-400';
+
+    if (chart) {
+      chart.data.datasets[0].data = [pct.light, pct.deep, pct.rem, pct.awake];
+      chart.data.datasets[0].borderColor = isValid ? '#0b0f19' : '#f59e0b';
+      chart.update();
+    }
+  }
+
+  function applyValues(values) {
+    sleepTime.value = values.sleep;
+    wakeTime.value = values.wake;
+    pctInputs.light.value = values.light;
+    pctInputs.deep.value = values.deep;
+    pctInputs.rem.value = values.rem;
+    pctInputs.awake.value = values.awake;
+    update();
+  }
+
+  [sleepTime, wakeTime].forEach(el => el.addEventListener('input', update));
+  Object.values(pctInputs).forEach(el => {
+    el.addEventListener('input', update);
+    el.addEventListener('blur', () => {
+      el.value = clampPct(parseFloat(el.value)) || 0;
+      update();
+    });
+  });
+
+  loadExampleBtn.addEventListener('click', () => applyValues(EXAMPLE));
+  resetBtn.addEventListener('click', () => applyValues(DEFAULTS));
+
+  initChart();
+  update();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'sleep';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>
