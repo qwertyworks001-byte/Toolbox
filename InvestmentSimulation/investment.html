@@ -29,7 +29,7 @@
     <div class="flex items-start justify-between gap-4 flex-wrap">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Investment Risk & Return Simulator</h1>
-        <p class="text-slate-400 mt-1 text-sm sm:text-base">Set your expected average return &mdash; Best and Worst case are calculated automatically.</p>
+        <p id="headerBlurb" class="text-slate-400 mt-1 text-sm sm:text-base">Set your expected average return &mdash; Best and Worst case are calculated automatically.</p>
       </div>
       <div class="relative shrink-0">
         <select id="currencySelect"
@@ -42,6 +42,12 @@
     </div>
   </header>
 
+  <div class="flex flex-wrap gap-2 mb-6" role="tablist">
+    <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-view="growth" role="tab" aria-selected="true">Growth Simulator</button>
+    <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-view="pv" role="tab" aria-selected="false">Present Value</button>
+  </div>
+
+  <div id="panelGrowth">
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
     <!-- Controls Panel -->
@@ -187,6 +193,154 @@
       </p>
     </div>
   </div>
+  </div>
+
+  <!-- ═══════════════════════ PRESENT VALUE ═══════════════════════ -->
+  <div id="panelPV" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+      <!-- Controls -->
+      <div class="lg:col-span-1 order-2 lg:order-1">
+        <div class="glass rounded-2xl p-5 sticky top-6">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">Inputs</h2>
+
+          <p class="text-sm font-medium text-slate-300 mb-2">What are you valuing?</p>
+          <div class="grid grid-cols-3 gap-2 mb-5">
+            <button type="button" data-pvmode="single" class="tab-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50 active">Single sum</button>
+            <button type="button" data-pvmode="stream" class="tab-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50">Regular payments</button>
+            <button type="button" data-pvmode="custom" class="tab-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50">Custom flows</button>
+          </div>
+
+          <div class="mb-4 pb-4 border-b border-slate-700/60">
+            <div class="mb-4">
+            <label for="pvRate" class="block text-sm font-medium text-slate-300 mb-2">Discount Rate (per year)</label>
+            <div class="relative"><input type="number" id="pvRate" value="5" step="any" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-3 pr-9"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span></div>
+          </div>
+            <button type="button" id="pvUseSimRate" class="text-[11px] text-blue-400 hover:text-blue-300 underline underline-offset-2 -mt-2 mb-3 block">Use Growth Simulator's 10%</button>
+            <div class="mb-4">
+            <label for="pvComp" class="block text-sm font-medium text-slate-300 mb-2">Compounded</label>
+            <select id="pvComp" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 px-3 cursor-pointer"><option value="annual" selected>Annually</option><option value="semiannual">Semi-annually</option><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option><option value="daily">Daily</option><option value="continuous">Continuously</option></select>
+          </div>
+            <p class="text-[11px] text-slate-500 -mt-2 leading-snug">The rate you could earn elsewhere, or the return you demand. A higher rate makes future money worth less today.</p>
+          </div>
+
+          <div id="pvFieldsSingle">
+            <div class="mb-4">
+            <label for="pvFv" class="block text-sm font-medium text-slate-300 mb-2">Future Amount</label>
+            <div class="relative"><span class="cur-prefix absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+            <input type="number" id="pvFv" value="10000" step="any" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-7 pr-3"></div>
+          </div>
+            <div class="mb-4">
+            <label for="pvYears" class="block text-sm font-medium text-slate-300 mb-2">Years Until You Receive It</label>
+            <div class="relative"><input type="number" id="pvYears" value="10" step="any" min="0" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-3 pr-9"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">yrs</span></div>
+          </div>
+          </div>
+
+          <div id="pvFieldsStream" class="hidden">
+            <div class="mb-4">
+            <label for="pvPayment" class="block text-sm font-medium text-slate-300 mb-2">Payment Amount</label>
+            <div class="relative"><span class="cur-prefix absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+            <input type="number" id="pvPayment" value="1000" step="any" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-7 pr-3"></div>
+          </div>
+            <div class="mb-4">
+            <label for="pvFreq" class="block text-sm font-medium text-slate-300 mb-2">Payments Per Year</label>
+            <select id="pvFreq" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 px-3 cursor-pointer"><option value="1" selected>Annually</option><option value="2">Twice a year</option><option value="4">Quarterly</option><option value="12">Monthly</option><option value="52">Weekly</option></select>
+          </div>
+            <div class="mb-4" id="pvStreamYearsWrap">
+            <label for="pvStreamYears" class="block text-sm font-medium text-slate-300 mb-2">For How Many Years</label>
+            <div class="relative"><input type="number" id="pvStreamYears" value="10" step="any" min="0" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-3 pr-9"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">yrs</span></div>
+          </div>
+            <div class="mb-4">
+            <label for="pvTiming" class="block text-sm font-medium text-slate-300 mb-2">Paid At The</label>
+            <select id="pvTiming" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 px-3 cursor-pointer"><option value="end" selected>End of each period</option><option value="start">Start of each period</option></select>
+          </div>
+            <div class="mb-4">
+            <label for="pvGrowth" class="block text-sm font-medium text-slate-300 mb-2">Payment Growth (per year)</label>
+            <div class="relative"><input type="number" id="pvGrowth" value="0" step="any" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-3 pr-9"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span></div><p class="text-[11px] text-slate-500 mt-1.5 leading-snug">Optional, e.g. 3% for payments that rise with inflation.</p>
+          </div>
+            <div class="mb-4" id="pvTerminalWrap">
+            <label for="pvTerminal" class="block text-sm font-medium text-slate-300 mb-2">Lump Sum At The End</label>
+            <div class="relative"><span class="cur-prefix absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+            <input type="number" id="pvTerminal" value="0" step="any" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 pl-7 pr-3"></div><p class="text-[11px] text-slate-500 mt-1.5 leading-snug">Optional, e.g. a bond&rsquo;s face value.</p>
+          </div>
+            <label class="inline-flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+              <input type="checkbox" id="pvForever" class="accent-blue-500 w-4 h-4"> Payments continue forever
+            </label>
+          </div>
+
+          <div id="pvFieldsCustom" class="hidden">
+            <p class="text-sm font-medium text-slate-300 mb-1">Cash Flows</p>
+            <p class="text-[11px] text-slate-500 mb-2 leading-snug">Year 0 is today. Use a negative amount for money you pay out.</p>
+            <div id="pvRows" class="space-y-2 mb-3"></div>
+            <div class="flex gap-2">
+              <button type="button" id="pvAddRow" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Add row</button>
+              <button type="button" id="pvClearRows" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Clear</button>
+            </div>
+          </div>
+
+          <div class="mt-5 pt-4 border-t border-slate-700/60">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Quick Examples</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-pvpreset="lump" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400">Lump sum in 10 yrs</button>
+              <button type="button" data-pvpreset="bond" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400">Bond, 5% coupon</button>
+              <button type="button" data-pvpreset="pension" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400">Monthly pension</button>
+              <button type="button" data-pvpreset="perpetuity" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400">Perpetuity</button>
+              <button type="button" data-pvpreset="project" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400">Project NPV</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="lg:col-span-3 order-1 lg:order-2">
+        <div class="glass rounded-2xl p-4 mb-6">
+          <p class="text-sm text-slate-300 leading-relaxed"><strong class="text-white">Present value</strong> is the current worth of a future sum of money or stream of cash flows, discounted back at a specific interest or return rate.</p>
+        </div>
+
+        <div id="pvError" class="hidden mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200" role="alert"></div>
+
+        <div id="pvCards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6"></div>
+
+        <div class="glass rounded-2xl p-4 sm:p-6 mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 id="pvChartTitle" class="text-sm font-semibold uppercase tracking-wider text-slate-400">How Waiting Shrinks the Value</h2>
+          </div>
+          <div class="relative w-full" style="height: 360px;"><canvas id="pvChart"></canvas></div>
+          <p class="text-xs text-slate-500 mt-2" id="pvChartNote"></p>
+        </div>
+
+        <div id="pvBreakdownCard" class="glass rounded-2xl p-4 sm:p-6 mb-6 hidden">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Cash Flow Breakdown</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead><tr class="text-xs uppercase tracking-wider text-slate-500"><th class="text-left font-medium pb-2 pr-3">Year</th><th class="text-right font-medium pb-2 pr-3">Cash flow</th><th class="text-right font-medium pb-2 pr-3">Discount factor</th><th class="text-right font-medium pb-2">Present value</th></tr></thead>
+              <tbody id="pvBreakdown"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="glass rounded-2xl p-4 sm:p-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">If the Discount Rate Were&hellip;</h2>
+            <table class="w-full text-sm">
+              <thead><tr class="text-xs uppercase tracking-wider text-slate-500"><th class="text-left font-medium pb-2 pr-3">Rate</th><th class="text-right font-medium pb-2 pr-3">Present value</th><th class="text-right font-medium pb-2">Change</th></tr></thead>
+              <tbody id="pvSens"></tbody>
+            </table>
+          </div>
+          <div class="glass rounded-2xl p-4 sm:p-6">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">How It&rsquo;s Calculated</h2>
+            <div id="pvFormula" class="text-sm leading-relaxed"></div>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-500 mt-4 leading-relaxed">
+          Amounts are treated as being in whichever currency is selected; nothing is converted. Use an inflation rate as the discount rate to see
+          future money in today&rsquo;s purchasing power. This is a simplified illustrative model, not financial advice.
+        </p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -282,6 +436,7 @@
     contributionMinLabel.textContent = formatCurrency(0);
     contributionMaxLabel.textContent = formatCurrency(10000);
     valuesShownIn.textContent = `Values shown in ${selectedCurrency}`;
+    document.querySelectorAll('.cur-prefix').forEach(n => { n.textContent = currencySymbol(selectedCurrency); });
     if (chart) chart.options.scales.y.title.text = `Portfolio Value (${selectedCurrency})`;
   }
 
@@ -289,6 +444,7 @@
     selectedCurrency = currencySelect.value;
     refreshCurrencyLabels();
     update();
+    updatePV();
   });
   // ────────────────────────────────────────────────────────
 
@@ -522,9 +678,408 @@
     btn.addEventListener('click', () => applyPreset(btn.getAttribute('data-preset')));
   });
 
+  // ══════════════════════════════════════════════════════════════
+  // PRESENT VALUE
+  // ══════════════════════════════════════════════════════════════
+  // <<PV-PURE-START>>
+  const COMPOUNDING = { annual: 1, semiannual: 2, quarterly: 4, monthly: 12, daily: 365, continuous: 0 };
+  const PERPETUITY_PREVIEW_YEARS = 50;
+  const CHART_MAX_YEARS = 100;
+
+  // Discount factor for a cash flow arriving t years from now.
+  // m compounding periods per year: (1 + r/m)^(-m*t); continuous: e^(-r*t)
+  function discountFactor(ratePct, comp, t) {
+    const r = ratePct / 100, m = COMPOUNDING[comp];
+    if (m === 0) return Math.exp(-r * t);
+    return Math.pow(1 + r / m, -m * t);
+  }
+  function rateIsValid(ratePct, comp) {
+    const m = COMPOUNDING[comp];
+    return Number.isFinite(ratePct) && (m === 0 || 1 + ratePct / 100 / m > 0);
+  }
+  // Effective discount rate per payment period (k payments per year)
+  function periodRate(ratePct, comp, k) { return 1 / discountFactor(ratePct, comp, 1 / k) - 1; }
+  function growthPerPeriod(growthPct, k) { return Math.pow(1 + growthPct / 100, 1 / k) - 1; }
+
+  // Closed form: n payments, first one pmt, growing g per period, discounted at i per period.
+  // due = payments at the start of each period.
+  function growingAnnuityPV(pmt, i, g, n, due) {
+    if (n <= 0) return 0;
+    let pv;
+    if (Math.abs(i - g) < 1e-12) pv = n * pmt / (1 + i);
+    else pv = pmt / (i - g) * (1 - Math.pow((1 + g) / (1 + i), n));
+    return due ? pv * (1 + i) : pv;
+  }
+
+  function streamFlows(m) {
+    const n = Math.max(0, Math.round(m.years * m.k));
+    const gp = growthPerPeriod(m.growthPct, m.k);
+    const flows = [];
+    for (let i = 1; i <= n; i++) {
+      flows.push({ t: m.due ? (i - 1) / m.k : i / m.k, amount: m.payment * Math.pow(1 + gp, i - 1) });
+    }
+    if (m.terminal) flows.push({ t: n / m.k, amount: m.terminal });
+    return flows;
+  }
+
+  function modelFlows(model) {
+    if (model.mode === 'single') return [{ t: model.years, amount: model.fv }];
+    if (model.mode === 'stream' && !model.forever) return streamFlows(model);
+    if (model.mode === 'custom') return model.rows.filter(r => Number.isFinite(r.t) && r.t >= 0 && Number.isFinite(r.amount));
+    return [];
+  }
+
+  function validate(model, ratePct) {
+    if (!rateIsValid(ratePct, model.comp)) return 'That discount rate is too low for this compounding, so the discount factor is undefined.';
+    if (model.mode === 'stream') {
+      if (!(model.growthPct > -100)) return 'Payment growth must be above \u2212100%.';
+      if (model.forever) {
+        const i = periodRate(ratePct, model.comp, model.k), g = growthPerPeriod(model.growthPct, model.k);
+        if (!(i > g)) return 'For payments that never end, the discount rate must be higher than the growth rate, otherwise the value is infinite.';
+      }
+    }
+    if (model.mode === 'custom' && modelFlows(model).length === 0) return 'Add at least one cash flow (a year and an amount).';
+    return null;
+  }
+
+  function computePV(model, ratePct) {
+    const error = validate(model, ratePct);
+    if (error) return { error };
+    let pv;
+    if (model.mode === 'stream' && model.forever) {
+      const i = periodRate(ratePct, model.comp, model.k), g = growthPerPeriod(model.growthPct, model.k);
+      pv = model.payment / (i - g) * (model.due ? 1 + i : 1);
+    } else {
+      pv = modelFlows(model).reduce((s, f) => s + f.amount * discountFactor(ratePct, model.comp, f.t), 0);
+    }
+    return { pv };
+  }
+
+  function nominalTotal(model) {
+    if (model.mode === 'stream' && model.forever) return model.payment === 0 ? 0 : (model.payment > 0 ? Infinity : -Infinity);
+    return modelFlows(model).reduce((s, f) => s + f.amount, 0);
+  }
+
+  // Flows to draw when the stream never ends: just the first N years.
+  function previewFlows(model) {
+    return streamFlows({ payment: model.payment, k: model.k, years: PERPETUITY_PREVIEW_YEARS, due: model.due, growthPct: model.growthPct, terminal: 0 });
+  }
+
+  // Group flows into whole-year buckets (year 0 = right now) for the bar chart.
+  function bucketFlows(flows, ratePct, comp, maxYears) {
+    let top = 0, truncated = false;
+    flows.forEach(f => { const b = f.t <= 0 ? 0 : Math.ceil(f.t - 1e-9); if (b > maxYears) truncated = true; else top = Math.max(top, b); });
+    const nominal = new Array(top + 1).fill(0), pv = new Array(top + 1).fill(0);
+    flows.forEach(f => {
+      const b = f.t <= 0 ? 0 : Math.ceil(f.t - 1e-9);
+      if (b > maxYears) return;
+      nominal[b] += f.amount;
+      pv[b] += f.amount * discountFactor(ratePct, comp, f.t);
+    });
+    return { labels: nominal.map((_, i) => 'Yr ' + i), nominal, pv, truncated };
+  }
+
+  // Value today of the single future sum, if it arrived in y years (the discount curve).
+  function singleCurve(model, ratePct) {
+    const T = model.years, step = Math.max(1, Math.ceil(T / 100)), ys = [];
+    for (let y = 0; y <= T + 1e-9; y += step) ys.push(y);
+    if (Math.abs(ys[ys.length - 1] - T) > 1e-9) ys.push(T);
+    return ys.map(y => ({ y, v: model.fv * discountFactor(ratePct, model.comp, y) }));
+  }
+  // <<PV-PURE-END>>
+
+  // ── DOM ──
+  const $pv = (id) => document.getElementById(id);
+  const growthPanel = $pv('panelGrowth');
+  const pvPanel = $pv('panelPV');
+  const pvCtx = $pv('pvChart').getContext('2d');
+  let pvChart = null;
+  let pvMode = 'single';
+
+  const pvRowsState = [
+    { t: 0, amount: -5000 }, { t: 1, amount: 1500 }, { t: 2, amount: 2000 }, { t: 3, amount: 2500 }, { t: 4, amount: 3000 }
+  ];
+
+  function fmtNum(x, d) { return Number.isFinite(x) ? (+x.toFixed(d)).toString() : '\u2014'; }
+  function fmtRatePct(x) { return fmtNum(x, 3) + '%'; }
+  function formatMoney(value) {
+    if (!Number.isFinite(value)) return '\u2014';
+    const opts = { style: 'currency', currency: selectedCurrency };
+    if (Math.abs(value) >= 100000) { opts.minimumFractionDigits = 0; opts.maximumFractionDigits = 0; }
+    try { return new Intl.NumberFormat('en', opts).format(value); } catch (e) { return `${value.toFixed(2)} ${selectedCurrency}`; }
+  }
+  function formatCompact(value) {
+    try {
+      return new Intl.NumberFormat('en', { style: 'currency', currency: selectedCurrency, notation: 'compact', maximumFractionDigits: 1 }).format(value);
+    } catch (e) { return String(value); }
+  }
+
+  function readPVModel() {
+    const num = (id, d) => { const v = parseFloat($pv(id).value); return Number.isFinite(v) ? v : (d === undefined ? 0 : d); };
+    return {
+      mode: pvMode,
+      comp: $pv('pvComp').value,
+      ratePct: num('pvRate', 0),
+      fv: num('pvFv'),
+      years: Math.max(0, num(pvMode === 'stream' ? 'pvStreamYears' : 'pvYears')),
+      payment: num('pvPayment'),
+      k: parseInt($pv('pvFreq').value, 10) || 1,
+      due: $pv('pvTiming').value === 'start',
+      growthPct: num('pvGrowth'),
+      terminal: num('pvTerminal'),
+      forever: $pv('pvForever').checked,
+      rows: pvRowsState.map(r => ({ t: r.t, amount: r.amount }))
+    };
+  }
+
+  function pvCard(label, value, sub, color) {
+    return `<div class="glass rounded-2xl p-4 border-l-4" style="border-left-color:${color}">
+      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">${label}</p>
+      <p class="text-xl sm:text-2xl font-bold text-white mb-1">${value}</p>
+      <p class="text-xs text-slate-400">${sub}</p></div>`;
+  }
+
+  function drawPVChart(type, labels, datasets, xTitle, yTitle) {
+    if (pvChart) pvChart.destroy();
+    pvChart = new Chart(pvCtx, {
+      type,
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#cbd5e1', usePointStyle: true, boxWidth: 8, padding: 16 } },
+          tooltip: {
+            backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1,
+            titleColor: '#f8fafc', bodyColor: '#e2e8f0', padding: 10,
+            callbacks: { label: (c) => `${c.dataset.label}: ${formatMoney(c.parsed.y)}` }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: xTitle, color: '#94a3b8' }, ticks: { color: '#94a3b8', maxTicksLimit: 16 }, grid: { color: 'rgba(148,163,184,0.08)' } },
+          y: { title: { display: true, text: yTitle, color: '#94a3b8' }, ticks: { color: '#94a3b8', callback: (v) => formatCompact(v) }, grid: { color: 'rgba(148,163,184,0.08)' } }
+        }
+      }
+    });
+  }
+  function clearPVChart() { if (pvChart) { pvChart.destroy(); pvChart = null; } }
+
+  function formulaLines(model, res) {
+    const r = model.ratePct / 100, m = COMPOUNDING[model.comp];
+    const lines = [];
+    if (model.mode === 'single') {
+      const t = fmtNum(model.years, 4);
+      if (m === 0) {
+        lines.push('PV = FV \u00D7 e^(\u2212r \u00D7 t)');
+        if (!res.error) lines.push(`${formatMoney(model.fv)} \u00D7 e^(\u2212${fmtNum(r, 5)} \u00D7 ${t}) = ${formatMoney(res.pv)}`);
+      } else if (m === 1) {
+        lines.push('PV = FV \u00F7 (1 + r)^t');
+        if (!res.error) lines.push(`${formatMoney(model.fv)} \u00F7 (1 + ${fmtNum(r, 5)})^${t} = ${formatMoney(res.pv)}`);
+      } else {
+        lines.push('PV = FV \u00F7 (1 + r/m)^(m \u00D7 t)');
+        if (!res.error) lines.push(`${formatMoney(model.fv)} \u00F7 (1 + ${fmtNum(r, 5)}/${m})^(${m} \u00D7 ${t}) = ${formatMoney(res.pv)}`);
+      }
+      lines.push('FV = the future amount, r = discount rate per year, m = compounding periods per year, t = years until you receive it.');
+    } else if (model.mode === 'stream') {
+      const ok = rateIsValid(model.ratePct, model.comp) && model.growthPct > -100;
+      const i = ok ? periodRate(model.ratePct, model.comp, model.k) : NaN, g = ok ? growthPerPeriod(model.growthPct, model.k) : NaN;
+      const n = Math.max(0, Math.round(model.years * model.k));
+      lines.push('Each payment is discounted back by how long you wait for it, then they are all added up.');
+      lines.push(`Per-payment discount rate i = ${fmtRatePct(i * 100)}, growth g = ${fmtRatePct(g * 100)} per payment` + (model.forever ? '' : `, n = ${n} payments`));
+      if (model.forever) lines.push('Never-ending stream: PV = P \u00F7 (i \u2212 g)' + (model.due ? ', then \u00D7 (1 + i) because payments start now' : ''));
+      else {
+        lines.push('PV = P \u00D7 [1 \u2212 ((1+g)/(1+i))^n] \u00F7 (i \u2212 g)' + (model.due ? ' \u00D7 (1 + i)' : '') + (model.terminal ? ' + final lump sum \u00F7 (1+i)^n' : ''));
+      }
+      lines.push('P = the first payment. With no growth this is the standard annuity formula.');
+    } else {
+      lines.push('PV = \u03A3 cash flow \u00F7 (1 + r/m)^(m \u00D7 year)' + (m === 0 ? ' (continuous: \u00D7 e^(\u2212r \u00D7 year))' : ''));
+      lines.push('Negative amounts (like an up-front cost at year 0) are subtracted, so the total is a net present value.');
+    }
+    return lines;
+  }
+
+  function updatePV() {
+    if (pvPanel.classList.contains('hidden')) return;
+    const model = readPVModel();
+    const res = computePV(model, model.ratePct);
+
+    $pv('pvUseSimRate').textContent = `Use Growth Simulator's ${fmtNum(parseFloat(averageRateInput.value) || 0, 2)}%`;
+    $pv('pvError').classList.toggle('hidden', !res.error);
+    $pv('pvError').textContent = res.error || '';
+
+    const forever = model.mode === 'stream' && model.forever;
+    const isNPV = model.mode === 'custom' && model.rows.some(r => r.amount < 0);
+    const nominal = res.error ? NaN : nominalTotal(model);
+    const cards = [];
+
+    if (res.error) {
+      cards.push(pvCard(isNPV ? 'Net Present Value' : 'Present Value', '\u2014', 'Fix the input above', '#3b82f6'));
+      cards.push(pvCard('Total Future Amount', '\u2014', '', '#94a3b8'));
+      cards.push(pvCard('Lost to Discounting', '\u2014', '', '#ef4444'));
+    } else {
+      const pct = (a, b) => (Number.isFinite(b) && b !== 0 ? `${fmtNum(a / b * 100, 1)}% of the future total` : '');
+      cards.push(pvCard(isNPV ? 'Net Present Value' : 'Present Value', formatMoney(res.pv), forever ? 'What the endless stream is worth today' : (pct(res.pv, nominal) || 'Worth today'), '#3b82f6'));
+      cards.push(pvCard(model.mode === 'custom' ? 'Total of Cash Flows' : 'Total Future Amount', forever ? '\u221E' : formatMoney(nominal), forever ? 'Payments never end' : 'Undiscounted, as received over time', '#94a3b8'));
+      cards.push(pvCard(model.mode === 'custom' ? 'Discounting Effect' : 'Lost to Discounting', forever ? '\u221E' : formatMoney(nominal - res.pv), forever ? 'Unlimited total vs. a finite value today' : pct(nominal - res.pv, nominal), '#ef4444'));
+    }
+
+    // 4th card, per mode
+    if (res.error) cards.push(pvCard('Detail', '\u2014', '', '#a78bfa'));
+    else if (model.mode === 'single') {
+      const df = discountFactor(model.ratePct, model.comp, model.years);
+      cards.push(pvCard('Discount Factor', fmtNum(df, 4), `${formatMoney(1)} in ${fmtNum(model.years, 2)} yr${model.years === 1 ? '' : 's'} is worth ${formatMoney(df)} today`, '#a78bfa'));
+    } else if (model.mode === 'stream' && !forever) {
+      const n = Math.max(0, Math.round(model.years * model.k));
+      cards.push(pvCard('Payments', `${n} \u00D7 ${formatMoney(model.payment)}`, `${model.k}\u00D7 per year, ${model.due ? 'start' : 'end'} of each period` + (model.growthPct ? `, growing ${fmtNum(model.growthPct, 2)}%/yr` : ''), '#a78bfa'));
+    } else if (forever) {
+      const i = periodRate(model.ratePct, model.comp, model.k), g = growthPerPeriod(model.growthPct, model.k);
+      const first = growingAnnuityPV(model.payment, i, g, PERPETUITY_PREVIEW_YEARS * model.k, model.due);
+      cards.push(pvCard(`Value in First ${PERPETUITY_PREVIEW_YEARS} Yrs`, res.pv !== 0 ? `${fmtNum(first / res.pv * 100, 1)}%` : '\u2014', `of the total; the rest comes from payments after year ${PERPETUITY_PREVIEW_YEARS}`, '#a78bfa'));
+    } else {
+      const ts = modelFlows(model).map(f => f.t);
+      cards.push(pvCard('Cash Flows', String(ts.length), `From year ${fmtNum(Math.min(...ts), 2)} to year ${fmtNum(Math.max(...ts), 2)}`, '#a78bfa'));
+    }
+    $pv('pvCards').innerHTML = cards.join('');
+
+    // chart
+    const note = $pv('pvChartNote');
+    note.textContent = '';
+    if (res.error) {
+      clearPVChart();
+    } else if (model.mode === 'single') {
+      const pts = singleCurve(model, model.ratePct);
+      $pv('pvChartTitle').textContent = 'How Waiting Shrinks the Value';
+      drawPVChart('line', pts.map(p => fmtNum(p.y, 2)), [
+        { label: 'Worth today if received in N years', data: pts.map(p => p.v), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.12)', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.2 },
+        { label: 'Future amount', data: pts.map(() => model.fv), borderColor: '#94a3b8', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false }
+      ], 'Years until you receive it', `Value today (${selectedCurrency})`);
+    } else {
+      const flows = forever ? previewFlows(model) : modelFlows(model);
+      const b = bucketFlows(flows, model.ratePct, model.comp, forever ? PERPETUITY_PREVIEW_YEARS : CHART_MAX_YEARS);
+      $pv('pvChartTitle').textContent = 'Future Amount vs. Present Value, by Year';
+      drawPVChart('bar', b.labels, [
+        { label: 'Future amount', data: b.nominal, backgroundColor: 'rgba(148,163,184,0.45)', borderRadius: 3 },
+        { label: 'Present value', data: b.pv, backgroundColor: '#3b82f6', borderRadius: 3 }
+      ], 'Year received (Yr 0 = today)', `Amount (${selectedCurrency})`);
+      if (forever) note.textContent = `Showing the first ${PERPETUITY_PREVIEW_YEARS} years of an endless stream.`;
+      else if (b.truncated) note.textContent = `Chart shows the first ${CHART_MAX_YEARS} years; the totals above include every cash flow.`;
+    }
+
+    // per-row breakdown (custom mode)
+    const showBreakdown = model.mode === 'custom' && !res.error;
+    $pv('pvBreakdownCard').classList.toggle('hidden', !showBreakdown);
+    if (showBreakdown) {
+      const rows = modelFlows(model).slice().sort((a, b) => a.t - b.t);
+      $pv('pvBreakdown').innerHTML = rows.map(f => {
+        const df = discountFactor(model.ratePct, model.comp, f.t);
+        return `<tr class="border-t border-slate-800"><td class="py-1.5 pr-3">${fmtNum(f.t, 3)}</td><td class="py-1.5 pr-3 text-right">${formatMoney(f.amount)}</td><td class="py-1.5 pr-3 text-right text-slate-400">${fmtNum(df, 4)}</td><td class="py-1.5 text-right font-medium text-white">${formatMoney(f.amount * df)}</td></tr>`;
+      }).join('') + `<tr class="border-t border-slate-600 font-semibold"><td class="py-2 pr-3">Total</td><td class="py-2 pr-3 text-right">${formatMoney(nominal)}</td><td></td><td class="py-2 text-right text-blue-400">${formatMoney(res.pv)}</td></tr>`;
+    }
+
+    // sensitivity to the discount rate
+    const base = res.error ? null : res.pv;
+    $pv('pvSens').innerHTML = [-2, -1, 0, 1, 2].map(d => {
+      const rate = model.ratePct + d, r2 = computePV(model, rate);
+      const cur = d === 0;
+      let delta = '';
+      if (!r2.error && base !== null && !cur && base !== 0) {
+        const dv = (r2.pv - base) / Math.abs(base) * 100;
+        delta = `<span class="${dv >= 0 ? 'text-emerald-400' : 'text-red-400'}">${dv >= 0 ? '+' : '\u2212'}${fmtNum(Math.abs(dv), 1)}%</span>`;
+      }
+      return `<tr class="border-t border-slate-800 ${cur ? 'bg-blue-500/10' : ''}"><td class="py-1.5 pr-3">${fmtRatePct(rate)}${cur ? ' <span class="text-xs text-slate-500">(yours)</span>' : ''}</td><td class="py-1.5 pr-3 text-right ${cur ? 'font-semibold text-white' : ''}">${r2.error ? '<span class="text-slate-500" title="' + r2.error.replace(/"/g, '') + '">n/a</span>' : formatMoney(r2.pv)}</td><td class="py-1.5 text-right text-xs">${delta}</td></tr>`;
+    }).join('');
+
+    $pv('pvFormula').innerHTML = formulaLines(model, res).map((l, i) => `<p class="${i === 1 && model.mode === 'single' && !res.error ? 'font-mono text-blue-300' : (i === 0 ? 'font-mono text-slate-200' : 'text-slate-400')} mb-1.5">${l}</p>`).join('');
+  }
+
+  // ── Mode + field visibility ──
+  function syncStreamVisibility() {
+    const forever = $pv('pvForever').checked;
+    $pv('pvStreamYearsWrap').classList.toggle('hidden', forever);
+    $pv('pvTerminalWrap').classList.toggle('hidden', forever);
+  }
+  function setPVMode(mode) {
+    pvMode = mode;
+    document.querySelectorAll('.tab-btn[data-pvmode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-pvmode') === mode));
+    $pv('pvFieldsSingle').classList.toggle('hidden', mode !== 'single');
+    $pv('pvFieldsStream').classList.toggle('hidden', mode !== 'stream');
+    $pv('pvFieldsCustom').classList.toggle('hidden', mode !== 'custom');
+    syncStreamVisibility();
+    updatePV();
+  }
+  document.querySelectorAll('.tab-btn[data-pvmode]').forEach(b => b.addEventListener('click', () => setPVMode(b.getAttribute('data-pvmode'))));
+
+  ['pvRate', 'pvComp', 'pvFv', 'pvYears', 'pvPayment', 'pvFreq', 'pvStreamYears', 'pvTiming', 'pvGrowth', 'pvTerminal'].forEach(id => $pv(id).addEventListener('input', updatePV));
+  $pv('pvForever').addEventListener('input', () => { syncStreamVisibility(); updatePV(); });
+  $pv('pvUseSimRate').addEventListener('click', () => { $pv('pvRate').value = parseFloat(averageRateInput.value) || 0; updatePV(); });
+
+  // ── Custom cash-flow rows ──
+  const INPUT_CLS = 'bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+  function renderPVRows() {
+    const list = $pv('pvRows');
+    list.innerHTML = '';
+    pvRowsState.forEach((row, idx) => {
+      const div = document.createElement('div');
+      div.className = 'flex items-center gap-2';
+      div.innerHTML = `<input type="number" min="0" step="any" aria-label="Year" placeholder="Year" value="${Number.isFinite(row.t) ? row.t : ''}" class="pv-row-t w-20 ${INPUT_CLS}">
+        <input type="number" step="any" aria-label="Amount" placeholder="Amount" value="${Number.isFinite(row.amount) ? row.amount : ''}" class="pv-row-a flex-1 min-w-0 ${INPUT_CLS}">
+        <button type="button" class="pv-row-x w-7 h-7 shrink-0 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/60 hover:text-red-400 text-sm" aria-label="Remove row">&times;</button>`;
+      div.querySelector('.pv-row-t').addEventListener('input', (e) => { const v = parseFloat(e.target.value); row.t = Number.isFinite(v) ? v : NaN; updatePV(); });
+      div.querySelector('.pv-row-a').addEventListener('input', (e) => { const v = parseFloat(e.target.value); row.amount = Number.isFinite(v) ? v : NaN; updatePV(); });
+      div.querySelector('.pv-row-x').addEventListener('click', () => { pvRowsState.splice(idx, 1); renderPVRows(); updatePV(); });
+      list.appendChild(div);
+    });
+  }
+  $pv('pvAddRow').addEventListener('click', () => {
+    const last = pvRowsState[pvRowsState.length - 1];
+    pvRowsState.push({ t: last && Number.isFinite(last.t) ? last.t + 1 : 1, amount: last && Number.isFinite(last.amount) ? last.amount : 0 });
+    renderPVRows(); updatePV();
+  });
+  $pv('pvClearRows').addEventListener('click', () => { pvRowsState.length = 0; renderPVRows(); updatePV(); });
+
+  // ── Quick examples ──
+  const PV_PRESETS = {
+    lump:       { mode: 'single', rate: 5, comp: 'annual', fv: 10000, years: 10 },
+    bond:       { mode: 'stream', rate: 4, comp: 'annual', payment: 50, freq: 1, sYears: 10, timing: 'end', growth: 0, terminal: 1000, forever: false },
+    pension:    { mode: 'stream', rate: 5, comp: 'monthly', payment: 2000, freq: 12, sYears: 20, timing: 'end', growth: 0, terminal: 0, forever: false },
+    perpetuity: { mode: 'stream', rate: 5, comp: 'annual', payment: 1000, freq: 1, sYears: 10, timing: 'end', growth: 0, terminal: 0, forever: true },
+    project:    { mode: 'custom', rate: 8, comp: 'annual', rows: [{ t: 0, amount: -5000 }, { t: 1, amount: 1500 }, { t: 2, amount: 2000 }, { t: 3, amount: 2500 }, { t: 4, amount: 3000 }] }
+  };
+  document.querySelectorAll('[data-pvpreset]').forEach(btn => btn.addEventListener('click', () => {
+    const p = PV_PRESETS[btn.getAttribute('data-pvpreset')];
+    $pv('pvRate').value = p.rate; $pv('pvComp').value = p.comp;
+    if (p.mode === 'single') { $pv('pvFv').value = p.fv; $pv('pvYears').value = p.years; }
+    if (p.mode === 'stream') {
+      $pv('pvPayment').value = p.payment; $pv('pvFreq').value = p.freq; $pv('pvStreamYears').value = p.sYears;
+      $pv('pvTiming').value = p.timing; $pv('pvGrowth').value = p.growth; $pv('pvTerminal').value = p.terminal; $pv('pvForever').checked = p.forever;
+    }
+    if (p.mode === 'custom') { pvRowsState.length = 0; p.rows.forEach(r => pvRowsState.push({ t: r.t, amount: r.amount })); renderPVRows(); }
+    setPVMode(p.mode);
+  }));
+
+  // ── Top-level view tabs (Growth Simulator / Present Value) ──
+  const viewTabs = document.querySelectorAll('.tab-btn[data-view]');
+  const headerBlurb = document.getElementById('headerBlurb');
+  const BLURBS = {
+    growth: 'Set your expected average return \u2014 Best and Worst case are calculated automatically.',
+    pv: 'Find what a future sum or a stream of payments is worth today, discounted at a rate you choose.'
+  };
+  function switchView(view) {
+    viewTabs.forEach(b => { const on = b.getAttribute('data-view') === view; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    growthPanel.classList.toggle('hidden', view !== 'growth');
+    pvPanel.classList.toggle('hidden', view !== 'pv');
+    headerBlurb.textContent = BLURBS[view];
+    try { history.replaceState(null, '', view === 'pv' ? '#present-value' : location.pathname + location.search); } catch (e) {}
+    if (view === 'pv') updatePV(); else if (chart) chart.resize();
+  }
+  viewTabs.forEach(b => b.addEventListener('click', () => switchView(b.getAttribute('data-view'))));
+  window.addEventListener('hashchange', () => switchView(location.hash === '#present-value' ? 'pv' : 'growth'));
+
+  renderPVRows();
   initChart();
   refreshCurrencyLabels();
   update();
+  switchView(location.hash === '#present-value' ? 'pv' : 'growth');
 })();
 </script>
 <script>

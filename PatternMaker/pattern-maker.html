@@ -93,7 +93,7 @@
         </div>
 
         <div class="flex items-center justify-between mt-3 text-xs text-slate-500 flex-wrap gap-2">
-          <span id="statusLine">36 rays &middot; Editable vectors</span>
+          <span id="statusLine">8 rays &middot; Editable vectors</span>
           <span>Scroll wheel over preview to zoom</span>
         </div>
 
@@ -112,8 +112,9 @@
           <div class="mb-6">
             <p class="section-title">Starting points</p>
             <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="preset-btn active text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="fadeburst">Fade burst</button>
               <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="classic">Classic</button>
-              <button type="button" class="preset-btn active text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="shards">Shards</button>
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="shards">Shards</button>
               <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="speedlines">Speed lines</button>
               <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-preset="fan5">5-ray fan</button>
             </div>
@@ -131,7 +132,7 @@
             </select>
 
             <label class="field-label" for="primaryColor">Primary</label>
-            <input type="color" id="primaryColor" value="#f6a623" class="color-mini mb-3">
+            <input type="color" id="primaryColor" value="#ffffff" class="color-mini mb-3">
 
             <label class="inline-flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer">
               <input type="checkbox" id="twoColors" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
@@ -154,7 +155,8 @@
             <label class="field-label" for="shape">Shape</label>
             <select id="shape" class="mini w-full px-2 py-1.5 mb-3">
               <option value="wedges">Wedges</option>
-              <option value="shards" selected>Pointed shards</option>
+              <option value="sectors" selected>Sectors (converge to a point)</option>
+              <option value="shards">Pointed shards</option>
               <option value="lines">Lines</option>
             </select>
 
@@ -171,19 +173,19 @@
               <option value="square">Square</option>
             </select>
 
-            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Amount</label><input type="text" id="amountNum" class="num-input" value="36"></div><input type="range" id="amount" min="1" max="180" value="36" class="w-full"></div>
-            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Length %</label><input type="text" id="lengthNum" class="num-input" value="49"></div><input type="range" id="length" min="1" max="100" value="49" class="w-full"></div>
-            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Width %</label><input type="text" id="widthNum" class="num-input" value="48"></div><input type="range" id="width" min="0" max="100" value="48" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Amount</label><input type="text" id="amountNum" class="num-input" value="8"></div><input type="range" id="amount" min="1" max="180" value="8" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Length %</label><input type="text" id="lengthNum" class="num-input" value="100"></div><input type="range" id="length" min="1" max="100" value="100" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Width %</label><input type="text" id="widthNum" class="num-input" value="50"></div><input type="range" id="width" min="0" max="100" value="50" class="w-full"></div>
             <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Inner hole %</label><input type="text" id="innerHoleNum" class="num-input" value="0"></div><input type="range" id="innerHole" min="0" max="90" value="0" class="w-full"></div>
             <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Shard tip %</label><input type="text" id="shardTipNum" class="num-input" value="70"></div><input type="range" id="shardTip" min="0" max="100" value="70" class="w-full"></div>
             <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Shoulder %</label><input type="text" id="shoulderNum" class="num-input" value="30"></div><input type="range" id="shoulder" min="0" max="100" value="30" class="w-full"></div>
-            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Outer fade %</label><input type="text" id="outerFadeNum" class="num-input" value="0"></div><input type="range" id="outerFade" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Outer fade %</label><input type="text" id="outerFadeNum" class="num-input" value="80"></div><input type="range" id="outerFade" min="0" max="100" value="80" class="w-full"></div>
           </div>
 
           <!-- Placement -->
           <div class="mb-6 pb-6 border-b border-slate-700/60">
             <p class="section-title">Placement</p>
-            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rotation &deg;</label><input type="text" id="rotationNum" class="num-input" value="0"></div><input type="range" id="rotation" min="0" max="360" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Rotation &deg;</label><input type="text" id="rotationNum" class="num-input" value="33.75"></div><input type="range" id="rotation" min="0" max="360" step="0.25" value="33.75" class="w-full"></div>
             <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Sweep &deg;</label><input type="text" id="sweepNum" class="num-input" value="360"></div><input type="range" id="sweep" min="1" max="360" value="360" class="w-full"></div>
             <div class="slider-row"><div class="row-head"><label class="field-label mb-0">Twist &deg;</label><input type="text" id="twistNum" class="num-input" value="0"></div><input type="range" id="twist" min="-180" max="180" value="0" class="w-full"></div>
           </div>
@@ -211,14 +213,160 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════ HALFTONE (coming next) ═══════════════════════ -->
+  <!-- ═══════════════════════ HALFTONE ═══════════════════════ -->
   <div id="panelHalftone" class="hidden">
-    <div class="glass rounded-2xl p-8 text-center">
-      <p class="text-lg font-semibold text-white mb-2">Halftone is next</p>
-      <p class="text-sm text-slate-400 max-w-md mx-auto">
-        This tab covers a lot more ground &mdash; gradient-driven tone mapping, dot/square/star/line marks, a paintable brush layer with undo/redo,
-        and converting an uploaded image into a halftone. Building it properly as its own pass rather than rushing it in alongside Sunburst.
-      </p>
+    <div class="app-grid">
+
+      <!-- Preview -->
+      <div class="glass rounded-2xl p-4 flex flex-col">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs uppercase tracking-wider text-slate-500 font-semibold mr-1">Brush</span>
+            <button type="button" id="htBrushOffBtn" class="tab-btn text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50 active">Off</button>
+            <button type="button" id="htBrushAddBtn" class="tab-btn text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50">Add</button>
+            <button type="button" id="htBrushEraseBtn" class="tab-btn text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50">Erase</button>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="htZoomOutBtn" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 text-sm">&minus;</button>
+            <input type="text" id="htZoomNum" value="100" class="num-input">
+            <span class="text-xs text-slate-500">%</span>
+            <button type="button" id="htZoomInBtn" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 text-sm">+</button>
+            <button type="button" id="htFitBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Fit</button>
+            <button type="button" id="htResetTabBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset tab</button>
+          </div>
+        </div>
+
+        <div class="preview-bg rounded-xl overflow-hidden flex-1" style="min-height: 480px;">
+          <div id="htZoomWrap" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; transform-origin: center center;">
+            <div style="position:relative; width:640px; height:640px; flex:none;">
+              <svg id="htSvg" viewBox="0 0 800 800" width="640" height="640"></svg>
+              <canvas id="htBrushCanvas" width="800" height="800" style="position:absolute; left:0; top:0; width:640px; height:640px; display:none; cursor:crosshair; touch-action:none;"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-3 text-xs text-slate-500 flex-wrap gap-2">
+          <span id="htStatusLine">Editable vectors</span>
+          <span>Scroll wheel over preview to zoom</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <button type="button" id="htCopySvgBtn" class="text-sm px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 hover:border-blue-500 font-medium">Copy SVG</button>
+          <button type="button" id="htCopyPngBtn" class="text-sm px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Copy PNG</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2 text-center" id="htCopyStatus">Ready</p>
+      </div>
+
+      <!-- Controls -->
+      <div class="glass rounded-2xl p-5">
+        <div class="controls-scroll">
+
+          <!-- Starting points -->
+          <div class="mb-6">
+            <p class="section-title">Starting points</p>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-htpreset="diamondfade">Diamond fade</button>
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-htpreset="dotsheet">Dot sheet</button>
+              <button type="button" class="preset-btn text-xs px-2 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-htpreset="squaredisc">Square disc</button>
+            </div>
+          </div>
+
+          <!-- Color & gradient -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Color &amp; gradient</p>
+            <label class="field-label" for="htFillMode">Fill mode</label><select id="htFillMode" class="mini w-full px-2 py-1.5 mb-3"><option value="solid">Solid / alternating</option><option value="linear" selected>Linear gradient</option><option value="radial">Radial gradient</option></select>
+
+            <div id="htSolidFields" class="hidden">
+              <label class="field-label" for="htPrimaryColor">Primary</label>
+              <input type="color" id="htPrimaryColor" value="#ffffff" class="color-mini mb-3">
+              <label class="inline-flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer"><input type="checkbox" id="htTwoColors" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500"> Two colors</label>
+              <label class="field-label" for="htSecondaryColor">Secondary</label>
+              <input type="color" id="htSecondaryColor" value="#94a3b8" class="color-mini mb-3">
+            </div>
+
+            <div id="htGradientFields">
+              <label class="field-label">Gradient stops <span class="text-slate-600">(click a row to select)</span></label>
+              <div id="htStopsList" class="flex flex-col gap-1.5 mb-2"></div>
+              <div class="flex gap-2 mb-3">
+                <button type="button" id="htAddStopBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed">Add stop</button>
+                <button type="button" id="htReverseStopsBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Reverse</button>
+                <button type="button" id="htRemoveStopBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed">Remove</button>
+              </div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htAngle">Angle &deg;</label><input type="text" id="htAngleNum" class="num-input" value="90"></div><input type="range" id="htAngle" min="0" max="360" value="90" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htSpread">Spread %</label><input type="text" id="htSpreadNum" class="num-input" value="100"></div><input type="range" id="htSpread" min="10" max="200" value="100" class="w-full"></div>
+            </div>
+
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htOverallAlpha">Overall alpha %</label><input type="text" id="htOverallAlphaNum" class="num-input" value="100"></div><input type="range" id="htOverallAlpha" min="0" max="100" value="100" class="w-full"></div>
+          </div>
+
+          <!-- Pattern & marks -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Pattern &amp; marks</p>
+            <label class="field-label" for="htSource">Source</label><select id="htSource" class="mini w-full px-2 py-1.5 mb-3"><option value="radial" selected>Radial fade</option><option value="linear">Linear fade</option><option value="waves">Waves</option><option value="solid">Solid (uniform)</option><option value="image">Uploaded image</option></select>
+            <label class="field-label" for="htShape">Shape</label><select id="htShape" class="mini w-full px-2 py-1.5 mb-3"><option value="dots" selected>Dots</option><option value="squares">Squares</option><option value="diamonds">Diamonds</option><option value="triangles">Triangles</option><option value="stars">Stars</option><option value="hexagons">Hexagons</option><option value="hearts">Hearts</option><option value="lines">Lines</option><option value="crosses">Crosses</option></select>
+            <label class="field-label" for="htOutline">Outline</label><select id="htOutline" class="mini w-full px-2 py-1.5 mb-3"><option value="rectangle" selected>Rectangle</option><option value="ellipse">Ellipse</option><option value="diamond">Diamond</option></select>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htColumns">Columns</label><input type="text" id="htColumnsNum" class="num-input" value="40"></div><input type="range" id="htColumns" min="2" max="120" value="40" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htRows">Rows</label><input type="text" id="htRowsNum" class="num-input" value="40"></div><input type="range" id="htRows" min="2" max="120" value="40" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htMarkSize">Mark size %</label><input type="text" id="htMarkSizeNum" class="num-input" value="90"></div><input type="range" id="htMarkSize" min="1" max="200" value="90" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htMarkOpacity">Mark opacity %</label><input type="text" id="htMarkOpacityNum" class="num-input" value="100"></div><input type="range" id="htMarkOpacity" min="0" max="100" value="100" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htGridAngle">Grid angle &deg;</label><input type="text" id="htGridAngleNum" class="num-input" value="0"></div><input type="range" id="htGridAngle" min="0" max="360" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htMarkAngle">Mark angle &deg;</label><input type="text" id="htMarkAngleNum" class="num-input" value="0"></div><input type="range" id="htMarkAngle" min="0" max="360" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htLineWeight">Line weight % (lines/crosses)</label><input type="text" id="htLineWeightNum" class="num-input" value="30"></div><input type="range" id="htLineWeight" min="1" max="100" value="30" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htJitter">Jitter %</label><input type="text" id="htJitterNum" class="num-input" value="0"></div><input type="range" id="htJitter" min="0" max="100" value="0" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htEdgeFade">Edge fade %</label><input type="text" id="htEdgeFadeNum" class="num-input" value="15"></div><input type="range" id="htEdgeFade" min="0" max="100" value="15" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htFrequency">Wave frequency</label><input type="text" id="htFrequencyNum" class="num-input" value="8"></div><input type="range" id="htFrequency" min="1" max="40" value="8" class="w-full"></div>
+            <label class="inline-flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer"><input type="checkbox" id="htStagger" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500"> Stagger alternate rows</label>
+            <div class="flex items-center gap-2 mb-4">
+              <div class="flex-1">
+                <label class="field-label" for="htSeedInput">Seed</label>
+                <input type="text" inputmode="numeric" id="htSeedInput" value="1" class="mini w-full px-2 py-1.5">
+              </div>
+              <button type="button" id="htShuffleBtn" class="text-xs px-3 py-2 mt-4 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 whitespace-nowrap">Shuffle jitter</button>
+            </div>
+
+            <div class="border-l-2 border-slate-700 pl-3">
+              <p class="section-title">Tone distribution</p>
+              <label class="field-label" for="htResponse">Tone controls</label><select id="htResponse" class="mini w-full px-2 py-1.5 mb-3"><option value="opacity">Opacity</option><option value="size" selected>Size</option><option value="size-opacity">Size + opacity</option></select>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htFadeAngle">Fade angle &deg;</label><input type="text" id="htFadeAngleNum" class="num-input" value="90"></div><input type="range" id="htFadeAngle" min="0" max="360" value="90" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htFadeX">Fade center X %</label><input type="text" id="htFadeXNum" class="num-input" value="50"></div><input type="range" id="htFadeX" min="0" max="100" value="50" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htFadeY">Fade center Y %</label><input type="text" id="htFadeYNum" class="num-input" value="50"></div><input type="range" id="htFadeY" min="0" max="100" value="50" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htFadeRadius">Fade radius %</label><input type="text" id="htFadeRadiusNum" class="num-input" value="70"></div><input type="range" id="htFadeRadius" min="5" max="150" value="70" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htDarkLevel">Dark level %</label><input type="text" id="htDarkLevelNum" class="num-input" value="0"></div><input type="range" id="htDarkLevel" min="0" max="100" value="0" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htLightLevel">Light level %</label><input type="text" id="htLightLevelNum" class="num-input" value="100"></div><input type="range" id="htLightLevel" min="0" max="100" value="100" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htMinSize">Min size %</label><input type="text" id="htMinSizeNum" class="num-input" value="0"></div><input type="range" id="htMinSize" min="0" max="100" value="0" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htContrast">Contrast</label><input type="text" id="htContrastNum" class="num-input" value="0"></div><input type="range" id="htContrast" min="-100" max="100" value="0" class="w-full"></div>
+              <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htGamma">Gamma</label><input type="text" id="htGammaNum" class="num-input" value="100"></div><input type="range" id="htGamma" min="20" max="300" value="100" class="w-full"></div>
+              <label class="inline-flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer"><input type="checkbox" id="htInvertTones" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500"> Invert tones</label>
+            </div>
+          </div>
+
+          <!-- Brush settings -->
+          <div class="mb-6 pb-6 border-b border-slate-700/60">
+            <p class="section-title">Brush settings</p>
+            <p class="text-xs text-slate-500 mb-3">Choose Add or Erase above the preview, then paint on it. Strokes layer on top of the selected source.</p>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htBrushSize">Brush size</label><input type="text" id="htBrushSizeNum" class="num-input" value="20"></div><input type="range" id="htBrushSize" min="1" max="100" value="20" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htIntensity">Intensity %</label><input type="text" id="htIntensityNum" class="num-input" value="60"></div><input type="range" id="htIntensity" min="1" max="100" value="60" class="w-full"></div>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htSoftness">Softness %</label><input type="text" id="htSoftnessNum" class="num-input" value="50"></div><input type="range" id="htSoftness" min="0" max="100" value="50" class="w-full"></div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="htUndoBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Undo</button>
+              <button type="button" id="htRedoBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Redo</button>
+              <button type="button" id="htResetDrawingBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Reset drawing</button>
+              <button type="button" id="htFillAddBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500">Fill add</button>
+            </div>
+          </div>
+
+          <!-- Image to halftone -->
+          <div>
+            <p class="section-title">Image to halftone</p>
+            <input type="file" id="htImageInput" accept="image/*" class="hidden">
+            <button type="button" id="htUploadBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 w-full mb-3">Upload image&hellip;</button>
+            <label class="field-label" for="htUploadMode">Upload mode</label><select id="htUploadMode" class="mini w-full px-2 py-1.5 mb-3"><option value="replace" selected>Replace drawing</option><option value="add">Add to drawing</option></select>
+            <div class="slider-row"><div class="row-head"><label class="field-label mb-0" for="htThreshold">Threshold %</label><input type="text" id="htThresholdNum" class="num-input" value="50"></div><input type="range" id="htThreshold" min="0" max="100" value="50" class="w-full"></div>
+            <button type="button" id="htClearImageBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 w-full">Clear image</button>
+          </div>
+
+        </div>
+      </div>
     </div>
   </div>
 
@@ -241,20 +389,22 @@
   const svg = document.getElementById('sunSvg');
   const CENTER = 400;
   const MAX_RADIUS = 330;
+  const SECTOR_RADIUS = 400; // sectors reach the canvas edge so the outer fade mask (r = 400) fades them to nothing
 
   let p = {
-    fillMode: 'solid', primary: '#f6a623', twoColors: false, secondary: '#fff2cf', overallAlpha: 100,
-    shape: 'shards', wedgeEnds: 'circular', lineCaps: 'round',
-    amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0,
-    rotation: 0, sweep: 360, twist: 0,
+    fillMode: 'solid', primary: '#ffffff', twoColors: false, secondary: '#fff2cf', overallAlpha: 100,
+    shape: 'sectors', wedgeEnds: 'circular', lineCaps: 'round',
+    amount: 8, length: 100, width: 50, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 80,
+    rotation: 33.75, sweep: 360, twist: 0,
     altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, seed: 1
   };
 
   const PRESETS = {
-    classic: { shape: 'wedges', wedgeEnds: 'circular', amount: 24, length: 78, width: 55, innerHole: 10, shardTip: 0, shoulder: 50, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: true },
-    shards: { shape: 'shards', amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false },
-    speedlines: { shape: 'lines', lineCaps: 'round', amount: 60, length: 85, width: 12, innerHole: 35, shardTip: 0, shoulder: 0, outerFade: 30, sweep: 360, twist: 0, altLength: 25, altWidth: 0, rndLength: 10, rndWidth: 0, rndAngle: 2, fillMode: 'solid', twoColors: false },
-    fan5: { shape: 'shards', amount: 5, length: 90, width: 60, innerHole: 5, shardTip: 55, shoulder: 40, outerFade: 0, sweep: 80, twist: 0, rotation: -40, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false }
+    fadeburst: { shape: 'sectors', wedgeEnds: 'circular', amount: 8, length: 100, width: 50, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 80, rotation: 33.75, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false, primary: '#ffffff', secondary: '#fff2cf' },
+    classic: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'wedges', wedgeEnds: 'circular', amount: 24, length: 78, width: 55, innerHole: 10, shardTip: 0, shoulder: 50, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: true },
+    shards: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'shards', amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false },
+    speedlines: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'lines', lineCaps: 'round', amount: 60, length: 85, width: 12, innerHole: 35, shardTip: 0, shoulder: 0, outerFade: 30, sweep: 360, twist: 0, altLength: 25, altWidth: 0, rndLength: 10, rndWidth: 0, rndAngle: 2, fillMode: 'solid', twoColors: false },
+    fan5: { primary: '#f6a623', secondary: '#fff2cf', shape: 'shards', amount: 5, length: 90, width: 60, innerHole: 5, shardTip: 55, shoulder: 40, outerFade: 0, sweep: 80, twist: 0, rotation: -40, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false }
   };
 
   // Simple seeded PRNG (mulberry32) so the same seed always reproduces the same jitter.
@@ -306,6 +456,17 @@
     return `M${fmtPt(a0)} L${fmtPt(a1)} L${fmtPt(a2)} L${fmtPt(a3)} Z`;
   }
 
+  // True angular sector: both edges point at the centre, so rays converge to a point.
+  function buildSectorPath(angleDeg, innerR, outerR, halfAngleDeg, wedgeEnds) {
+    const a0 = angleDeg - halfAngleDeg, a1 = angleDeg + halfAngleDeg;
+    const i0 = pt(innerR, 0, a0), o0 = pt(outerR, 0, a0), o1 = pt(outerR, 0, a1), i1 = pt(innerR, 0, a1);
+    const large = halfAngleDeg * 2 > 180 ? 1 : 0;
+    if (wedgeEnds === 'circular') {
+      return `M${fmtPt(i0)} L${fmtPt(o0)} A${outerR.toFixed(2)},${outerR.toFixed(2)} 0 ${large} 1 ${fmtPt(o1)} L${fmtPt(i1)} Z`;
+    }
+    return `M${fmtPt(i0)} L${fmtPt(o0)} L${fmtPt(o1)} L${fmtPt(i1)} Z`;
+  }
+
   function renderSunburst() {
     const n = Math.max(1, Math.round(p.amount));
     const angleStep = n > 1 ? p.sweep / n : 0;
@@ -350,8 +511,9 @@
       const lengthPct = clamp(p.length * altLenFactor * rndLenFactor, 1, 100);
       const widthPct = clamp(p.width * altWidFactor * rndWidFactor, 0, 100);
 
-      const innerR = (p.innerHole / 100) * MAX_RADIUS;
-      const outerR = Math.max(innerR + 2, (lengthPct / 100) * MAX_RADIUS);
+      const reach = p.shape === 'sectors' ? SECTOR_RADIUS : MAX_RADIUS;
+      const innerR = (p.innerHole / 100) * reach;
+      const outerR = Math.max(innerR + 2, (lengthPct / 100) * reach);
       const halfW = (widthPct / 100) * 34 + 1;
 
       let fill;
@@ -371,6 +533,12 @@
         const strokeW = halfW * 2;
         const cap = p.lineCaps === 'round' ? 'round' : p.lineCaps === 'square' ? 'square' : 'butt';
         body += `<line x1="${a[0].toFixed(2)}" y1="${a[1].toFixed(2)}" x2="${b[0].toFixed(2)}" y2="${b[1].toFixed(2)}" stroke="${fill.startsWith('url') ? p.primary : fill}" stroke-width="${strokeW.toFixed(2)}" stroke-linecap="${cap}"/>`;
+      } else if (p.shape === 'sectors') {
+        // Width % = share of the spacing between rays (50% = ray and gap equal width)
+        const spacing = n > 1 ? p.sweep / n : p.sweep;
+        const halfAngle = clamp((widthPct / 100) * spacing / 2, 0.05, 179.9);
+        const d = buildSectorPath(angleDeg, innerR, outerR, halfAngle, p.wedgeEnds);
+        body += `<path d="${d}" fill="${fill}"/>`;
       } else if (p.shape === 'wedges') {
         const d = buildWedgePath(angleDeg, innerR, outerR, halfW, p.wedgeEnds);
         body += `<path d="${d}" fill="${fill}"/>`;
@@ -465,8 +633,8 @@
   }, { passive: false });
 
   document.getElementById('resetTabBtn').addEventListener('click', () => {
-    Object.assign(p, PRESETS.shards);
-    presetBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-preset') === 'shards'));
+    Object.assign(p, PRESETS.fadeburst);
+    presetBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-preset') === 'fadeburst'));
     pushToControls();
     zoom = 100; applyZoom();
     renderSunburst();
@@ -522,6 +690,686 @@
   });
 
   renderSunburst();
+})();
+</script>
+<script>
+(function () {
+  // ══════════════════════════════════════════════════════════════
+  // HALFTONE ENGINE
+  // ══════════════════════════════════════════════════════════════
+  const SIZE = 800;
+  const GRID_HALF = 360;
+  const el = (id) => document.getElementById(id);
+
+  const HT_FIELD_IDS = [
+    'htOverallAlpha', 'htAngle', 'htSpread',
+    'htColumns', 'htRows', 'htMarkSize', 'htMarkOpacity', 'htGridAngle', 'htMarkAngle',
+    'htLineWeight', 'htJitter', 'htEdgeFade', 'htFrequency',
+    'htFadeAngle', 'htFadeX', 'htFadeY', 'htFadeRadius', 'htDarkLevel', 'htLightLevel',
+    'htMinSize', 'htContrast', 'htGamma',
+    'htBrushSize', 'htIntensity', 'htSoftness', 'htThreshold'
+  ];
+  const keyOf = (id) => id.charAt(2).toLowerCase() + id.slice(3); // htFadeX -> fadeX
+
+  function makeDefaultHp() {
+    return {
+      fillMode: 'linear', primary: '#ffffff', twoColors: false, secondary: '#94a3b8', overallAlpha: 100,
+      stops: [{ color: '#ffffff', position: 0, opacity: 100 }, { color: '#ffffff', position: 100, opacity: 0 }],
+      selectedStopIndex: 0, angle: 90, spread: 100,
+      source: 'radial', shape: 'dots', outline: 'rectangle',
+      columns: 40, rows: 40, markSize: 90, markOpacity: 100, gridAngle: 0, markAngle: 0,
+      lineWeight: 30, jitter: 0, stagger: false, edgeFade: 15, frequency: 8, seed: 1,
+      response: 'size', fadeAngle: 90, fadeX: 50, fadeY: 50, fadeRadius: 70,
+      darkLevel: 0, lightLevel: 100, minSize: 0, contrast: 0, gamma: 100, invertTones: false,
+      brushSize: 20, intensity: 60, softness: 50,
+      uploadMode: 'replace', threshold: 50
+    };
+  }
+
+  let hp = makeDefaultHp();
+  let brushMode = 'off'; // 'off' | 'add' | 'erase'
+  let paintLayer = new Float32Array(SIZE * SIZE);
+
+  const HT_PRESETS = {
+    diamondfade: { fillMode: 'linear', source: 'radial', shape: 'diamonds', outline: 'diamond', columns: 30, rows: 30, markSize: 90, response: 'size', fadeRadius: 70 },
+    dotsheet:    { fillMode: 'solid',  source: 'solid',  shape: 'dots',     outline: 'rectangle', columns: 50, rows: 50, markSize: 60, response: 'opacity' },
+    squaredisc:  { fillMode: 'radial', source: 'radial', shape: 'squares', outline: 'ellipse',   columns: 35, rows: 35, markSize: 85, response: 'size-opacity' }
+  };
+
+  // <<PURE-START>>
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ── Tone generation ──
+  function proceduralTone(x, y) {
+    if (hp.source === 'image') return 0;
+    if (hp.source === 'solid') return 1;
+    const maxR = Math.max(1e-6, (hp.fadeRadius / 100) * 400);
+    if (hp.source === 'radial') {
+      const cx = (hp.fadeX / 100) * SIZE, cy = (hp.fadeY / 100) * SIZE;
+      return clamp(1 - Math.hypot(x - cx, y - cy) / maxR, 0, 1);
+    }
+    const a = hp.fadeAngle * Math.PI / 180;
+    const proj = (x - 400) * Math.cos(a) + (y - 400) * Math.sin(a);
+    if (hp.source === 'linear') return clamp(0.5 - proj / (2 * maxR), 0, 1);
+    const wave = Math.sin((proj / SIZE) * Math.PI * 2 * hp.frequency); // waves
+    return (wave + 1) / 2;
+  }
+
+  function paintValueAt(x, y) {
+    const xi = clamp(Math.round(x), 0, SIZE - 1), yi = clamp(Math.round(y), 0, SIZE - 1);
+    return paintLayer[yi * SIZE + xi];
+  }
+
+  function effectiveTone(x, y) {
+    return clamp(proceduralTone(x, y) + paintValueAt(x, y), 0, 1);
+  }
+
+  function applyDistribution(t) {
+    if (hp.invertTones) t = 1 - t;
+    const black = hp.darkLevel / 100, white = hp.lightLevel / 100;
+    t = clamp((t - black) / ((white - black) || 1e-6), 0, 1);
+    const gammaExp = 100 / clamp(hp.gamma, 1, 1000);
+    t = Math.pow(t, gammaExp);
+    const contrastFactor = Math.max(0.01, 1 + hp.contrast / 100);
+    t = clamp(0.5 + (t - 0.5) * contrastFactor, 0, 1);
+    return t;
+  }
+
+  function computeSizeOpacity(t) {
+    const distT = applyDistribution(t);
+    let sizePct = hp.markSize, opacityPct = hp.markOpacity;
+    if (hp.response === 'size' || hp.response === 'size-opacity') {
+      sizePct = hp.minSize + distT * (hp.markSize - hp.minSize);
+    }
+    if (hp.response === 'opacity' || hp.response === 'size-opacity') {
+      opacityPct = distT * hp.markOpacity;
+    }
+    return { sizePct: clamp(sizePct, 0, 300), opacityPct: clamp(opacityPct, 0, 100) };
+  }
+
+  // ── Outline mask + edge fade ──
+  function outlineFactor(x, y, halfW, halfH) {
+    const dx = (x - 400) / halfW, dy = (y - 400) / halfH;
+    let dist;
+    if (hp.outline === 'rectangle') dist = Math.max(Math.abs(dx), Math.abs(dy));
+    else if (hp.outline === 'ellipse') dist = Math.hypot(dx, dy);
+    else dist = Math.abs(dx) + Math.abs(dy);
+    if (dist > 1) return 0;
+    const fadeStart = 1 - hp.edgeFade / 100;
+    if (dist <= fadeStart) return 1;
+    return clamp(1 - (dist - fadeStart) / ((1 - fadeStart) || 1e-6), 0, 1);
+  }
+
+  // ── Shapes (all emitted in absolute coordinates, no transform attrs, so
+  //    userSpaceOnUse gradients stay pattern-wide instead of rotating per mark) ──
+  function fmt(n) { return n.toFixed(2); }
+
+  function polygonPoints(cx, cy, r, sides, rotDeg) {
+    const pts = [];
+    for (let i = 0; i < sides; i++) {
+      const a = (rotDeg + i * 360 / sides) * Math.PI / 180;
+      pts.push(`${fmt(cx + r * Math.cos(a))},${fmt(cy + r * Math.sin(a))}`);
+    }
+    return pts.join(' ');
+  }
+
+  function localPoly(pts, x, y, angleDeg) {
+    const a = angleDeg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return pts.map(([px, py]) => `${fmt(x + px * c - py * s)},${fmt(y + px * s + py * c)}`).join(' ');
+  }
+
+  const HEART = [[0, 1], [-0.2, 0.8, -1, 0.4, -1, -0.2], [-1, -0.7, -0.5, -1, 0, -0.55], [0.5, -1, 1, -0.7, 1, -0.2], [1, 0.4, 0.2, 0.8, 0, 1]];
+  function heartPath(x, y, s, angleDeg) {
+    const a = angleDeg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+    const tp = (px, py) => `${fmt(x + (px * c - py * sn) * s)},${fmt(y + (px * sn + py * c) * s)}`;
+    let d = 'M' + tp(HEART[0][0], HEART[0][1]);
+    for (let i = 1; i < HEART.length; i++) {
+      const h = HEART[i];
+      d += ` C${tp(h[0], h[1])} ${tp(h[2], h[3])} ${tp(h[4], h[5])}`;
+    }
+    return d + ' Z';
+  }
+
+  function shapeSvg(shape, x, y, r, angleDeg, fill, opacity, lineWeightPct, cellSize) {
+    const op = opacity.toFixed(3);
+    const attrs = `fill="${fill}" opacity="${op}"`;
+    const strokeW = Math.max(0.5, (lineWeightPct / 100) * cellSize * 0.4);
+    switch (shape) {
+      case 'squares':
+        return `<polygon points="${polygonPoints(x, y, (r * 1.6) / Math.SQRT2, 4, angleDeg + 45)}" ${attrs}/>`;
+      case 'diamonds':
+        return `<polygon points="${polygonPoints(x, y, (r * 1.6) / Math.SQRT2, 4, angleDeg + 90)}" ${attrs}/>`;
+      case 'triangles':
+        return `<polygon points="${polygonPoints(x, y, r * 1.4, 3, angleDeg - 90)}" ${attrs}/>`;
+      case 'stars': {
+        const outer = r * 1.5, inner = outer * 0.45, pts = [];
+        for (let i = 0; i < 10; i++) {
+          const rad = i % 2 === 0 ? outer : inner;
+          const a = (angleDeg - 90 + i * 36) * Math.PI / 180;
+          pts.push(`${fmt(x + rad * Math.cos(a))},${fmt(y + rad * Math.sin(a))}`);
+        }
+        return `<polygon points="${pts.join(' ')}" ${attrs}/>`;
+      }
+      case 'hexagons':
+        return `<polygon points="${polygonPoints(x, y, r * 1.3, 6, angleDeg)}" ${attrs}/>`;
+      case 'hearts':
+        return `<path d="${heartPath(x, y, r * 1.3, angleDeg)}" ${attrs}/>`;
+      case 'lines': {
+        const a = angleDeg * Math.PI / 180, hl = r * 1.4;
+        const dx = Math.cos(a) * hl, dy = Math.sin(a) * hl;
+        return `<line x1="${fmt(x - dx)}" y1="${fmt(y - dy)}" x2="${fmt(x + dx)}" y2="${fmt(y + dy)}" stroke="${fill}" stroke-width="${fmt(strokeW)}" stroke-linecap="round" opacity="${op}"/>`;
+      }
+      case 'crosses': {
+        const L = Math.max(0.5, r * 1.5), h = Math.min(strokeW / 2, L);
+        const pts = [[-h, -L], [h, -L], [h, -h], [L, -h], [L, h], [h, h], [h, L], [-h, L], [-h, h], [-L, h], [-L, -h], [-h, -h]];
+        return `<polygon points="${localPoly(pts, x, y, angleDeg)}" ${attrs}/>`;
+      }
+      default: // dots
+        return `<circle cx="${fmt(x)}" cy="${fmt(y)}" r="${fmt(Math.max(0, r))}" ${attrs}/>`;
+    }
+  }
+
+  // ── Grid placement ──
+  function computeMarks() {
+    const cols = Math.max(1, Math.round(hp.columns)), rows = Math.max(1, Math.round(hp.rows));
+    const cellW = (GRID_HALF * 2) / cols, cellH = (GRID_HALF * 2) / rows;
+    const cellSize = Math.min(cellW, cellH);
+    const rng = mulberry32(Math.round(hp.seed));
+    const jitAmt = (hp.jitter / 100) * cellSize; // (rng-0.5) * this == ±jitter*cellSize*0.5
+    const ga = hp.gridAngle * Math.PI / 180, gc = Math.cos(ga), gs = Math.sin(ga);
+    const marks = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        let lx = -GRID_HALF + (col + 0.5) * cellW;
+        let ly = -GRID_HALF + (row + 0.5) * cellH;
+        if (hp.stagger && row % 2 === 1) lx += cellW / 2;
+        lx += (rng() - 0.5) * jitAmt; // always draw both so skipping cells never reshuffles others
+        ly += (rng() - 0.5) * jitAmt;
+        const x = 400 + (lx * gc - ly * gs);
+        const y = 400 + (lx * gs + ly * gc);
+        const of = outlineFactor(x, y, GRID_HALF, GRID_HALF);
+        if (of <= 0) continue;
+        const so = computeSizeOpacity(effectiveTone(x, y));
+        const sizePct = so.sizePct * of, opacityPct = so.opacityPct * of;
+        if (sizePct <= 0.5 || opacityPct <= 0.5) continue;
+        const r = (sizePct / 100) * cellSize * 0.5;
+        marks.push({ x, y, r, sizePct, opacityPct, row, col, cellSize });
+      }
+    }
+    return marks;
+  }
+
+  // ── Gradients ──
+  function sortedStops() { return hp.stops.slice().sort((a, b) => a.position - b.position); }
+  function stopsXml() {
+    return sortedStops().map(s =>
+      `<stop offset="${clamp(s.position, 0, 100)}%" stop-color="${s.color}" stop-opacity="${(clamp(s.opacity, 0, 100) / 100).toFixed(3)}"/>`
+    ).join('');
+  }
+  function buildLinearGradient(id) {
+    const a = hp.angle * Math.PI / 180;
+    const L = GRID_HALF * clamp(hp.spread, 1, 400) / 100;
+    const x1 = 400 - L * Math.cos(a), y1 = 400 - L * Math.sin(a), x2 = 400 + L * Math.cos(a), y2 = 400 + L * Math.sin(a);
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${fmt(x1)}" y1="${fmt(y1)}" x2="${fmt(x2)}" y2="${fmt(y2)}">${stopsXml()}</linearGradient>`;
+  }
+  function buildRadialGradient(id) {
+    const r = Math.max(1, GRID_HALF * clamp(hp.spread, 1, 400) / 100);
+    return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="400" cy="400" r="${fmt(r)}">${stopsXml()}</radialGradient>`;
+  }
+
+  // ── Image → paint layer ──
+  function thresholdLayer(gray, thresh) {
+    const out = new Float32Array(gray.length);
+    for (let i = 0; i < gray.length; i++) out[i] = gray[i] < thresh ? 1 : 0;
+    return out;
+  }
+
+  // ── Whole-SVG builder ──
+  function buildSvgBody() {
+    const marks = computeMarks();
+    let defs = '<defs>';
+    if (hp.fillMode === 'linear') defs += buildLinearGradient('htFillGrad');
+    else if (hp.fillMode === 'radial') defs += buildRadialGradient('htFillGrad');
+    defs += '</defs>';
+    const angleDeg = hp.gridAngle + hp.markAngle;
+    let body = '';
+    for (const m of marks) {
+      let fill;
+      if (hp.fillMode === 'solid') fill = (hp.twoColors && (m.row + m.col) % 2 === 1) ? hp.secondary : hp.primary;
+      else fill = 'url(#htFillGrad)';
+      body += shapeSvg(hp.shape, m.x, m.y, m.r, angleDeg, fill, m.opacityPct / 100, hp.lineWeight, m.cellSize);
+    }
+    return { markup: `${defs}<g opacity="${(clamp(hp.overallAlpha, 0, 100) / 100).toFixed(2)}">${body}</g>`, count: marks.length };
+  }
+  // <<PURE-END>>
+
+  // ══════════════ DOM wiring ══════════════
+  const svg = el('htSvg');
+  const brushCanvas = el('htBrushCanvas');
+  const bctx = brushCanvas.getContext ? brushCanvas.getContext('2d') : null;
+  const statusLine = el('htStatusLine');
+  const copyStatus = el('htCopyStatus');
+  const presetBtns = document.querySelectorAll('.preset-btn[data-htpreset]');
+
+  let renderQueued = false;
+  function renderHalftone() {
+    renderQueued = false;
+    const out = buildSvgBody();
+    svg.innerHTML = out.markup;
+    statusLine.textContent = `${out.count} mark${out.count === 1 ? '' : 's'} \u00B7 Editable vectors`;
+  }
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(renderHalftone);
+  }
+
+  function updateFillVisibility() {
+    const solid = hp.fillMode === 'solid';
+    el('htSolidFields').classList.toggle('hidden', !solid);
+    el('htGradientFields').classList.toggle('hidden', solid);
+  }
+
+  function syncFromControls() {
+    HT_FIELD_IDS.forEach(id => { hp[keyOf(id)] = parseFloat(el(id).value) || 0; });
+    hp.fillMode = el('htFillMode').value;
+    hp.primary = el('htPrimaryColor').value;
+    hp.secondary = el('htSecondaryColor').value;
+    hp.twoColors = el('htTwoColors').checked;
+    hp.source = el('htSource').value;
+    hp.shape = el('htShape').value;
+    hp.outline = el('htOutline').value;
+    hp.response = el('htResponse').value;
+    hp.stagger = el('htStagger').checked;
+    hp.invertTones = el('htInvertTones').checked;
+    hp.uploadMode = el('htUploadMode').value;
+    hp.seed = parseInt(el('htSeedInput').value, 10) || 0;
+  }
+
+  function pushToControls() {
+    HT_FIELD_IDS.forEach(id => {
+      const k = keyOf(id);
+      el(id).value = hp[k];
+      el(id + 'Num').value = hp[k];
+    });
+    el('htFillMode').value = hp.fillMode;
+    el('htPrimaryColor').value = hp.primary;
+    el('htSecondaryColor').value = hp.secondary;
+    el('htTwoColors').checked = hp.twoColors;
+    el('htSource').value = hp.source;
+    el('htShape').value = hp.shape;
+    el('htOutline').value = hp.outline;
+    el('htResponse').value = hp.response;
+    el('htStagger').checked = hp.stagger;
+    el('htInvertTones').checked = hp.invertTones;
+    el('htUploadMode').value = hp.uploadMode;
+    el('htSeedInput').value = hp.seed;
+    renderStops();
+    updateFillVisibility();
+  }
+
+  function update() { syncFromControls(); updateFillVisibility(); scheduleRender(); }
+
+  HT_FIELD_IDS.forEach(id => {
+    const range = el(id), num = el(id + 'Num');
+    range.addEventListener('input', () => { num.value = range.value; update(); });
+    num.addEventListener('input', () => {
+      const v = clamp(parseFloat(num.value) || 0, parseFloat(range.min), parseFloat(range.max));
+      range.value = v; update();
+    });
+  });
+  ['htFillMode', 'htPrimaryColor', 'htSecondaryColor', 'htTwoColors', 'htSource', 'htShape', 'htOutline',
+   'htResponse', 'htStagger', 'htInvertTones', 'htUploadMode'].forEach(id => el(id).addEventListener('input', update));
+  el('htSeedInput').addEventListener('input', update);
+  el('htShuffleBtn').addEventListener('click', () => {
+    el('htSeedInput').value = Math.floor(Math.random() * 100000);
+    update();
+  });
+
+  // ── Gradient stops UI ──
+  function selectStop(i) {
+    hp.selectedStopIndex = i;
+    el('htStopsList').querySelectorAll('.ht-stop-row').forEach(row => {
+      const on = Number(row.dataset.i) === i;
+      row.classList.toggle('border-blue-500', on);
+      row.classList.toggle('bg-blue-500/10', on);
+      row.classList.toggle('border-slate-700', !on);
+    });
+  }
+  function updateStopButtons() {
+    el('htAddStopBtn').disabled = hp.stops.length >= 8;
+    el('htRemoveStopBtn').disabled = hp.stops.length <= 2;
+  }
+  function renderStops() {
+    hp.selectedStopIndex = clamp(hp.selectedStopIndex, 0, hp.stops.length - 1);
+    const list = el('htStopsList');
+    list.innerHTML =
+      '<div class="flex items-center gap-2 px-1.5 text-[10px] uppercase tracking-wider text-slate-500"><span style="width:2.2rem">Color</span><span style="width:3.75rem" class="text-center">Pos %</span><span style="width:3.75rem" class="text-center">Opacity %</span></div>' +
+      hp.stops.map((s, i) => `
+        <div class="ht-stop-row flex items-center gap-2 p-1.5 rounded-lg border border-slate-700 cursor-pointer" data-i="${i}">
+          <input type="color" class="ht-stop-color color-mini" value="${s.color}" style="width:2.2rem;height:1.8rem;padding:1px;cursor:pointer">
+          <input type="number" min="0" max="100" class="ht-stop-pos num-input" value="${s.position}">
+          <input type="number" min="0" max="100" class="ht-stop-op num-input" value="${s.opacity}">
+        </div>`).join('');
+    list.querySelectorAll('.ht-stop-row').forEach(row => {
+      const i = Number(row.dataset.i);
+      row.addEventListener('click', () => selectStop(i));
+      row.querySelector('.ht-stop-color').addEventListener('input', (e) => { selectStop(i); hp.stops[i].color = e.target.value; scheduleRender(); });
+      row.querySelector('.ht-stop-pos').addEventListener('input', (e) => { selectStop(i); hp.stops[i].position = clamp(parseFloat(e.target.value) || 0, 0, 100); scheduleRender(); });
+      row.querySelector('.ht-stop-op').addEventListener('input', (e) => { selectStop(i); hp.stops[i].opacity = clamp(parseFloat(e.target.value) || 0, 0, 100); scheduleRender(); });
+    });
+    selectStop(hp.selectedStopIndex);
+    updateStopButtons();
+  }
+
+  el('htAddStopBtn').addEventListener('click', () => {
+    if (hp.stops.length >= 8) return;
+    const sorted = sortedStops();
+    const sel = hp.stops[hp.selectedStopIndex] || sorted[0];
+    const idx = sorted.indexOf(sel);
+    const neighbor = sorted[idx + 1] || sorted[idx - 1];
+    const pos = neighbor ? Math.round((sel.position + neighbor.position) / 2) : 50;
+    hp.stops.push({ color: sel.color, position: pos, opacity: 100 });
+    hp.selectedStopIndex = hp.stops.length - 1;
+    renderStops(); scheduleRender();
+  });
+  el('htRemoveStopBtn').addEventListener('click', () => {
+    if (hp.stops.length <= 2) return;
+    hp.stops.splice(hp.selectedStopIndex, 1);
+    hp.selectedStopIndex = Math.min(hp.selectedStopIndex, hp.stops.length - 1);
+    renderStops(); scheduleRender();
+  });
+  el('htReverseStopsBtn').addEventListener('click', () => {
+    // Keep the position slots; flip which color/opacity sits in each.
+    const selObj = hp.stops[hp.selectedStopIndex];
+    hp.stops.sort((a, b) => a.position - b.position);
+    const n = hp.stops.length;
+    for (let i = 0; i < Math.floor(n / 2); i++) {
+      const j = n - 1 - i;
+      const A = hp.stops[i], B = hp.stops[j];
+      [A.color, B.color] = [B.color, A.color];
+      [A.opacity, B.opacity] = [B.opacity, A.opacity];
+    }
+    hp.selectedStopIndex = Math.max(0, hp.stops.indexOf(selObj));
+    renderStops(); scheduleRender();
+  });
+
+  // ── Presets / reset ──
+  presetBtns.forEach(btn => btn.addEventListener('click', () => {
+    presetBtns.forEach(b => b.classList.toggle('active', b === btn));
+    Object.assign(hp, HT_PRESETS[btn.getAttribute('data-htpreset')]);
+    pushToControls();
+    renderHalftone();
+  }));
+
+  // ── Zoom (same pattern as Sunburst) ──
+  const zoomWrap = el('htZoomWrap'), zoomNum = el('htZoomNum');
+  let zoom = 100;
+  function applyZoom() { zoomWrap.style.transform = `scale(${zoom / 100})`; zoomNum.value = Math.round(zoom); }
+  el('htZoomInBtn').addEventListener('click', () => { zoom = clamp(zoom + 10, 20, 400); applyZoom(); });
+  el('htZoomOutBtn').addEventListener('click', () => { zoom = clamp(zoom - 10, 20, 400); applyZoom(); });
+  zoomNum.addEventListener('input', () => { zoom = clamp(parseFloat(zoomNum.value) || 100, 20, 400); applyZoom(); });
+  el('htFitBtn').addEventListener('click', () => { zoom = 100; applyZoom(); });
+  document.querySelector('#panelHalftone .preview-bg').addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = clamp(zoom + (e.deltaY < 0 ? 8 : -8), 20, 400);
+    applyZoom();
+  }, { passive: false });
+
+  // ── History (undo / redo) ──
+  let history = [];
+  let historyIndex = -1;
+  const HISTORY_CAP = 20;
+  function updateHistoryButtons() {
+    el('htUndoBtn').disabled = historyIndex <= 0;
+    el('htRedoBtn').disabled = historyIndex >= history.length - 1;
+  }
+  function pushHistory() {
+    history = history.slice(0, historyIndex + 1);
+    history.push(paintLayer.slice());
+    if (history.length > HISTORY_CAP) history.shift();
+    historyIndex = history.length - 1;
+    updateHistoryButtons();
+  }
+  function resetHistory() { history = []; historyIndex = -1; pushHistory(); }
+  function stepHistory(delta) {
+    const next = historyIndex + delta;
+    if (next < 0 || next >= history.length) return;
+    historyIndex = next;
+    paintLayer = history[historyIndex].slice();
+    updateHistoryButtons();
+    renderHalftone();
+  }
+  el('htUndoBtn').addEventListener('click', () => stepHistory(-1));
+  el('htRedoBtn').addEventListener('click', () => stepHistory(1));
+
+  // Uploaded-image bookkeeping so the threshold slider can re-apply until the user paints.
+  let lastGray = null;
+  let paintedSinceImage = false;
+
+  function resetDrawing() {
+    paintLayer.fill(0);
+    lastGray = null;
+    paintedSinceImage = false;
+    resetHistory();
+    renderHalftone();
+  }
+  el('htResetDrawingBtn').addEventListener('click', resetDrawing);
+  el('htClearImageBtn').addEventListener('click', resetDrawing); // same shared layer, two entry points
+  el('htFillAddBtn').addEventListener('click', () => {
+    paintLayer.fill(1);
+    paintedSinceImage = true;
+    pushHistory();
+    renderHalftone();
+  });
+
+  // ── Brush ──
+  function setBrushMode(mode) {
+    brushMode = mode;
+    el('htBrushOffBtn').classList.toggle('active', mode === 'off');
+    el('htBrushAddBtn').classList.toggle('active', mode === 'add');
+    el('htBrushEraseBtn').classList.toggle('active', mode === 'erase');
+    brushCanvas.style.display = mode === 'off' ? 'none' : 'block';
+    if (mode === 'off') clearCursor();
+  }
+  el('htBrushOffBtn').addEventListener('click', () => setBrushMode('off'));
+  el('htBrushAddBtn').addEventListener('click', () => setBrushMode('add'));
+  el('htBrushEraseBtn').addEventListener('click', () => setBrushMode('erase'));
+
+  function canvasPointFromEvent(e) {
+    const rect = brushCanvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (SIZE / (rect.width || SIZE)),
+      y: (e.clientY - rect.top) * (SIZE / (rect.height || SIZE))
+    };
+  }
+  function clearCursor() { if (bctx) bctx.clearRect(0, 0, SIZE, SIZE); }
+  function drawCursor(x, y) {
+    if (!bctx) return;
+    bctx.clearRect(0, 0, SIZE, SIZE);
+    bctx.beginPath();
+    bctx.arc(x, y, (hp.brushSize / 100) * 200, 0, Math.PI * 2);
+    bctx.lineWidth = 2;
+    bctx.strokeStyle = brushMode === 'erase' ? 'rgba(248,113,113,0.9)' : 'rgba(147,197,253,0.9)';
+    bctx.stroke();
+  }
+
+  function paintAtEvent(e) {
+    const { x, y } = canvasPointFromEvent(e);
+    const brushR = Math.max(1, (hp.brushSize / 100) * 200);
+    const intensity = (hp.intensity / 100) * (brushMode === 'erase' ? -1 : 1) * 0.15;
+    const x0 = Math.max(0, Math.floor(x - brushR)), x1 = Math.min(SIZE - 1, Math.ceil(x + brushR));
+    const y0 = Math.max(0, Math.floor(y - brushR)), y1 = Math.min(SIZE - 1, Math.ceil(y + brushR));
+    const exp = 1 + (1 - hp.softness / 100) * 4;
+    for (let yy = y0; yy <= y1; yy++) {
+      for (let xx = x0; xx <= x1; xx++) {
+        const d = Math.hypot(xx - x, yy - y);
+        if (d > brushR) continue;
+        const fall = Math.pow(clamp(1 - d / brushR, 0, 1), exp);
+        const idx = yy * SIZE + xx;
+        paintLayer[idx] = clamp(paintLayer[idx] + intensity * fall, -1, 1);
+      }
+    }
+    drawCursor(x, y);
+    scheduleRender();
+  }
+
+  let stroking = false;
+  brushCanvas.addEventListener('pointerdown', (e) => {
+    if (brushMode === 'off') return;
+    stroking = true;
+    paintedSinceImage = true;
+    try { brushCanvas.setPointerCapture(e.pointerId); } catch (err) {}
+    paintAtEvent(e);
+  });
+  brushCanvas.addEventListener('pointermove', (e) => {
+    if (brushMode === 'off') return;
+    if (stroking) paintAtEvent(e);
+    else { const p = canvasPointFromEvent(e); drawCursor(p.x, p.y); }
+  });
+  function endStroke(e) {
+    if (!stroking) return;
+    stroking = false;
+    try { brushCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    pushHistory();
+  }
+  brushCanvas.addEventListener('pointerup', endStroke);
+  brushCanvas.addEventListener('pointercancel', endStroke);
+  brushCanvas.addEventListener('pointerleave', (e) => { if (stroking) endStroke(e); clearCursor(); });
+
+  // ── Image → halftone ──
+  const imageInput = el('htImageInput');
+  el('htUploadBtn').addEventListener('click', () => imageInput.click());
+  function stampLayer(newLayer) {
+    if (hp.uploadMode === 'replace') paintLayer = newLayer;
+    else for (let i = 0; i < paintLayer.length; i++) paintLayer[i] = clamp(paintLayer[i] + newLayer[i], -1, 1);
+  }
+  imageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const tmp = document.createElement('canvas');
+      tmp.width = SIZE; tmp.height = SIZE;
+      const tctx = tmp.getContext('2d');
+      // White letterbox (and white behind transparency) so empty areas carry no ink.
+      tctx.fillStyle = 'white'; tctx.fillRect(0, 0, SIZE, SIZE);
+      const scale = Math.min(SIZE / img.width, SIZE / img.height);
+      const dw = img.width * scale, dh = img.height * scale;
+      tctx.drawImage(img, (SIZE - dw) / 2, (SIZE - dh) / 2, dw, dh);
+      const data = tctx.getImageData(0, 0, SIZE, SIZE).data;
+      const gray = new Float32Array(SIZE * SIZE);
+      for (let i = 0; i < gray.length; i++) {
+        gray[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) / 255;
+      }
+      lastGray = gray;
+      paintedSinceImage = false;
+      stampLayer(thresholdLayer(gray, hp.threshold / 100));
+      hp.source = 'image';
+      el('htSource').value = 'image';
+      pushHistory();
+      renderHalftone();
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); copyStatus.textContent = 'Could not read that image'; };
+    img.src = url;
+    imageInput.value = ''; // allow re-selecting the same file
+  });
+
+  // Threshold re-applies live to the loaded image, as long as it's a clean "replace" and nothing's been painted since.
+  let thresholdRestamped = false;
+  function restampThreshold() {
+    if (!lastGray || hp.uploadMode !== 'replace' || paintedSinceImage) return;
+    paintLayer = thresholdLayer(lastGray, hp.threshold / 100);
+    thresholdRestamped = true;
+    scheduleRender();
+  }
+  ['input'].forEach(evt => {
+    el('htThreshold').addEventListener(evt, restampThreshold);
+    el('htThresholdNum').addEventListener(evt, restampThreshold);
+  });
+  [el('htThreshold'), el('htThresholdNum')].forEach(node => node.addEventListener('change', () => {
+    if (thresholdRestamped) { thresholdRestamped = false; pushHistory(); }
+  }));
+
+  // ── Reset tab ──
+  el('htResetTabBtn').addEventListener('click', () => {
+    hp = makeDefaultHp();
+    presetBtns.forEach(b => b.classList.remove('active'));
+    paintLayer = new Float32Array(SIZE * SIZE);
+    lastGray = null; paintedSinceImage = false;
+    resetHistory();
+    setBrushMode('off');
+    pushToControls();
+    zoom = 100; applyZoom();
+    renderHalftone();
+  });
+
+  // ── Copy SVG / PNG (same pattern as Sunburst) ──
+  function flashStatus(msg) {
+    copyStatus.textContent = msg;
+    setTimeout(() => { copyStatus.textContent = 'Ready'; }, 1800);
+  }
+  el('htCopySvgBtn').addEventListener('click', async () => {
+    renderHalftone();
+    const serialized = new XMLSerializer().serializeToString(svg);
+    const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">${serialized.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+    try {
+      await navigator.clipboard.writeText(full);
+      flashStatus('\u2713 SVG copied to clipboard');
+    } catch (e) {
+      flashStatus('Could not copy \u2014 try again');
+    }
+  });
+  el('htCopyPngBtn').addEventListener('click', async () => {
+    try {
+      renderHalftone();
+      const serialized = new XMLSerializer().serializeToString(svg);
+      const full = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800">${serialized.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+      const svgBlob = new Blob([full], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1600; canvas.height = 1600;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 1600, 1600);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(async (blob) => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            flashStatus('\u2713 PNG copied to clipboard');
+          } catch (e) {
+            const link = document.createElement('a');
+            link.download = 'halftone.png';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            flashStatus('Clipboard unavailable \u2014 downloaded instead');
+          }
+        }, 'image/png');
+      };
+      img.src = url;
+    } catch (e) {
+      flashStatus('Could not export \u2014 try again');
+    }
+  });
+
+  // ── Init ──
+  pushToControls();
+  resetHistory();
+  applyZoom();
+  renderHalftone();
 })();
 </script>
 <script>
