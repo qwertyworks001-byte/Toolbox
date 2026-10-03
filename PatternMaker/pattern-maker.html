@@ -43,6 +43,13 @@
   input[type="color"].color-mini { width: 100%; height: 2rem; padding: 2px; cursor: pointer; }
   .preset-btn { transition: all 0.15s ease; }
   .preset-btn.active { background: rgba(59,130,246,0.18); border-color: #3b82f6; color: #93c5fd; }
+  .reset-one {
+    flex: none; width: 1.25rem; height: 1.25rem; line-height: 1; padding: 0; font-size: 0.8rem;
+    color: #94a3b8; background: transparent; border: 1px solid transparent; border-radius: 0.3rem;
+    cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  }
+  .reset-one:hover:not(:disabled) { color: #93c5fd; border-color: #3b82f6; background: rgba(59,130,246,0.12); }
+  .reset-one:disabled { opacity: 0.22; cursor: default; }
 </style>
 </head>
 <body class="text-slate-200 font-sans antialiased">
@@ -373,6 +380,61 @@
 </div>
 
 <script>
+// Shared by both tabs: puts a small reset (↺) button next to a control.
+window.PatternResetUI = (function () {
+  function cleanName(txt) { return txt.replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function make(name, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'reset-one';
+    b.textContent = '\u21BA';
+    b.title = 'Reset \u201C' + name + '\u201D to its starting value';
+    b.setAttribute('aria-label', 'Reset ' + name);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  // Label on its own line (selects, colours, text inputs, list headings): button goes at the right end of that line.
+  function attachLabel(label, name, onClick) {
+    const btn = make(name || cleanName(label.textContent), onClick);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0.25rem;';
+    label.parentNode.insertBefore(row, label);
+    label.style.marginBottom = '0';
+    row.appendChild(label);
+    row.appendChild(btn);
+    return btn;
+  }
+  function attachControl(id, onClick) {
+    const el = document.getElementById(id);
+    const num = document.getElementById(id + 'Num');
+    if (num && num.parentNode.classList.contains('row-head')) {            // slider: [label] ....... [number][↺]
+      const head = num.parentNode;
+      const btn = make(cleanName(head.querySelector('label').textContent), onClick);
+      const wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+      head.insertBefore(wrap, num);
+      wrap.appendChild(num);
+      wrap.appendChild(btn);
+      return btn;
+    }
+    if (el.type === 'checkbox') {                                           // checkbox: [☑ label] [↺]
+      const label = el.closest('label');
+      const btn = make(cleanName(label.textContent), onClick);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:0.75rem;';
+      label.parentNode.insertBefore(row, label);
+      label.classList.remove('mb-3');
+      row.appendChild(label);
+      row.appendChild(btn);
+      return btn;
+    }
+    const label = document.querySelector('label[for="' + id + '"]');
+    return attachLabel(label, cleanName(label.textContent), onClick);
+  }
+  return { attachControl: attachControl, attachLabel: attachLabel };
+})();
+</script>
+<script>
 (function () {
   // ── App-level tabs (Sunburst / Halftone) ──
   const appTabs = document.querySelectorAll('.tab-btn[data-apptab]');
@@ -404,7 +466,7 @@
     classic: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'wedges', wedgeEnds: 'circular', amount: 24, length: 78, width: 55, innerHole: 10, shardTip: 0, shoulder: 50, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: true },
     shards: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'shards', amount: 36, length: 49, width: 48, innerHole: 0, shardTip: 70, shoulder: 30, outerFade: 0, sweep: 360, twist: 0, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false },
     speedlines: { primary: '#f6a623', secondary: '#fff2cf', rotation: 0, shape: 'lines', lineCaps: 'round', amount: 60, length: 85, width: 12, innerHole: 35, shardTip: 0, shoulder: 0, outerFade: 30, sweep: 360, twist: 0, altLength: 25, altWidth: 0, rndLength: 10, rndWidth: 0, rndAngle: 2, fillMode: 'solid', twoColors: false },
-    fan5: { primary: '#f6a623', secondary: '#fff2cf', shape: 'shards', amount: 5, length: 90, width: 60, innerHole: 5, shardTip: 55, shoulder: 40, outerFade: 0, sweep: 80, twist: 0, rotation: -40, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false }
+    fan5: { primary: '#f6a623', secondary: '#fff2cf', shape: 'shards', amount: 5, length: 90, width: 60, innerHole: 5, shardTip: 55, shoulder: 40, outerFade: 0, sweep: 80, twist: 0, rotation: 320, altLength: 0, altWidth: 0, rndLength: 0, rndWidth: 0, rndAngle: 0, fillMode: 'solid', twoColors: false }
   };
 
   // Simple seeded PRNG (mulberry32) so the same seed always reproduces the same jitter.
@@ -553,6 +615,7 @@
     svg.innerHTML = `${defs}<g opacity="${(p.overallAlpha / 100).toFixed(2)}"${maskAttr}>${body}</g>`;
 
     document.getElementById('statusLine').textContent = `${n} ray${n === 1 ? '' : 's'} \u00B7 Editable vectors`;
+    if (typeof refreshResets === 'function') refreshResets();
   }
 
   const FIELD_IDS = ['amount', 'length', 'width', 'innerHole', 'shardTip', 'shoulder', 'outerFade', 'rotation', 'sweep', 'twist', 'altLength', 'altWidth', 'rndLength', 'rndWidth', 'rndAngle', 'overallAlpha'];
@@ -610,6 +673,7 @@
   presetBtns.forEach(btn => btn.addEventListener('click', () => {
     presetBtns.forEach(b => b.classList.toggle('active', b === btn));
     const key = btn.getAttribute('data-preset');
+    activeSunPreset = key;
     Object.assign(p, PRESETS[key]);
     pushToControls();
     renderSunburst();
@@ -633,6 +697,7 @@
   }, { passive: false });
 
   document.getElementById('resetTabBtn').addEventListener('click', () => {
+    activeSunPreset = 'fadeburst';
     Object.assign(p, PRESETS.fadeburst);
     presetBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-preset') === 'fadeburst'));
     pushToControls();
@@ -688,6 +753,22 @@
       flashStatus('Could not export \u2014 try again');
     }
   });
+
+  // ── Per-setting reset buttons ──
+  // "Starting value" = the active preset's value for that setting, otherwise the default the tab loaded with.
+  const SUN_DEFAULTS = JSON.parse(JSON.stringify(p));
+  var activeSunPreset = 'fadeburst';
+  const SUN_KEY = { fillMode: 'fillMode', primaryColor: 'primary', secondaryColor: 'secondary', twoColors: 'twoColors', shape: 'shape', wedgeEnds: 'wedgeEnds', lineCaps: 'lineCaps', seedInput: 'seed' };
+  FIELD_IDS.forEach(id => { SUN_KEY[id] = id; });
+  function sunStart(key) { const pr = activeSunPreset && PRESETS[activeSunPreset]; return pr && key in pr ? pr[key] : SUN_DEFAULTS[key]; }
+  function sameVal(a, b) { return (typeof a === 'number' || typeof b === 'number') ? Math.abs(Number(a) - Number(b)) < 1e-9 : a === b; }
+  var sunResets = [];
+  Object.keys(SUN_KEY).forEach(id => {
+    const key = SUN_KEY[id];
+    const btn = PatternResetUI.attachControl(id, () => { p[key] = sunStart(key); pushToControls(); renderSunburst(); });
+    sunResets.push({ key: key, btn: btn });
+  });
+  function refreshResets() { if (sunResets) sunResets.forEach(r => { r.btn.disabled = sameVal(p[r.key], sunStart(r.key)); }); }
 
   renderSunburst();
 })();
@@ -967,6 +1048,7 @@
     const out = buildSvgBody();
     svg.innerHTML = out.markup;
     statusLine.textContent = `${out.count} mark${out.count === 1 ? '' : 's'} \u00B7 Editable vectors`;
+    if (typeof refreshResets === 'function') refreshResets();
   }
   function scheduleRender() {
     if (renderQueued) return;
@@ -1107,6 +1189,7 @@
   // ── Presets / reset ──
   presetBtns.forEach(btn => btn.addEventListener('click', () => {
     presetBtns.forEach(b => b.classList.toggle('active', b === btn));
+    activeHtPreset = btn.getAttribute('data-htpreset');
     Object.assign(hp, HT_PRESETS[btn.getAttribute('data-htpreset')]);
     pushToControls();
     renderHalftone();
@@ -1306,6 +1389,7 @@
   // ── Reset tab ──
   el('htResetTabBtn').addEventListener('click', () => {
     hp = makeDefaultHp();
+    activeHtPreset = null;
     presetBtns.forEach(b => b.classList.remove('active'));
     paintLayer = new Float32Array(SIZE * SIZE);
     lastGray = null; paintedSinceImage = false;
@@ -1364,6 +1448,36 @@
       flashStatus('Could not export \u2014 try again');
     }
   });
+
+  // ── Per-setting reset buttons ──
+  const HT_DEFAULTS = makeDefaultHp();
+  var activeHtPreset = null;
+  const HT_KEY = { htFillMode: 'fillMode', htPrimaryColor: 'primary', htSecondaryColor: 'secondary', htTwoColors: 'twoColors', htSource: 'source', htShape: 'shape', htOutline: 'outline', htResponse: 'response', htStagger: 'stagger', htInvertTones: 'invertTones', htUploadMode: 'uploadMode', htSeedInput: 'seed' };
+  HT_FIELD_IDS.forEach(id => { HT_KEY[id] = keyOf(id); });
+  function htStart(key) { const pr = activeHtPreset && HT_PRESETS[activeHtPreset]; return pr && key in pr ? pr[key] : HT_DEFAULTS[key]; }
+  function sameVal(a, b) { return (typeof a === 'number' || typeof b === 'number') ? Math.abs(Number(a) - Number(b)) < 1e-9 : a === b; }
+  var htResets = [];
+  Object.keys(HT_KEY).forEach(id => {
+    const key = HT_KEY[id];
+    const btn = PatternResetUI.attachControl(id, () => {
+      hp[key] = htStart(key);
+      pushToControls();
+      if (key === 'threshold') { restampThreshold(); if (thresholdRestamped) { thresholdRestamped = false; pushHistory(); } }
+      renderHalftone();
+    });
+    htResets.push({ key: key, btn: btn });
+  });
+  const htStopsReset = PatternResetUI.attachLabel(document.querySelector('#htGradientFields label.field-label:not([for])'), 'Gradient stops', () => {
+    hp.stops = JSON.parse(JSON.stringify(HT_DEFAULTS.stops));
+    hp.selectedStopIndex = 0;
+    renderStops();
+    renderHalftone();
+  });
+  function refreshResets() {
+    if (!htResets) return;
+    htResets.forEach(r => { r.btn.disabled = sameVal(hp[r.key], htStart(r.key)); });
+    htStopsReset.disabled = JSON.stringify(hp.stops) === JSON.stringify(HT_DEFAULTS.stops);
+  }
 
   // ── Init ──
   pushToControls();

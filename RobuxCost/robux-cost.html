@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robux Cost Calculator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .seg-btn { transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+  .seg-btn.active { background: rgba(59,130,246,0.15); border-color: #3b82f6; color: #93c5fd; }
+  .spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Robux Cost Calculator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">How much real money it takes to buy a given amount of Robux, using the cheapest mix of Roblox&rsquo;s packs, in your currency.</p>
+  </header>
+
+  <!-- Inputs -->
+  <section class="glass rounded-2xl p-5 sm:p-6 mb-6" aria-label="Inputs">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6" role="group" aria-label="What do you want to work out?">
+      <button type="button" class="seg-btn active text-left px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/50" data-mode="cost">
+        <span class="block text-sm font-semibold">I know how many Robux I want</span>
+        <span class="block text-xs text-slate-400 mt-0.5">Find out what it costs</span>
+      </button>
+      <button type="button" class="seg-btn text-left px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/50" data-mode="budget">
+        <span class="block text-sm font-semibold">I know how much I can spend</span>
+        <span class="block text-xs text-slate-400 mt-0.5">Find out how many Robux I get</span>
+      </button>
+    </div>
+
+    <!-- Robux -> cost -->
+    <div id="costInput">
+      <label for="robux" class="block text-sm font-medium text-slate-300 mb-2">Robux you want</label>
+      <input type="text" id="robux" inputmode="numeric" autocomplete="off" value="10000"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-2xl font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-describedby="robuxHint">
+      <p id="robuxHint" class="text-xs text-slate-500 mt-1.5">Commas are fine, and you can use K or M (e.g. 25K).</p>
+      <div class="flex flex-wrap gap-2 mt-3" id="quickAmounts"></div>
+    </div>
+
+    <!-- money -> Robux -->
+    <div id="budgetInput" class="hidden">
+      <label for="budget" class="block text-sm font-medium text-slate-300 mb-2">Money you can spend</label>
+      <div class="relative">
+        <input type="text" id="budget" inputmode="decimal" autocomplete="off" value="50"
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-xl pl-4 pr-20 py-3 text-2xl font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-describedby="budgetHint">
+        <span id="budgetCur" class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500"></span>
+      </div>
+      <p id="budgetHint" class="text-xs text-slate-500 mt-1.5">In the currency you pick below. Commas and decimal points are fine.</p>
+      <div class="flex flex-wrap gap-2 mt-3" id="quickBudgets"></div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+      <div>
+        <span class="block text-sm font-medium text-slate-300 mb-2">Where you&rsquo;re buying</span>
+        <div class="grid grid-cols-2 gap-2" role="group" aria-label="Where you are buying">
+          <button type="button" class="seg-btn active text-sm px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900/50 leading-tight" data-channel="web">Website, PC or gift card</button>
+          <button type="button" class="seg-btn text-sm px-3 py-2.5 rounded-lg border border-slate-700 bg-slate-900/50 leading-tight" data-channel="app">Mobile app or console</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-1.5" id="channelHint"></p>
+      </div>
+      <div>
+        <label for="currency" class="block text-sm font-medium text-slate-300 mb-2">Currency</label>
+        <select id="currency" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"></select>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <span class="block text-sm font-medium text-slate-300 mb-2">Which prices should it use?</span>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" role="group" aria-label="Price source">
+        <button type="button" class="seg-btn active text-left px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/50" data-source="convert">
+          <span class="block text-sm font-semibold">Estimate from US prices</span>
+          <span class="block text-xs text-slate-400 mt-0.5">Quick: Roblox&rsquo;s US prices converted to your currency</span>
+        </button>
+        <button type="button" class="seg-btn text-left px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/50" data-source="custom">
+          <span class="block text-sm font-semibold">Use my store&rsquo;s prices</span>
+          <span class="block text-xs text-slate-400 mt-0.5">Exact: you type in what your store actually charges</span>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mt-1.5" id="sourceHint"></p>
+    </div>
+
+    <!-- Appears only when "Use my store's prices" is chosen -->
+    <div id="customPanel" class="hidden mt-5 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+      <p class="text-sm font-semibold text-white mb-1">Your store&rsquo;s prices, in <span id="customCur"></span></p>
+      <ol class="text-xs text-slate-400 mb-3 leading-relaxed list-decimal list-inside space-y-0.5">
+        <li>Open Roblox&rsquo;s <em>Buy Robux</em> screen (or your app store&rsquo;s version of it).</li>
+        <li>For each pack below, type the price it shows you, including tax. Leave a box empty if your store doesn&rsquo;t sell that pack.</li>
+        <li>The result updates as you type. You only need to fill in the packs you&rsquo;d actually consider.</li>
+      </ol>
+      <div id="customGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+      <div class="flex flex-wrap items-center gap-2 mt-3">
+        <button type="button" id="fillEstimates" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Fill with estimates</button>
+        <button type="button" id="clearPrices" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-slate-300">Clear my prices</button>
+        <span class="text-xs text-slate-500">Saved on this device for each currency and platform.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Result -->
+  <section class="glass rounded-2xl p-5 sm:p-6 mb-6" aria-label="Result" aria-live="polite">
+    <p class="text-sm text-slate-400 mb-1" id="resLabel">&nbsp;</p>
+    <p class="text-3xl sm:text-5xl font-bold text-white break-words" id="resTotal">&mdash;</p>
+    <p class="text-sm text-slate-400 mt-1" id="resSub">&nbsp;</p>
+    <p class="mt-3 text-sm rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-200 hidden" id="resNote"></p>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5" id="resStats"></div>
+
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mt-6 mb-2">What you&rsquo;d buy</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-xs uppercase tracking-wider text-slate-500"><th class="text-left font-medium pb-2 pr-3">Pack</th><th class="text-right font-medium pb-2 pr-3">Qty</th><th class="text-right font-medium pb-2 pr-3">Each</th><th class="text-right font-medium pb-2">Subtotal</th></tr></thead>
+        <tbody id="resLines"></tbody>
+      </table>
+    </div>
+
+    <div class="mt-5 rounded-xl bg-slate-900/60 border border-slate-700/70 p-4 text-sm hidden" id="fewest"></div>
+    <div class="mt-3 rounded-xl bg-slate-900/60 border border-slate-700/70 p-4 text-sm" id="channelCompare"></div>
+  </section>
+
+  <!-- Pack prices (read-only reference) -->
+  <section class="glass rounded-2xl p-5 sm:p-6 mb-6" aria-label="Pack prices">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-1" id="packsTitle">Packs</h2>
+    <p class="text-xs text-slate-500 mb-3" id="packsHelp"></p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-xs uppercase tracking-wider text-slate-500"><th class="text-left font-medium pb-2 pr-3">Robux</th><th class="text-right font-medium pb-2 pr-3">US price</th><th class="text-right font-medium pb-2 pr-3" id="thLocal">Price</th><th class="text-right font-medium pb-2">Per 1,000</th></tr></thead>
+        <tbody id="packRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Other currencies (Robux -> cost direction only) -->
+  <section class="glass rounded-2xl p-5 sm:p-6 mb-6" aria-label="Other currencies" id="otherCard">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400" id="otherTitle">The same purchase in other currencies</h2>
+      <input type="search" id="otherSearch" placeholder="Filter currencies" autocomplete="off"
+        class="w-full sm:w-56 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="overflow-y-auto rounded-lg border border-slate-800" style="max-height: 24rem;">
+      <table class="w-full text-sm"><tbody id="otherRows"></tbody></table>
+    </div>
+    <div class="flex items-center justify-between mt-2">
+      <p class="text-xs text-slate-500" id="otherCount"></p>
+      <button type="button" id="otherToggle" class="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2"></button>
+    </div>
+  </section>
+
+  <div class="flex items-start justify-between gap-3 mb-4">
+    <p id="status" class="text-xs leading-relaxed flex-1 text-slate-400">Loading exchange rates&hellip;</p>
+    <button type="button" id="refreshBtn" class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 inline-flex items-center gap-1.5 disabled:opacity-50">
+      <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      Refresh
+    </button>
+  </div>
+
+  <p class="text-xs text-slate-500 leading-relaxed">
+    <strong class="text-slate-400">How this works.</strong> Robux is sold in fixed packs, so you usually can&rsquo;t buy an exact amount.
+    Given a number of Robux, this finds the cheapest set of packs that gives <em>at least</em> that many. Given a budget, it finds the set of packs that gives the <em>most</em> Robux without going over.
+    Roblox says buying on the web, on a computer or with a gift card gives up to 25% more Robux than the mobile app or console
+    (<a class="underline hover:text-blue-400" href="https://en.help.roblox.com/hc/en-us/articles/203313200-Ways-to-Get-Robux" target="_blank" rel="noopener">Roblox Support</a>).
+    The Premium 10% purchase bonus ended on 30 May 2026, and Roblox Plus doesn&rsquo;t add bonus Robux when you buy, so neither is included.
+    Pack sizes and US prices were checked on <span id="packsChecked"></span>; Roblox can change them at any time.
+    <strong class="text-slate-400">&ldquo;Estimate from US prices&rdquo; is only an estimate:</strong> Roblox and the app stores set their own prices in each country (usually including tax), so what you&rsquo;re actually charged can be noticeably different.
+    For exact results, choose &ldquo;Use my store&rsquo;s prices&rdquo; and type in what your store shows.
+    Selling Robux instead of buying? See the <a class="underline hover:text-blue-400" href="../DevExCalculator/devex.html">DevEx Calculator</a>.
+    Exchange rates by <a href="https://www.exchangerate-api.com" class="underline hover:text-blue-400" target="_blank" rel="noopener">Exchange Rate API</a>. Not affiliated with Roblox.
+  </p>
+</div>
+
+<script>
+(function () {
+  // Offline fallback: real fiat rates (units per 1 USD) captured on 1 Oct 2026.
+  const SNAPSHOT = {"updatedMs":1790812951000,"fiat":{"USD":1,"AED":3.6725,"AFN":64.860189,"ALL":81.155017,"AMD":363.102577,"ANG":1.79,"AOA":924.717414,"ARS":1517.5209,"AUD":1.438252,"AWG":1.79,"AZN":1.700102,"BAM":1.724401,"BBD":2,"BDT":123.023346,"BGN":1.724401,"BHD":0.376,"BIF":2998.211409,"BMD":1,"BND":1.277688,"BOB":12.041089,"BRL":5.200393,"BSD":1,"BTN":96.0155,"BWP":13.995888,"BYN":3.01458,"BZD":2,"CAD":1.421278,"CDF":2311.032189,"CHF":0.835134,"CLF":0.024628,"CLP":973.46915,"CNH":6.707037,"CNY":6.716878,"COP":3333.963413,"CRC":456.615168,"CUP":24,"CVE":97.217599,"CZK":21.547067,"DJF":177.721,"DKK":6.586139,"DOP":59.495317,"DZD":133.846029,"EGP":51.965687,"ERN":15,"ETB":162.799411,"EUR":0.881813,"FJD":2.245819,"FKP":0.75392,"FOK":6.586193,"GBP":0.753798,"GEL":2.602382,"GGP":0.75392,"GHS":11.706717,"GIP":0.75392,"GMD":74.552189,"GNF":8793.387912,"GTQ":7.639435,"GYD":209.233306,"HKD":7.846697,"HNL":26.851545,"HRK":6.64296,"HTG":130.868294,"HUF":323.038522,"IDR":17903.534018,"ILS":3.068956,"IMP":0.75392,"INR":95.997282,"IQD":1309.953028,"IRR":1522336.036478,"ISK":120.552347,"JEP":0.75392,"JMD":158.455393,"JOD":0.709,"JPY":157.298282,"KES":129.700459,"KGS":87.474318,"KHR":4053.6449,"KID":1.43766,"KMF":433.754349,"KRW":1355.838011,"KWD":0.308528,"KYD":0.833333,"KZT":439.925737,"LAK":22375.980925,"LBP":89500,"LKR":330.375501,"LRD":171.606231,"LSL":16.415853,"LYD":6.394915,"MAD":9.685424,"MDL":17.729562,"MGA":4398.979265,"MKD":54.280014,"MMK":2098.724332,"MNT":3579.085462,"MOP":8.082242,"MRU":39.962625,"MUR":47.755355,"MVR":15.453218,"MWK":1741.549414,"MXN":18.077867,"MYR":4.078529,"MZN":63.864902,"NAD":16.415853,"NGN":1328.645734,"NIO":36.78822,"NOK":9.609239,"NPR":153.6248,"NZD":1.774167,"OMR":0.384497,"PAB":1,"PEN":3.442479,"PGK":4.50122,"PHP":62.754655,"PKR":276.984011,"PLN":3.84929,"PYG":5856.017679,"QAR":3.64,"RON":4.648697,"RSD":103.530532,"RUB":83.691177,"RWF":1475.715143,"SAR":3.75,"SBD":7.954219,"SCR":14.523014,"SDG":543.657538,"SEK":10.003958,"SGD":1.277638,"SHP":0.75392,"SLE":24.654462,"SLL":24654.462165,"SOS":571.325155,"SRD":37.627245,"SSP":5936.971385,"STN":21.600972,"SYP":121.845042,"SZL":16.415853,"THB":33.580261,"TJS":9.222952,"TMT":3.501607,"TND":2.974813,"TOP":2.387285,"TRY":49.048442,"TTD":6.763987,"TVD":1.43766,"TWD":31.908932,"TZS":2650.474592,"UAH":44.735432,"UGX":3896.968058,"UYU":40.234174,"UZS":11818.674758,"VES":860.1753,"VND":25935.273468,"VUV":119.510736,"WST":2.738327,"XAF":578.339132,"XCD":2.7,"XCG":1.79,"XDR":0.735783,"XOF":578.339132,"XPF":105.211722,"YER":236.534961,"ZAR":16.415882,"ZMW":19.626234,"ZWG":26.7965,"ZWL":26.7965}};
+
+  const ER_URL = 'https://open.er-api.com/v6/latest/USD';
+  const RATES_KEY = 'toolbox:robux-rates';
+  const CONVERTER_KEY = 'toolbox:currency-rates';
+  const STATE_KEY = 'toolbox:robux-cost';
+  const PRICES_KEY = 'toolbox:robux-prices';
+  const CACHE_FRESH_MS = 60 * 60 * 1000;
+  const PACKS_CHECKED = '3 Oct 2026';
+
+  // <<RB-PURE-START>>
+  // Official packs (checked against Roblox Support + two recent price tables). Prices in US cents.
+  const PACKS = {
+    web: [ // roblox.com, the PC app, and gift cards
+      { robux: 500, usdCents: 499 }, { robux: 1000, usdCents: 999 }, { robux: 2000, usdCents: 1999 },
+      { robux: 5250, usdCents: 4999 }, { robux: 11000, usdCents: 9999 }, { robux: 24000, usdCents: 19999 }
+    ],
+    app: [ // iOS / Android / Xbox / PlayStation
+      { robux: 80, usdCents: 99 }, { robux: 400, usdCents: 499 }, { robux: 800, usdCents: 999 }, { robux: 1700, usdCents: 1999 },
+      { robux: 4500, usdCents: 4999 }, { robux: 10000, usdCents: 9999 }, { robux: 22500, usdCents: 19999 }
+    ]
+  };
+  const MAX_ROBUX = 100000000;
+  const MAX_BUDGET_USD = 1000000;   // largest budget (US$ equivalent) the money -> Robux direction accepts
+  const K_LIMIT = 1000000;           // exact budget solve up to this many gcd-sized Robux units; beyond it, bulk copies of the best-value pack are peeled off first
+  const DP_LIMIT = 2000000;          // exact optimisation up to here; beyond it, extra copies of the best-value pack are peeled off first
+  const POPULAR = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'NZD', 'JPY', 'CNY', 'INR', 'BRL', 'MXN', 'KRW', 'SGD', 'HKD', 'SEK', 'NOK', 'CHF', 'ZAR', 'PHP', 'IDR', 'TRY', 'AED', 'SAR', 'PLN', 'THB', 'MYR', 'VND'];
+  const EXCLUDE = new Set(['HRK', 'SLL', 'ZWL', 'FOK', 'GGP', 'IMP', 'JEP', 'KID', 'TVD', 'XDR', 'CLF', 'CNH']);
+  const NAMES = { XCG: 'Caribbean Guilder', ZWG: 'Zimbabwean Gold (ZiG)', SLE: 'Sierra Leonean Leone', STN: 'S\u00E3o Tom\u00E9 & Pr\u00EDncipe Dobra', MRU: 'Mauritanian Ouguiya', XAF: 'Central African CFA Franc', XOF: 'West African CFA Franc', XPF: 'CFP Franc', XCD: 'East Caribbean Dollar' };
+
+  const okNum = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  function parseAmount(str) {
+    const s = String(str == null ? '' : str).trim().replace(/[,\s_]/g, '');
+    const m = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([kmb])?$/i.exec(s);
+    if (!m) return NaN;
+    const mult = { k: 1e3, m: 1e6, b: 1e9 }[(m[2] || '').toLowerCase()] || 1;
+    return parseFloat(m[1]) * mult;
+  }
+
+  // Parse a price a person typed, accepting both "5.99" and "5,99" (and "1,299" / "1.299,00" thousands styles).
+  function parsePrice(str) {
+    let s = String(str == null ? '' : str).trim().replace(/[\s\u00A0_]/g, '').replace(/^[^\d.,-]+/, '').replace(/[^\d.,-]+$/, '');
+    if (!/^-?[\d.,]+$/.test(s)) return NaN;
+    const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+    if (lc >= 0 && ld >= 0) s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');   // the later separator is the decimal one
+    else if (lc >= 0) {
+      const parts = s.split(',');
+      if (parts.length === 2 && parts[1].length <= 2) s = parts[0] + '.' + parts[1];                       // "5,99" -> 5.99
+      else if (/^-?\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, '');                                   // "1,299" -> 1299
+      else return NaN;                                                                                    // "1,2,3" is not a price
+    } else if ((s.match(/\./g) || []).length > 1) {
+      if (!/^-?\d{1,3}(\.\d{3})+$/.test(s)) return NaN;                                                   // "1..2" / "1.2.3" are not prices
+      s = s.replace(/\./g, '');                                                                          // "1.299.000" -> 1299000
+    }
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;     // after normalising it must be a plain number
+    const v = parseFloat(s);
+    return Number.isFinite(v) ? v : NaN;
+  }
+
+  // Combination of packs giving AT LEAST `target` Robux.
+  //   mode 'cost'  -> cheapest total (ties: fewer packs)
+  //   mode 'count' -> fewest packs     (ties: cheaper)
+  // packs: [{ robux:int>0, cost:number>0 }]  (cost in any consistent unit)
+  // Returns { counts:[qty per pack], totalCost, robux } or null.
+  function solveCover(packs, target, mode) {
+    const byCost = mode !== 'count';
+    const usable = packs.map((p, i) => ({ robux: p.robux, cost: p.cost, i })).filter(p => okNum(p.robux) && okNum(p.cost));
+    if (!usable.length || !(target > 0) || !Number.isFinite(target)) return null;
+    const counts = packs.map(() => 0);
+    let n = Math.ceil(target);
+    // Pack to peel off in bulk for huge targets: best value (cost mode) or largest (count mode)
+    let lead = usable[0];
+    usable.forEach(p => {
+      if (byCost) { const a = p.cost / p.robux, b = lead.cost / lead.robux; if (a < b - 1e-12 || (Math.abs(a - b) <= 1e-12 && p.robux > lead.robux)) lead = p; }
+      else if (p.robux > lead.robux || (p.robux === lead.robux && p.cost < lead.cost)) lead = p;
+    });
+    if (n > DP_LIMIT) {
+      const k = Math.ceil((n - DP_LIMIT) / lead.robux);
+      counts[lead.i] += k;
+      n -= k * lead.robux;
+    }
+    if (n > 0) {
+      const f = new Float64Array(n + 1), c = new Uint32Array(n + 1), pick = new Uint8Array(n + 1);
+      for (let r = 1; r <= n; r++) {
+        let bc = Infinity, bn = Infinity, bi = 0;
+        for (let j = 0; j < usable.length; j++) {
+          const p = usable[j], prev = r > p.robux ? r - p.robux : 0;
+          const cost = f[prev] + p.cost, cnt = c[prev] + 1;
+          const better = byCost ? (cost < bc - 1e-9 || (Math.abs(cost - bc) <= 1e-9 && cnt < bn))
+                                : (cnt < bn || (cnt === bn && cost < bc - 1e-9));
+          if (better) { bc = cost; bn = cnt; bi = j; }
+        }
+        f[r] = bc; c[r] = bn; pick[r] = bi;
+      }
+      let r = n;
+      while (r > 0) { const p = usable[pick[r]]; counts[p.i]++; r = r > p.robux ? r - p.robux : 0; }
+    }
+    let totalCost = 0, robux = 0;
+    packs.forEach((p, i) => { if (counts[i]) { totalCost += counts[i] * p.cost; robux += counts[i] * p.robux; } });
+    return { counts, totalCost, robux };
+  }
+  const cheapestCover = (packs, target) => solveCover(packs, target, 'cost');
+  const fewestPacks = (packs, target) => solveCover(packs, target, 'count');
+
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+
+  // Money typed as a budget: "50", "50.5", "50,5", "1,299.99", and "2k" / "1.5m" shorthand.
+  function parseMoney(str) {
+    const s = String(str == null ? '' : str).trim();
+    return /[kmb]$/i.test(s) ? parseAmount(s) : parsePrice(s);
+  }
+
+  // Round to a friendly figure (1, 2, 2.5, 5, 7.5 x 10^n) for the budget quick-pick chips.
+  function niceRound(x) {
+    if (!okNum(x)) return 1;
+    const e = Math.floor(Math.log10(x)), base = Math.pow(10, e), m = x / base;
+    const steps = [1, 2, 2.5, 5, 7.5, 10];
+    let best = steps[0];
+    steps.forEach(s => { if (Math.abs(Math.log(m / s)) < Math.abs(Math.log(m / best))) best = s; });
+    return Number((best * base).toPrecision(6));
+  }
+
+  // The flip side: the MOST Robux that costs no more than `budget` (cost units, integers). Ties -> cheaper, then fewer packs.
+  // Works over Robux in units of the packs' gcd, so the size of the budget (or of the currency's units) never matters.
+  function solveBudget(packs, budget) {
+    const usable = packs.map((p, i) => ({ robux: p.robux, cost: p.cost, i })).filter(p => okNum(p.robux) && okNum(p.cost));
+    if (!usable.length || !(budget >= 0) || !Number.isFinite(budget)) return null;
+    const counts = packs.map(() => 0);
+    let g = usable[0].robux; usable.forEach(p => { g = gcd(g, p.robux); });
+    const units = usable.map(p => ({ u: p.robux / g, cost: p.cost, i: p.i }));
+    let lead = units[0];
+    units.forEach(p => { const a = p.cost / p.u, b = lead.cost / lead.u; if (a < b - 1e-12 || (Math.abs(a - b) <= 1e-12 && p.u > lead.u)) lead = p; });
+    let left = budget;
+    const kUpper = (b) => Math.floor(b / (lead.cost / lead.u) + 1e-9);
+    if (kUpper(left) > K_LIMIT) {
+      const m = Math.ceil((kUpper(left) - K_LIMIT) / lead.u);
+      counts[lead.i] += m; left -= m * lead.cost;
+    }
+    const kMax = Math.max(0, kUpper(left));
+    if (kMax > 0) {
+      const f = new Float64Array(kMax + 1).fill(Infinity), c = new Uint32Array(kMax + 1), pick = new Uint8Array(kMax + 1);
+      f[0] = 0;
+      for (let k = 1; k <= kMax; k++) {
+        let bc = Infinity, bn = Infinity, bi = -1;
+        for (let j = 0; j < units.length; j++) {
+          const p = units[j]; if (k < p.u) continue;
+          const prev = f[k - p.u]; if (prev === Infinity) continue;
+          const cost = prev + p.cost, cnt = c[k - p.u] + 1;
+          if (cost < bc - 1e-9 || (Math.abs(cost - bc) <= 1e-9 && cnt < bn)) { bc = cost; bn = cnt; bi = j; }
+        }
+        f[k] = bc; c[k] = bn; pick[k] = bi < 0 ? 255 : bi;
+      }
+      let kBest = 0;
+      for (let k = kMax; k >= 1; k--) { if (f[k] <= left + 1e-9) { kBest = k; break; } }
+      let k = kBest;
+      while (k > 0) { const p = units[pick[k]]; counts[p.i]++; k -= p.u; }
+    }
+    let totalCost = 0, robux = 0;
+    packs.forEach((p, i) => { if (counts[i]) { totalCost += counts[i] * p.cost; robux += counts[i] * p.robux; } });
+    return { counts, totalCost, robux, leftover: budget - totalCost };
+  }
+
+  function parseER(json) {
+    if (!json || json.result !== 'success' || !json.rates || typeof json.rates !== 'object') return null;
+    const rates = {};
+    Object.keys(json.rates).forEach(k => { if (okNum(json.rates[k])) rates[k.toUpperCase()] = json.rates[k]; });
+    return rates.USD ? { rates, updatedMs: (Number(json.time_last_update_unix) || 0) * 1000 } : null;
+  }
+  // Live where available, otherwise the saved snapshot value for that currency.
+  function composeRates(er, snapshot) {
+    const codes = new Set(Object.keys(snapshot.fiat).concat(er ? Object.keys(er.rates) : []));
+    EXCLUDE.forEach(c => codes.delete(c));
+    const rates = {}; let live = false;
+    codes.forEach(c => {
+      if (er && okNum(er.rates[c])) { rates[c] = er.rates[c]; live = true; }
+      else if (okNum(snapshot.fiat[c])) rates[c] = snapshot.fiat[c];
+    });
+    return { rates, live, updatedMs: er ? er.updatedMs : 0, snapshotMs: snapshot.updatedMs };
+  }
+
+  let dn = null;
+  function currencyName(code) {
+    if (NAMES[code]) return NAMES[code];
+    try { if (dn === null) dn = new Intl.DisplayNames(['en'], { type: 'currency' }); const n = dn.of(code); return n && n !== code ? n : code; } catch (e) { return code; }
+  }
+  function currencyList(rates) {
+    const all = Object.keys(rates).sort();
+    const pop = POPULAR.filter(c => rates[c]);
+    return { popular: pop, others: all.filter(c => !pop.includes(c)) };
+  }
+
+  function fmtMoney(v, code, opts) {
+    if (!Number.isFinite(v)) return '\u2014';
+    const o = Object.assign({ style: 'currency', currency: code }, opts || {});
+    if (!opts && Math.abs(v) >= 1e6) { o.minimumFractionDigits = 0; o.maximumFractionDigits = 0; }
+    try { return new Intl.NumberFormat('en', o).format(v); } catch (e) { return `${v.toFixed(2)} ${code}`; }
+  }
+  const fmtInt = (n) => new Intl.NumberFormat('en-US').format(n);
+  const fmtPer = (v, code) => fmtMoney(v, code, { maximumSignificantDigits: 3 });
+
+  // The whole calculation. packsIn = PACKS[channel]; unitPrices[i] = price of pack i (null/NaN = not sold).
+  // Prices are optimised in whole cents; lines are built from those same cent prices, so they always add up.
+  function buildPlan(packsIn, unitPrices, target, mode) {
+    const packs = packsIn.map((p, i) => ({ robux: p.robux, cost: okNum(unitPrices[i]) ? Math.max(1, Math.round(unitPrices[i] * 100)) : NaN }));
+    const res = solveCover(packs, target, mode);
+    if (!res) return null;
+    const lines = packs.map((p, i) => ({ robux: p.robux, qty: res.counts[i], unit: p.cost / 100, subtotal: res.counts[i] * p.cost / 100 })).filter(l => l.qty > 0);
+    return { lines, total: res.totalCost / 100, robux: res.robux, extra: res.robux - Math.ceil(target), packCount: res.counts.reduce((a, b) => a + b, 0) };
+  }
+  // Money -> Robux. `budget` is in the same units as unitPrices.
+  function buildBudgetPlan(packsIn, unitPrices, budget) {
+    const packs = packsIn.map((p, i) => ({ robux: p.robux, cost: okNum(unitPrices[i]) ? Math.max(1, Math.round(unitPrices[i] * 100)) : NaN }));
+    const res = solveBudget(packs, Math.floor(budget * 100 + 1e-6));
+    if (!res) return null;
+    const lines = packs.map((p, i) => ({ robux: p.robux, qty: res.counts[i], unit: p.cost / 100, subtotal: res.counts[i] * p.cost / 100 })).filter(l => l.qty > 0);
+    return { lines, total: res.totalCost / 100, robux: res.robux, extra: 0, packCount: res.counts.reduce((a, b) => a + b, 0), leftover: res.leftover / 100 };
+  }
+  // Multiply every money figure by an exchange rate (the optimisation was done in USD, so it is exact).
+  function scalePlan(plan, k) {
+    return plan && { lines: plan.lines.map(l => ({ robux: l.robux, qty: l.qty, unit: l.unit * k, subtotal: l.subtotal * k })), total: plan.total * k, robux: plan.robux, extra: plan.extra, packCount: plan.packCount };
+  }
+  // <<RB-PURE-END>>
+
+  // ══════════════ UI ══════════════
+  const $ = (id) => document.getElementById(id);
+  const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  let state = { mode: 'cost', robux: '10000', budget: '50', channel: 'web', currency: 'NZD', source: 'convert', showAll: false };
+  try {
+    const s = JSON.parse(localStorage.getItem(STATE_KEY));
+    if (s && typeof s === 'object') state = Object.assign(state, {
+      mode: s.mode === 'budget' ? 'budget' : 'cost',
+      robux: typeof s.robux === 'string' ? s.robux : state.robux,
+      budget: typeof s.budget === 'string' ? s.budget : state.budget,
+      channel: s.channel === 'app' ? 'app' : 'web',
+      currency: typeof s.currency === 'string' ? s.currency : state.currency,
+      source: s.source === 'custom' ? 'custom' : 'convert'
+    });
+  } catch (e) {}
+  let customPrices = {};
+  try { const p = JSON.parse(localStorage.getItem(PRICES_KEY)); if (p && typeof p === 'object') customPrices = p; } catch (e) {}
+  function save() { try { localStorage.setItem(STATE_KEY, JSON.stringify({ mode: state.mode, robux: state.robux, budget: state.budget, channel: state.channel, currency: state.currency, source: state.source })); } catch (e) {} }
+  function savePrices() { try { localStorage.setItem(PRICES_KEY, JSON.stringify(customPrices)); } catch (e) {} }
+
+  let meta = null, rates = {}, loading = false, refreshError = false, lastFetchAt = 0, debounce = null;
+
+  const customFor = (cur, ch) => ((customPrices[cur] || {})[ch]) || {};
+  const usdPrices = (ch) => PACKS[ch].map(p => p.usdCents / 100);
+  const estimateFor = (ch, cur) => PACKS[ch].map(p => p.usdCents / 100 * rates[cur]);
+  function digitsFor(cur) { try { return new Intl.NumberFormat('en', { style: 'currency', currency: cur }).resolvedOptions().maximumFractionDigits; } catch (e) { return 2; } }
+
+  // Price of every pack in the chosen currency as the calculator will use it (null = not entered / not sold).
+  function unitPricesFor(channel, cur, source) {
+    return PACKS[channel].map(p => {
+      if (source === 'custom') { const v = parsePrice(customFor(cur, channel)[p.robux]); return okNum(v) ? v : null; }
+      return p.usdCents / 100 * rates[cur];
+    });
+  }
+
+  // Robux -> cost. Estimates are optimised in USD and then converted, so they are exact.
+  function costPlan(channel, mode, target) {
+    const cur = state.currency;
+    if (state.source === 'custom') return buildPlan(PACKS[channel], unitPricesFor(channel, cur, 'custom'), target, mode);
+    return scalePlan(buildPlan(PACKS[channel], usdPrices(channel), target, mode), rates[cur]);
+  }
+  // Money -> Robux.
+  function budgetPlan(channel, budget, forceEstimate) {
+    const cur = state.currency, r = rates[cur];
+    if (state.source === 'custom' && !forceEstimate) return buildBudgetPlan(PACKS[channel], unitPricesFor(channel, cur, 'custom'), budget);
+    const usd = buildBudgetPlan(PACKS[channel], usdPrices(channel), budget / r);
+    if (!usd) return null;
+    const sc = scalePlan(usd, r); sc.leftover = budget - sc.total; return sc;
+  }
+
+  const stat = (label, value) => `<div class="rounded-xl bg-slate-900/60 border border-slate-700/70 p-3"><p class="text-[11px] uppercase tracking-wider text-slate-500 mb-0.5">${label}</p><p class="text-base font-semibold text-white break-words">${value}</p></div>`;
+  const channelName = () => state.channel === 'web' ? 'Website, PC or gift card' : 'Mobile app or console';
+  const sourceName = (cur) => state.source === 'custom' ? 'your store prices' : (cur === 'USD' ? 'official US prices' : 'estimate converted from US prices');
+
+  function clearResult() {
+    $('resLabel').innerHTML = '&nbsp;'; $('resTotal').innerHTML = '&mdash;'; $('resSub').innerHTML = '&nbsp;';
+    $('resStats').innerHTML = ''; $('resLines').innerHTML = ''; $('channelCompare').innerHTML = ''; $('fewest').classList.add('hidden');
+    $('resNote').classList.add('hidden');
+  }
+  function showNote(html) { const n = $('resNote'); n.innerHTML = html; n.classList.remove('hidden'); }
+  const needPricesNote = () => showNote('Enter at least one price in the &ldquo;Your store&rsquo;s prices&rdquo; boxes just above. <button type="button" id="gotoPrices" class="underline font-medium">Take me there</button>');
+
+  function linesHtml(plan, cur) {
+    return plan.lines.map(l => `<tr class="border-t border-slate-800"><td class="py-1.5 pr-3 font-medium text-white">${fmtInt(l.robux)} Robux</td><td class="py-1.5 pr-3 text-right">${fmtInt(l.qty)}</td><td class="py-1.5 pr-3 text-right text-slate-400">${fmtMoney(l.unit, cur)}</td><td class="py-1.5 text-right text-slate-200">${fmtMoney(l.subtotal, cur)}</td></tr>`).join('')
+      + (plan.lines.length ? `<tr class="border-t border-slate-600 font-semibold"><td class="py-2 pr-3">Total (${fmtInt(plan.packCount)} ${plan.packCount === 1 ? 'purchase' : 'separate purchases'})</td><td class="py-2 pr-3 text-right">${fmtInt(plan.packCount)}</td><td></td><td class="py-2 text-right text-blue-400">${fmtMoney(plan.total, cur)}</td></tr>` : '');
+  }
+
+  // ── "Robux -> cost" ──
+  function renderCost() {
+    const cur = state.currency, r = rates[cur];
+    const target = parseAmount(state.robux);
+    const bad = Number.isNaN(target) || target < 1 || target > MAX_ROBUX;
+    $('robuxHint').className = 'text-xs mt-1.5 ' + (bad ? 'text-red-400' : 'text-slate-500');
+    $('robuxHint').textContent = bad ? `Enter a whole number from 1 to ${fmtInt(MAX_ROBUX)}.` : 'Commas are fine, and you can use K or M (e.g. 25K).';
+    const plan = bad ? null : costPlan(state.channel, 'cost', target);
+    clearResult();
+    if (!plan) { if (!bad && state.source === 'custom') needPricesNote(); renderOthers(null); return; }
+
+    const usdTotal = plan.total / r;
+    $('resLabel').textContent = `To get ${fmtInt(Math.ceil(target))} Robux you need to spend`;
+    $('resTotal').textContent = fmtMoney(plan.total, cur);
+    $('resSub').textContent = `${channelName()} \u00B7 ${sourceName(cur)}`;
+    if (plan.extra > 0) showNote(`Packs are fixed sizes, so this gets you ${fmtInt(plan.robux)} Robux, which is ${fmtInt(plan.extra)} more than you asked for. That is still the cheapest way to reach ${fmtInt(Math.ceil(target))}.`);
+    $('resStats').innerHTML =
+      stat('You receive', `${fmtInt(plan.robux)} R$`) +
+      stat('Per Robux', fmtPer(plan.total / plan.robux, cur)) +
+      stat('Per 1,000 Robux', fmtMoney(plan.total / plan.robux * 1000, cur)) +
+      stat(cur === 'USD' ? 'Purchases' : 'About in USD', cur === 'USD' ? fmtInt(plan.packCount) : fmtMoney(usdTotal, 'USD'));
+    $('resLines').innerHTML = linesHtml(plan, cur);
+
+    const few = costPlan(state.channel, 'count', target), fewEl = $('fewest');
+    if (few && few.packCount < plan.packCount) {
+      const dx = few.total - plan.total, pc = dx / plan.total * 100;
+      const mix = few.lines.map(l => `${fmtInt(l.qty)} \u00D7 ${fmtInt(l.robux)}`).join(' + ');
+      fewEl.innerHTML = `<p class="font-medium text-white mb-1">Prefer fewer purchases?</p>
+        <p class="text-slate-300">${mix} Robux (${few.packCount} ${few.packCount === 1 ? 'purchase' : 'purchases'}) for <strong class="text-white">${fmtMoney(few.total, cur)}</strong>, giving you ${fmtInt(few.robux)} Robux.</p>
+        <p class="text-xs text-slate-500 mt-1">${dx > 0.005 ? `That costs ${fmtMoney(dx, cur)} (${pc.toFixed(pc < 10 ? 1 : 0)}%) more than the cheapest mix above` : 'That costs the same as the cheapest mix'}${few.robux > plan.robux ? `, but you'd get ${fmtInt(few.robux - plan.robux)} more Robux.` : '.'}</p>`;
+      fewEl.classList.remove('hidden');
+    }
+
+    const wp = scalePlan(buildPlan(PACKS.web, usdPrices('web'), target, 'cost'), r), ap = scalePlan(buildPlan(PACKS.app, usdPrices('app'), target, 'cost'), r);
+    if (wp && ap) {
+      const diff = ap.total - wp.total, pct = diff / wp.total * 100;
+      $('channelCompare').innerHTML = `<p class="font-medium text-white mb-1">Website vs. mobile app</p>
+        <p class="text-slate-300">Website, PC or gift card: <strong class="text-white">${fmtMoney(wp.total, cur)}</strong> for ${fmtInt(wp.robux)} Robux<br>
+        Mobile app or console: <strong class="text-white">${fmtMoney(ap.total, cur)}</strong> for ${fmtInt(ap.robux)} Robux</p>
+        <p class="text-xs text-slate-500 mt-2">${diff > 0.005 ? `The app costs about ${fmtMoney(diff, cur)} (${pct.toFixed(0)}%) more for this amount.` : (diff < -0.005 ? `The app happens to be ${fmtMoney(-diff, cur)} cheaper for this particular amount.` : 'The two cost the same for this amount.')} Estimated from US prices${cur === 'USD' ? '' : ' at the current exchange rate'}.</p>`;
+    }
+    renderOthers(usdTotal);
+  }
+
+  // ── "money -> Robux" ──
+  function renderBudget() {
+    const cur = state.currency, r = rates[cur];
+    const b = parseMoney(state.budget);
+    const bad = !(b > 0) || b / r > MAX_BUDGET_USD;
+    $('budgetCur').textContent = cur;
+    $('budgetHint').className = 'text-xs mt-1.5 ' + (bad ? 'text-red-400' : 'text-slate-500');
+    $('budgetHint').textContent = bad ? `Enter an amount above 0 (up to about US$${fmtInt(MAX_BUDGET_USD)}) in ${cur}.` : `In ${cur}, the currency you picked below. Commas and decimal points are fine.`;
+    $('quickBudgets').innerHTML = [5, 10, 20, 50, 100, 200].map(u => niceRound(u * r)).filter((v, i, a) => a.indexOf(v) === i)
+      .map(v => `<button type="button" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400" data-quickbudget="${v}">${fmtMoney(v, cur, { maximumFractionDigits: v < 1 ? 2 : 0, minimumFractionDigits: 0 })}</button>`).join('');
+    const plan = bad ? null : budgetPlan(state.channel, b);
+    clearResult();
+    if (!plan) { if (!bad && state.source === 'custom') needPricesNote(); return; }
+
+    $('resLabel').textContent = `With ${fmtMoney(b, cur)} you can buy`;
+    $('resTotal').textContent = `${fmtInt(plan.robux)} Robux`;
+    $('resSub').textContent = `${channelName()} \u00B7 ${sourceName(cur)}`;
+    if (plan.robux === 0) {
+      const cheapest = Math.min.apply(null, unitPricesFor(state.channel, cur, state.source).filter(okNum));
+      showNote(`That's less than the cheapest pack, which costs ${fmtMoney(cheapest, cur)}, so it won't buy any Robux.`);
+    }
+    $('resStats').innerHTML =
+      stat('You spend', fmtMoney(plan.total, cur)) +
+      stat('Left over', fmtMoney(Math.max(0, plan.leftover), cur)) +
+      stat('Per 1,000 Robux', plan.robux ? fmtMoney(plan.total / plan.robux * 1000, cur) : '\u2014') +
+      stat('Purchases', fmtInt(plan.packCount));
+    $('resLines').innerHTML = linesHtml(plan, cur);
+
+    // the same budget, web vs app (always from US prices so it's like-for-like)
+    const wp = budgetPlan('web', b, true), ap = budgetPlan('app', b, true);
+    if (wp && ap && wp.robux > 0) {
+      const fewer = (wp.robux - ap.robux) / wp.robux * 100;
+      $('channelCompare').innerHTML = `<p class="font-medium text-white mb-1">Website vs. mobile app</p>
+        <p class="text-slate-300">Website, PC or gift card: <strong class="text-white">${fmtInt(wp.robux)} Robux</strong><br>
+        Mobile app or console: <strong class="text-white">${fmtInt(ap.robux)} Robux</strong></p>
+        <p class="text-xs text-slate-500 mt-2">${fewer > 0.5 ? `The app gets you ${fmtInt(wp.robux - ap.robux)} fewer Robux (${fewer.toFixed(0)}% fewer) for the same money.` : (fewer < -0.5 ? `The app happens to get you ${fmtInt(ap.robux - wp.robux)} more Robux for this particular budget.` : 'The two get you the same.')} Estimated from US prices${cur === 'USD' ? '' : ' at the current exchange rate'}.</p>`;
+    }
+  }
+
+  // ── "Your store's prices" panel (inside the inputs card) ──
+  function renderCustomPanel() {
+    const custom = state.source === 'custom', panel = $('customPanel');
+    panel.classList.toggle('hidden', !custom);
+    if (!custom) return;
+    const cur = state.currency, ch = state.channel, est = estimateFor(ch, cur);
+    $('customCur').textContent = `${cur} (${channelName().toLowerCase()})`;
+    const grid = $('customGrid'), key = `${ch}|${cur}`;
+    if (grid.getAttribute('data-key') !== key) {      // rebuild only when the set of boxes changes, so typing never loses focus
+      grid.setAttribute('data-key', key);
+      grid.innerHTML = PACKS[ch].map(p => `<label class="block"><span class="block text-xs text-slate-300 mb-1">${fmtInt(p.robux)} Robux <span class="text-slate-600">(US$${(p.usdCents / 100).toFixed(2)})</span></span>
+        <input type="text" inputmode="decimal" autocomplete="off" class="price-input w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Your price for ${fmtInt(p.robux)} Robux in ${cur}" data-robux="${p.robux}" value="${String(customFor(cur, ch)[p.robux] || '').replace(/"/g, '')}"></label>`).join('');
+      grid.querySelectorAll('.price-input').forEach(inp => inp.addEventListener('input', () => {
+        const store = (customPrices[cur] = customPrices[cur] || {}); const slot = (store[ch] = store[ch] || {});
+        const v = inp.value.trim(); if (v === '') delete slot[inp.getAttribute('data-robux')]; else slot[inp.getAttribute('data-robux')] = v;
+        if (!Object.keys(slot).length) delete store[ch]; if (!Object.keys(store).length) delete customPrices[cur];
+        savePrices(); render();
+      }));
+    }
+    grid.querySelectorAll('.price-input').forEach((inp, i) => { inp.placeholder = est[i].toFixed(digitsFor(cur)); });
+    $('clearPrices').disabled = !Object.keys(customFor(cur, ch)).length;
+  }
+
+  // ── Read-only pack table ──
+  function renderPacks() {
+    const cur = state.currency, ch = state.channel, custom = state.source === 'custom';
+    $('packsTitle').textContent = `${ch === 'web' ? 'Website, PC and gift card' : 'Mobile app and console'} packs`;
+    $('thLocal').textContent = custom ? `Your price (${cur})` : (cur === 'USD' ? 'Price' : `Estimate (${cur})`);
+    $('packsHelp').textContent = custom
+      ? 'The prices you typed above. Packs you left empty are ignored.'
+      : (cur === 'USD' ? 'Official US prices.' : `US prices converted to ${cur} at today's rate. Your store's real prices will differ a bit, so choose "Use my store's prices" for exact figures.`);
+    const shown = unitPricesFor(ch, cur, state.source);
+    $('packRows').innerHTML = PACKS[ch].map((p, i) => `<tr class="border-t border-slate-800">
+      <td class="py-1.5 pr-3 font-medium text-white">${fmtInt(p.robux)}</td>
+      <td class="py-1.5 pr-3 text-right text-slate-400">$${(p.usdCents / 100).toFixed(2)}</td>
+      <td class="py-1.5 pr-3 text-right">${shown[i] ? fmtMoney(shown[i], cur) : '<span class="text-slate-600">not entered</span>'}</td>
+      <td class="py-1.5 text-right text-slate-400">${shown[i] ? fmtMoney(shown[i] / p.robux * 1000, cur) : '\u2014'}</td></tr>`).join('');
+  }
+
+  function renderOthers(usdTotal) {
+    const { popular, others } = currencyList(rates);
+    const q = $('otherSearch').value.trim().toLowerCase();
+    let list = popular.concat(others);
+    if (q) list = list.filter(c => c.toLowerCase().includes(q) || currencyName(c).toLowerCase().includes(q));
+    else if (!state.showAll) list = popular;
+    $('otherRows').innerHTML = usdTotal == null ? '<tr><td class="px-3 py-4 text-slate-500">Enter an amount above.</td></tr>' : list.map(c =>
+      `<tr class="border-t border-slate-800 ${c === state.currency ? 'bg-blue-500/10' : ''}"><td class="px-3 py-2"><span class="font-bold text-white">${c}</span> <span class="text-slate-400">${currencyName(c)}</span></td><td class="px-3 py-2 text-right tabular-nums text-slate-200">${fmtMoney(usdTotal * rates[c], c)}</td></tr>`).join('') || '<tr><td class="px-3 py-4 text-slate-500">No currencies match.</td></tr>';
+    const total = popular.length + others.length;
+    $('otherCount').textContent = `${list.length} of ${total} currencies shown \u00B7 converted from the ${state.source === 'custom' ? 'USD equivalent of your prices' : 'US prices'}`;
+    $('otherToggle').textContent = q ? '' : (state.showAll ? 'Show popular only' : `Show all ${total} currencies`);
+  }
+
+  function render() {
+    save();
+    const budgetMode = state.mode === 'budget', custom = state.source === 'custom';
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === state.mode));
+    document.querySelectorAll('[data-channel]').forEach(b => b.classList.toggle('active', b.getAttribute('data-channel') === state.channel));
+    document.querySelectorAll('[data-source]').forEach(b => b.classList.toggle('active', b.getAttribute('data-source') === state.source));
+    $('costInput').classList.toggle('hidden', budgetMode);
+    $('budgetInput').classList.toggle('hidden', !budgetMode);
+    $('otherCard').classList.toggle('hidden', budgetMode);
+    $('channelHint').textContent = state.channel === 'web' ? 'Gives the most Robux per dollar. Gift cards count as web.' : 'Apple, Google, Xbox and PlayStation take a cut, so you get fewer Robux per dollar.';
+    $('sourceHint').textContent = custom
+      ? `Uses the prices YOU type in below, in ${state.currency}. Roblox charges different prices in different countries, so this is the accurate option.`
+      : (state.currency === 'USD' ? 'Uses Roblox\u2019s official US prices.' : `Converts Roblox's US prices into ${state.currency} at today's exchange rate. Your real price will probably differ somewhat.`);
+    renderCustomPanel();
+    renderPacks();
+    if (budgetMode) renderBudget(); else renderCost();
+  }
+
+  function renderStatus() {
+    const el = $('status');
+    if (loading) { el.className = 'text-xs leading-relaxed flex-1 text-slate-400'; el.textContent = 'Fetching live exchange rates\u2026'; }
+    else if (meta && meta.live) { el.className = 'text-xs leading-relaxed flex-1 text-emerald-400'; el.textContent = `Live exchange rates \u00B7 updated ${fmtDate(meta.updatedMs)}` + (refreshError ? " (Couldn't refresh just now.)" : ''); }
+    else { el.className = 'text-xs leading-relaxed flex-1 text-amber-300'; el.textContent = `Couldn't reach the exchange-rate service, so these use saved rates from ${fmtDate(meta.snapshotMs)} and may be out of date.`; }
+    $('refreshBtn').disabled = loading;
+    $('refreshIcon').classList.toggle('spin', loading);
+  }
+
+  function fillCurrencySelect() {
+    const { popular, others } = currencyList(rates);
+    const opt = (c) => `<option value="${c}">${c} \u2014 ${currencyName(c)}</option>`;
+    $('currency').innerHTML = `<optgroup label="Popular">${popular.map(opt).join('')}</optgroup><optgroup label="All currencies">${others.map(opt).join('')}</optgroup>`;
+    if (!rates[state.currency]) state.currency = rates.USD ? 'USD' : Object.keys(rates)[0];
+    $('currency').value = state.currency;
+  }
+  function applyRates(composed) { meta = composed; rates = composed.rates; fillCurrencySelect(); render(); renderStatus(); }
+
+  // ── rates: own cache -> converter's cache -> network -> snapshot ──
+  async function fetchER() {
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), 8000) : null;
+    try { const res = await fetch(ER_URL, ctl ? { signal: ctl.signal } : undefined); if (!res.ok) throw new Error('HTTP ' + res.status); return parseER(await res.json()); }
+    finally { if (timer) clearTimeout(timer); }
+  }
+  function readJSON(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+  function freshCachedER() {
+    const own = readJSON(RATES_KEY);
+    if (own && own.er && own.er.rates && Date.now() - own.savedAt < CACHE_FRESH_MS) return own.er;
+    const other = readJSON(CONVERTER_KEY);   // the Currency Converter caches the same feed
+    if (other && other.er && other.er.rates && Date.now() - other.savedAt < CACHE_FRESH_MS) return other.er;
+    return null;
+  }
+  function anyCachedER() { const own = readJSON(RATES_KEY); return own && own.er && own.er.rates ? own.er : null; }
+
+  async function refresh(force) {
+    if (loading) return;
+    if (!force) { const c = freshCachedER(); if (c) { applyRates(composeRates(c, SNAPSHOT)); return; } }
+    if (force && Date.now() - lastFetchAt < 5000) return;
+    loading = true; refreshError = false; renderStatus();
+    let er = null; try { er = await fetchER(); } catch (e) { er = null; }
+    lastFetchAt = Date.now(); loading = false;
+    if (er) { try { localStorage.setItem(RATES_KEY, JSON.stringify({ savedAt: Date.now(), er })); } catch (e) {} applyRates(composeRates(er, SNAPSHOT)); }
+    else { refreshError = true; applyRates(composeRates(anyCachedER(), SNAPSHOT)); }
+  }
+
+  // ── events ──
+  $('robux').value = state.robux;
+  $('budget').value = state.budget;
+  $('quickAmounts').innerHTML = [400, 800, 1000, 1700, 5000, 10000, 25000, 100000].map(n => `<button type="button" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400" data-quick="${n}">${fmtInt(n)}</button>`).join('');
+  $('quickAmounts').addEventListener('click', (e) => { const b = e.target.closest('[data-quick]'); if (b) { state.robux = b.getAttribute('data-quick'); $('robux').value = state.robux; render(); } });
+  $('quickBudgets').addEventListener('click', (e) => { const b = e.target.closest('[data-quickbudget]'); if (b) { state.budget = b.getAttribute('data-quickbudget'); $('budget').value = state.budget; render(); } });
+  $('robux').addEventListener('input', () => {
+    state.robux = $('robux').value;
+    if (parseAmount(state.robux) > 300000) { clearTimeout(debounce); debounce = setTimeout(render, 150); } else render();
+  });
+  $('budget').addEventListener('input', () => { state.budget = $('budget').value; render(); });
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { state.mode = b.getAttribute('data-mode'); render(); }));
+  document.querySelectorAll('[data-channel]').forEach(b => b.addEventListener('click', () => { state.channel = b.getAttribute('data-channel'); render(); }));
+  document.querySelectorAll('[data-source]').forEach(b => b.addEventListener('click', () => { state.source = b.getAttribute('data-source'); render(); }));
+  $('currency').addEventListener('change', () => { state.currency = $('currency').value; render(); });
+  $('otherSearch').addEventListener('input', () => render());
+  $('otherToggle').addEventListener('click', () => { state.showAll = !state.showAll; render(); });
+  $('resNote').addEventListener('click', (e) => { if (e.target.id === 'gotoPrices') { const inp = document.querySelector('#customGrid .price-input'); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } } });
+  $('fillEstimates').addEventListener('click', () => {
+    const cur = state.currency, ch = state.channel, est = estimateFor(ch, cur), d = digitsFor(cur);
+    const store = (customPrices[cur] = customPrices[cur] || {}); const slot = (store[ch] = {});
+    PACKS[ch].forEach((p, i) => { slot[p.robux] = est[i].toFixed(d); });
+    savePrices();
+    $('customGrid').removeAttribute('data-key'); render();
+  });
+  $('clearPrices').addEventListener('click', () => {
+    const s = customPrices[state.currency];
+    if (s) { delete s[state.channel]; if (!Object.keys(s).length) delete customPrices[state.currency]; }
+    savePrices(); $('customGrid').removeAttribute('data-key'); render();
+  });
+  $('refreshBtn').addEventListener('click', () => refresh(true));
+  $('packsChecked').textContent = PACKS_CHECKED;
+
+  // ── init: snapshot first so the page works instantly, then upgrade to live rates ──
+  applyRates(composeRates(null, SNAPSHOT));
+  refresh(false);
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'robux-cost';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

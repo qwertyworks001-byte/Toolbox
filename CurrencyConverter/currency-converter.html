@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Currency Converter</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .picker-panel { background: #0f172a; border: 1px solid #334155; border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+  .picker-list { max-height: 18rem; overflow-y: auto; }
+  .picker-group { position: sticky; top: 0; background: #0f172a; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; padding: 0.4rem 0.75rem; font-weight: 600; }
+  .picker-opt { display: flex; align-items: baseline; gap: 0.6rem; width: 100%; text-align: left; padding: 0.4rem 0.75rem; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; }
+  .picker-opt:hover, .picker-opt.active { background: rgba(59,130,246,0.15); color: #fff; }
+  .picker-opt.selected .opt-code { color: #93c5fd; }
+  .opt-code { font-weight: 700; width: 3.4rem; flex: none; color: #f1f5f9; }
+  .opt-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt-note { font-size: 0.7rem; color: #64748b; margin-left: auto; padding-left: 0.5rem; white-space: nowrap; }
+  .rate-row { cursor: pointer; }
+  .rate-row:hover { background: rgba(59,130,246,0.08); }
+  .rate-row.current { background: rgba(59,130,246,0.15); }
+  .spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Currency Converter</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base" id="subtitle">Convert between world currencies, precious metals, crypto and historical money.</p>
+  </header>
+
+  <!-- Converter -->
+  <section class="glass rounded-2xl p-5 sm:p-6 mb-6" aria-label="Converter">
+
+    <label for="amount" class="block text-sm font-medium text-slate-300 mb-2">Amount</label>
+    <input type="text" id="amount" inputmode="decimal" autocomplete="off" value="100"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-2xl font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500" aria-describedby="amountHint">
+    <p id="amountHint" class="text-xs text-slate-500 mt-1.5">Commas are fine, and you can use K, M, B or T (e.g. 2.5M).</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end mt-5">
+      <div>
+        <span class="block text-sm font-medium text-slate-300 mb-2">From</span>
+        <div class="picker relative" id="pickFrom"></div>
+      </div>
+      <button type="button" id="swapBtn" class="mx-auto w-10 h-10 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 transition-colors flex items-center justify-center rotate-90 sm:rotate-0" aria-label="Swap currencies" title="Swap">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></svg>
+      </button>
+      <div>
+        <span class="block text-sm font-medium text-slate-300 mb-2">To</span>
+        <div class="picker relative" id="pickTo"></div>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-xl bg-slate-900/60 border border-slate-700/70 p-5" aria-live="polite">
+      <p class="text-sm text-slate-400 mb-1" id="resultFrom">&nbsp;</p>
+      <p class="text-3xl sm:text-4xl font-bold text-white break-words" id="resultTo">&mdash;</p>
+      <p class="text-sm text-slate-400 mt-1" id="resultName">&nbsp;</p>
+      <p class="text-xs text-slate-500 mt-3" id="rateLine">&nbsp;</p>
+      <div class="flex items-center gap-3 mt-4">
+        <button type="button" id="copyBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Copy result</button>
+        <span class="text-xs text-slate-500" id="copyStatus"></span>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-start justify-between gap-3">
+      <p id="status" class="text-xs leading-relaxed flex-1 text-slate-400">Loading rates&hellip;</p>
+      <button type="button" id="refreshBtn" class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 inline-flex items-center gap-1.5 disabled:opacity-50">
+        <svg id="refreshIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+        Refresh
+      </button>
+    </div>
+  </section>
+
+  <!-- All currencies -->
+  <section class="glass rounded-2xl p-5 sm:p-6" aria-label="All currencies">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400" id="tableTitle">Convert to everything</h2>
+      <input type="search" id="tableSearch" placeholder="Filter by name, code or country" autocomplete="off"
+        class="w-full sm:w-72 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4" id="groupChips"></div>
+    <div class="overflow-y-auto rounded-lg border border-slate-800" style="max-height: 30rem;">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-slate-900 text-xs uppercase tracking-wider text-slate-500">
+          <tr><th class="text-left font-medium px-3 py-2">Currency</th><th class="text-right font-medium px-3 py-2" id="thValue">Value</th><th class="text-right font-medium px-3 py-2 hidden sm:table-cell" id="thRate">Rate</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-500 mt-2" id="tableCount"></p>
+    <p class="text-xs text-slate-600 mt-1">Click a row to make it the &ldquo;To&rdquo; currency.</p>
+  </section>
+
+  <p class="text-xs text-slate-500 mt-6 leading-relaxed">
+    These are mid-market reference rates, not what a bank, card or exchange counter will charge, so expect your real rate to be a bit worse.
+    Fiat rates update about once a day, and crypto and metal prices are daily too, so treat them as approximate.
+    Metals are priced per troy ounce. Historical currencies use their official fixed conversion to the successor currency.
+    <a href="https://www.exchangerate-api.com" class="underline hover:text-blue-400" target="_blank" rel="noopener">Rates By Exchange Rate API</a>
+    (fiat) and the community <a href="https://github.com/fawazahmed0/exchange-api" class="underline hover:text-blue-400" target="_blank" rel="noopener">currency-api</a> (crypto &amp; metals).
+  </p>
+</div>
+
+<script>
+(function () {
+  // ══════════════════════════════════════════════════════════════
+  // DATA
+  // ══════════════════════════════════════════════════════════════
+  // Offline fallback: real rates (units per 1 USD) captured from the live sources on 1 Oct 2026.
+  const SNAPSHOT = {"date":"2026-10-01","updatedMs":1790812951000,"fiat":{"USD":1,"AED":3.6725,"AFN":64.860189,"ALL":81.155017,"AMD":363.102577,"ANG":1.79,"AOA":924.717414,"ARS":1517.5209,"AUD":1.438252,"AWG":1.79,"AZN":1.700102,"BAM":1.724401,"BBD":2,"BDT":123.023346,"BGN":1.724401,"BHD":0.376,"BIF":2998.211409,"BMD":1,"BND":1.277688,"BOB":12.041089,"BRL":5.200393,"BSD":1,"BTN":96.0155,"BWP":13.995888,"BYN":3.01458,"BZD":2,"CAD":1.421278,"CDF":2311.032189,"CHF":0.835134,"CLF":0.024628,"CLP":973.46915,"CNH":6.707037,"CNY":6.716878,"COP":3333.963413,"CRC":456.615168,"CUP":24,"CVE":97.217599,"CZK":21.547067,"DJF":177.721,"DKK":6.586139,"DOP":59.495317,"DZD":133.846029,"EGP":51.965687,"ERN":15,"ETB":162.799411,"EUR":0.881813,"FJD":2.245819,"FKP":0.75392,"FOK":6.586193,"GBP":0.753798,"GEL":2.602382,"GGP":0.75392,"GHS":11.706717,"GIP":0.75392,"GMD":74.552189,"GNF":8793.387912,"GTQ":7.639435,"GYD":209.233306,"HKD":7.846697,"HNL":26.851545,"HRK":6.64296,"HTG":130.868294,"HUF":323.038522,"IDR":17903.534018,"ILS":3.068956,"IMP":0.75392,"INR":95.997282,"IQD":1309.953028,"IRR":1522336.036478,"ISK":120.552347,"JEP":0.75392,"JMD":158.455393,"JOD":0.709,"JPY":157.298282,"KES":129.700459,"KGS":87.474318,"KHR":4053.6449,"KID":1.43766,"KMF":433.754349,"KRW":1355.838011,"KWD":0.308528,"KYD":0.833333,"KZT":439.925737,"LAK":22375.980925,"LBP":89500,"LKR":330.375501,"LRD":171.606231,"LSL":16.415853,"LYD":6.394915,"MAD":9.685424,"MDL":17.729562,"MGA":4398.979265,"MKD":54.280014,"MMK":2098.724332,"MNT":3579.085462,"MOP":8.082242,"MRU":39.962625,"MUR":47.755355,"MVR":15.453218,"MWK":1741.549414,"MXN":18.077867,"MYR":4.078529,"MZN":63.864902,"NAD":16.415853,"NGN":1328.645734,"NIO":36.78822,"NOK":9.609239,"NPR":153.6248,"NZD":1.774167,"OMR":0.384497,"PAB":1,"PEN":3.442479,"PGK":4.50122,"PHP":62.754655,"PKR":276.984011,"PLN":3.84929,"PYG":5856.017679,"QAR":3.64,"RON":4.648697,"RSD":103.530532,"RUB":83.691177,"RWF":1475.715143,"SAR":3.75,"SBD":7.954219,"SCR":14.523014,"SDG":543.657538,"SEK":10.003958,"SGD":1.277638,"SHP":0.75392,"SLE":24.654462,"SLL":24654.462165,"SOS":571.325155,"SRD":37.627245,"SSP":5936.971385,"STN":21.600972,"SYP":121.845042,"SZL":16.415853,"THB":33.580261,"TJS":9.222952,"TMT":3.501607,"TND":2.974813,"TOP":2.387285,"TRY":49.048442,"TTD":6.763987,"TVD":1.43766,"TWD":31.908932,"TZS":2650.474592,"UAH":44.735432,"UGX":3896.968058,"UYU":40.234174,"UZS":11818.674758,"VES":860.1753,"VND":25935.273468,"VUV":119.510736,"WST":2.738327,"XAF":578.339132,"XCD":2.7,"XCG":1.79,"XDR":0.735783,"XOF":578.339132,"XPF":105.211722,"YER":236.534961,"ZAR":16.415882,"ZMW":19.626234,"ZWG":26.7965,"ZWL":26.7965},"extras":{"KPW":900.25746016,"SVC":8.75,"XAU":0.0002390874,"XAG":0.01632128,"XPT":0.000579042,"XPD":0.0008210041,"BTC":1.188071e-05,"ETH":0.00036900378,"USDT":1.00094858,"BNB":0.0012993695,"XRP":0.66444844,"SOL":0.0083956114,"USDC":1.00035504,"ADA":3.95939637,"DOGE":10.43082184,"TRX":2.96348393,"LTC":0.014796061,"DOT":0.80398429,"AVAX":0.089960812,"LINK":0.069012267,"BCH":0.0032419429,"XLM":4.38148366,"XMR":0.0018179095,"ATOM":0.56678301,"ETC":0.11105986,"SHIB":171883.51142044,"DAI":1.00058423,"UNI":0.11174719,"NEAR":0.18371463,"ICP":0.29530549,"APT":1.27324014,"FIL":0.95041977,"ALGO":7.80825993,"HBAR":9.39889799,"VET":110.62579287,"AAVE":0.0060186799,"MKR":0.00055782644,"ARB":4.84985339,"OP":7.62192441,"SUI":0.85305477,"INJ":0.1317444,"PEPE":228931.23290536,"ZEC":0.00069547768,"DASH":0.016499911,"EOS":10.12032182,"XTZ":3.13329093,"EGLD":0.2137494,"SAND":22.57298952,"MANA":11.10200822,"AXS":0.8613781,"GRT":33.60153941,"CRV":2.53939513,"COMP":0.040428751,"BSV":0.050244432,"NEO":0.39091334,"QTUM":0.99509945,"ENJ":33.68016361,"BAT":11.02686315,"THETA":4.36713108,"FLOW":31.97113021,"KAS":22.67594459,"RUNE":1.24590054,"LDO":2.21643364,"STX":2.5531786,"CRO":14.65018203,"CAKE":0.38444036,"GALA":435.29932975,"WAVES":3.37970096,"ZIL":284.13457164,"XEM":1725.5718464,"LUNC":18828.33459903}};
+
+  const ER_URL = 'https://open.er-api.com/v6/latest/USD';
+  const FA_URLS = [
+    'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+    'https://latest.currency-api.pages.dev/v1/currencies/usd.json'
+  ];
+  const CACHE_KEY = 'toolbox:currency-rates';
+  const PAIR_KEY = 'toolbox:currency-converter';
+  const CACHE_FRESH_MS = 60 * 60 * 1000;
+
+  // <<CC-PURE-START>>
+  const POPULAR = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'NZD', 'INR', 'SGD', 'HKD', 'KRW', 'SEK', 'NOK', 'MXN', 'BRL', 'ZAR', 'AED', 'TRY'];
+
+  const NAMES = {
+    CNH: 'Chinese Yuan (offshore)', FOK: 'Faroese Kr\u00F3na', GGP: 'Guernsey Pound', IMP: 'Manx Pound', JEP: 'Jersey Pound',
+    KID: 'Kiribati Dollar', TVD: 'Tuvaluan Dollar', XCG: 'Caribbean Guilder', ZWG: 'Zimbabwean Gold (ZiG)', SLE: 'Sierra Leonean Leone',
+    XDR: 'Special Drawing Rights (IMF)', CLF: 'Chilean Unit of Account (UF)', KPW: 'North Korean Won', SVC: 'Salvadoran Col\u00F3n',
+    STN: 'S\u00E3o Tom\u00E9 & Pr\u00EDncipe Dobra', MRU: 'Mauritanian Ouguiya', XAF: 'Central African CFA Franc', XOF: 'West African CFA Franc',
+    XPF: 'CFP Franc', XCD: 'East Caribbean Dollar'
+  };
+  const NOTES = {
+    CNH: 'Traded outside mainland China', FOK: 'Pegged to DKK, not an ISO code', GGP: 'Pegged to GBP, not an ISO code',
+    IMP: 'Pegged to GBP, not an ISO code', JEP: 'Pegged to GBP, not an ISO code', KID: 'Pegged to AUD, not an ISO code',
+    TVD: 'Pegged to AUD, not an ISO code', XDR: 'Basket of 5 currencies', CLF: 'Inflation-indexed unit', SVC: 'Fixed at 8.75 per USD',
+    XAF: 'Shared by 6 countries', XOF: 'Shared by 8 countries', XPF: 'French Pacific territories', XCD: 'Shared by 8 territories'
+  };
+  const ALIASES = {
+    USD: 'united states america us', EUR: 'europe eurozone germany france italy spain', GBP: 'united kingdom uk britain england sterling',
+    JPY: 'japan', AUD: 'australia aussie', CAD: 'canada', CHF: 'switzerland swiss', CNY: 'china renminbi rmb yuan', CNH: 'china renminbi yuan',
+    NZD: 'new zealand kiwi', INR: 'india', SGD: 'singapore', HKD: 'hong kong', KRW: 'south korea', KPW: 'north korea', SEK: 'sweden', NOK: 'norway',
+    DKK: 'denmark', MXN: 'mexico', BRL: 'brazil', ZAR: 'south africa', RUB: 'russia', TRY: 'turkey turkiye', PLN: 'poland', THB: 'thailand',
+    IDR: 'indonesia', MYR: 'malaysia', PHP: 'philippines', VND: 'vietnam', TWD: 'taiwan', AED: 'uae emirates dubai united arab', SAR: 'saudi arabia',
+    ILS: 'israel shekel', EGP: 'egypt', NGN: 'nigeria', KES: 'kenya', ARS: 'argentina', CLP: 'chile', COP: 'colombia', PEN: 'peru', CZK: 'czech czechia',
+    HUF: 'hungary', RON: 'romania', UAH: 'ukraine', PKR: 'pakistan', BDT: 'bangladesh', LKR: 'sri lanka', NPR: 'nepal', QAR: 'qatar', KWD: 'kuwait',
+    OMR: 'oman', BHD: 'bahrain', JOD: 'jordan', ISK: 'iceland', XAF: 'cfa central africa franc cameroon gabon', XOF: 'cfa west africa franc senegal ivory coast',
+    XPF: 'pacific tahiti caledonia polynesia cfp', XCD: 'caribbean antigua grenada st lucia', XAU: 'gold', XAG: 'silver', XPT: 'platinum', XPD: 'palladium',
+    BTC: 'bitcoin xbt', ETH: 'ether ethereum'
+  };
+
+  const METALS = [
+    { code: 'XAU', name: 'Gold (troy ounce)' }, { code: 'XAG', name: 'Silver (troy ounce)' },
+    { code: 'XPT', name: 'Platinum (troy ounce)' }, { code: 'XPD', name: 'Palladium (troy ounce)' }
+  ];
+  const CRYPTO = [
+    ['BTC', 'Bitcoin'], ['ETH', 'Ethereum'], ['USDT', 'Tether'], ['BNB', 'BNB'], ['XRP', 'XRP'], ['SOL', 'Solana'], ['USDC', 'USD Coin'],
+    ['ADA', 'Cardano'], ['DOGE', 'Dogecoin'], ['TRX', 'TRON'], ['LTC', 'Litecoin'], ['DOT', 'Polkadot'], ['AVAX', 'Avalanche'],
+    ['LINK', 'Chainlink'], ['BCH', 'Bitcoin Cash'], ['XLM', 'Stellar'], ['XMR', 'Monero'], ['ATOM', 'Cosmos'], ['ETC', 'Ethereum Classic'],
+    ['SHIB', 'Shiba Inu'], ['DAI', 'Dai'], ['UNI', 'Uniswap'], ['NEAR', 'NEAR Protocol'], ['ICP', 'Internet Computer'], ['APT', 'Aptos'],
+    ['FIL', 'Filecoin'], ['ALGO', 'Algorand'], ['HBAR', 'Hedera'], ['VET', 'VeChain'], ['AAVE', 'Aave'], ['MKR', 'Maker'], ['ARB', 'Arbitrum'],
+    ['OP', 'Optimism'], ['SUI', 'Sui'], ['INJ', 'Injective'], ['PEPE', 'Pepe'], ['ZEC', 'Zcash'], ['DASH', 'Dash'], ['EOS', 'EOS'],
+    ['XTZ', 'Tezos'], ['EGLD', 'MultiversX'], ['SAND', 'The Sandbox'], ['MANA', 'Decentraland'], ['AXS', 'Axie Infinity'], ['GRT', 'The Graph'],
+    ['CRV', 'Curve DAO'], ['COMP', 'Compound'], ['BSV', 'Bitcoin SV'], ['NEO', 'Neo'], ['QTUM', 'Qtum'], ['ENJ', 'Enjin Coin'],
+    ['BAT', 'Basic Attention Token'], ['THETA', 'Theta Network'], ['FLOW', 'Flow'], ['KAS', 'Kaspa'], ['RUNE', 'THORChain'],
+    ['LDO', 'Lido DAO'], ['STX', 'Stacks'], ['CRO', 'Cronos'], ['CAKE', 'PancakeSwap'], ['GALA', 'Gala'], ['WAVES', 'Waves'],
+    ['ZIL', 'Zilliqa'], ['XEM', 'NEM'], ['LUNC', 'Terra Classic']
+  ].map(([code, name]) => ({ code, name }));
+
+  // Withdrawn currencies, converted at their official fixed rate to the successor (units of old per 1 successor).
+  const LEGACY = [
+    { code: 'ATS', name: 'Austrian Schilling', per: 'EUR', factor: 13.7603 }, { code: 'BEF', name: 'Belgian Franc', per: 'EUR', factor: 40.3399 },
+    { code: 'CYP', name: 'Cypriot Pound', per: 'EUR', factor: 0.585274 }, { code: 'DEM', name: 'German Mark', per: 'EUR', factor: 1.95583 },
+    { code: 'EEK', name: 'Estonian Kroon', per: 'EUR', factor: 15.6466 }, { code: 'ESP', name: 'Spanish Peseta', per: 'EUR', factor: 166.386 },
+    { code: 'FIM', name: 'Finnish Markka', per: 'EUR', factor: 5.94573 }, { code: 'FRF', name: 'French Franc', per: 'EUR', factor: 6.55957 },
+    { code: 'GRD', name: 'Greek Drachma', per: 'EUR', factor: 340.75 }, { code: 'HRK', name: 'Croatian Kuna', per: 'EUR', factor: 7.5345 },
+    { code: 'IEP', name: 'Irish Pound', per: 'EUR', factor: 0.787564 }, { code: 'ITL', name: 'Italian Lira', per: 'EUR', factor: 1936.27 },
+    { code: 'LTL', name: 'Lithuanian Litas', per: 'EUR', factor: 3.4528 }, { code: 'LUF', name: 'Luxembourg Franc', per: 'EUR', factor: 40.3399 },
+    { code: 'LVL', name: 'Latvian Lats', per: 'EUR', factor: 0.702804 }, { code: 'MTL', name: 'Maltese Lira', per: 'EUR', factor: 0.4293 },
+    { code: 'NLG', name: 'Dutch Guilder', per: 'EUR', factor: 2.20371 }, { code: 'PTE', name: 'Portuguese Escudo', per: 'EUR', factor: 200.482 },
+    { code: 'SIT', name: 'Slovenian Tolar', per: 'EUR', factor: 239.64 }, { code: 'SKK', name: 'Slovak Koruna', per: 'EUR', factor: 30.126 },
+    { code: 'AZM', name: 'Azerbaijani Manat (pre-2006)', per: 'AZN', factor: 5000 }, { code: 'BYR', name: 'Belarusian Ruble (2000\u20132016)', per: 'BYN', factor: 10000 },
+    { code: 'CUC', name: 'Cuban Convertible Peso', per: 'USD', factor: 1 }, { code: 'GHC', name: 'Ghanaian Cedi (pre-2007)', per: 'GHS', factor: 10000 },
+    { code: 'MGF', name: 'Malagasy Franc', per: 'MGA', factor: 5 }, { code: 'MRO', name: 'Mauritanian Ouguiya (pre-2018)', per: 'MRU', factor: 10 },
+    { code: 'MZM', name: 'Mozambican Metical (pre-2006)', per: 'MZN', factor: 1000 }, { code: 'ROL', name: 'Romanian Leu (pre-2005)', per: 'RON', factor: 10000 },
+    { code: 'SDD', name: 'Sudanese Dinar', per: 'SDG', factor: 100 }, { code: 'SLL', name: 'Sierra Leonean Leone (pre-2022)', per: 'SLE', factor: 1000 },
+    { code: 'STD', name: 'S\u00E3o Tom\u00E9 Dobra (pre-2018)', per: 'STN', factor: 1000 }, { code: 'TMM', name: 'Turkmenistani Manat (pre-2009)', per: 'TMT', factor: 5000 },
+    { code: 'TRL', name: 'Turkish Lira (pre-2005)', per: 'TRY', factor: 1000000 }, { code: 'VEB', name: 'Venezuelan Bol\u00EDvar (pre-2008)', per: 'VES', factor: 100000000 },
+    { code: 'VEF', name: 'Venezuelan Bol\u00EDvar Fuerte (2008\u20132018)', per: 'VES', factor: 100000 }, { code: 'ZMK', name: 'Zambian Kwacha (pre-2013)', per: 'ZMW', factor: 1000 },
+    { code: 'ZWL', name: 'Zimbabwean Dollar (2009\u20132024)', per: 'ZWG', factor: 2498.7242 }
+  ];
+  const LEGACY_CODES = new Set(LEGACY.map(l => l.code));
+  const EXTRA_CODES = METALS.map(m => m.code).concat(CRYPTO.map(c => c.code));
+  const GROUPS = [
+    { key: 'fiat', label: 'Currencies' }, { key: 'metal', label: 'Precious metals' },
+    { key: 'crypto', label: 'Crypto' }, { key: 'legacy', label: 'Historical' }
+  ];
+
+  const okRate = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  function parseER(json) {
+    if (!json || json.result !== 'success' || !json.rates || typeof json.rates !== 'object') return null;
+    const rates = {};
+    Object.keys(json.rates).forEach(k => { const v = json.rates[k]; if (okRate(v)) rates[k.toUpperCase()] = v; });
+    if (!rates.USD) return null;
+    return { rates, updatedMs: (Number(json.time_last_update_unix) || 0) * 1000 };
+  }
+  function parseFA(json) {
+    if (!json || !json.usd || typeof json.usd !== 'object') return null;
+    const rates = {};
+    Object.keys(json.usd).forEach(k => { const v = json.usd[k]; if (okRate(v)) rates[k.toUpperCase()] = v; });
+    const t = Date.parse(String(json.date) + 'T00:00:00Z');
+    return { rates, updatedMs: Number.isFinite(t) ? t : 0 };
+  }
+
+  // Merge sources. Fiat: ExchangeRate-API -> currency-api -> snapshot. Metals/crypto: currency-api -> snapshot.
+  // Withdrawn currencies are derived from their successor, so they always agree with it.
+  function composeRates(live, snapshot) {
+    const er = live && live.er, fa = live && live.fa;
+    const rates = {};
+    let fiatLive = false, extrasLive = false;
+    const fiatCodes = new Set(Object.keys(snapshot.fiat).concat(Object.keys(snapshot.extras).filter(c => !EXTRA_CODES.includes(c))));
+    if (er) Object.keys(er.rates).forEach(c => fiatCodes.add(c));
+    LEGACY_CODES.forEach(c => fiatCodes.delete(c));
+    EXTRA_CODES.forEach(c => fiatCodes.delete(c));
+    fiatCodes.forEach(c => {
+      if (er && okRate(er.rates[c])) { rates[c] = er.rates[c]; fiatLive = true; }
+      else if (fa && okRate(fa.rates[c])) { rates[c] = fa.rates[c]; fiatLive = true; }
+      else if (okRate(snapshot.fiat[c])) rates[c] = snapshot.fiat[c];
+      else if (okRate(snapshot.extras[c])) rates[c] = snapshot.extras[c];
+    });
+    EXTRA_CODES.forEach(c => {
+      if (fa && okRate(fa.rates[c])) { rates[c] = fa.rates[c]; extrasLive = true; }
+      else if (okRate(snapshot.extras[c])) rates[c] = snapshot.extras[c];
+    });
+    LEGACY.forEach(l => { if (okRate(rates[l.per])) rates[l.code] = rates[l.per] * l.factor; });
+    const times = [er && er.updatedMs, fa && fa.updatedMs].filter(Boolean);
+    return { rates, fiatLive, extrasLive, updatedMs: times.length ? Math.max.apply(null, times) : 0, snapshotMs: snapshot.updatedMs };
+  }
+
+  const dnCache = {};
+  let displayNames = null;
+  function fiatName(code) {
+    if (NAMES[code]) return NAMES[code];
+    try {
+      if (displayNames === null) displayNames = new Intl.DisplayNames(['en'], { type: 'currency' });
+      const n = displayNames.of(code);
+      return n && n !== code ? n : code;
+    } catch (e) { return code; }
+  }
+
+  function buildCatalog(rates) {
+    const out = [];
+    const add = (code, name, group, note) => {
+      if (!okRate(rates[code])) return;
+      out.push({ code, name, group, note: note || '', search: `${code} ${name} ${ALIASES[code] || ''} ${note || ''}`.toLowerCase(), popular: POPULAR.includes(code) });
+    };
+    const special = new Set(EXTRA_CODES.concat(Array.from(LEGACY_CODES)));
+    Object.keys(rates).filter(c => !special.has(c)).sort().forEach(c => add(c, fiatName(c), 'fiat', NOTES[c]));
+    METALS.forEach(m => add(m.code, m.name, 'metal', 'Per troy ounce'));
+    CRYPTO.forEach(c => add(c.code, c.name, 'crypto', ''));
+    LEGACY.forEach(l => add(l.code, l.name, 'legacy', l.per === 'USD' ? 'Pegged 1:1 to USD' : `Fixed: ${l.factor} per 1 ${l.per}`));
+    return out;
+  }
+
+  function convert(amount, from, to, rates) {
+    if (!okRate(rates[from]) || !okRate(rates[to]) || !Number.isFinite(amount)) return NaN;
+    return amount / rates[from] * rates[to];
+  }
+
+  function parseAmount(str) {
+    let s = String(str == null ? '' : str).trim().replace(/[,\s_]/g, '').replace(/^[+-]?[$\u20AC\u00A3\u00A5\u20B9]/, m => (m[0] === '-' ? '-' : ''));
+    const m = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)([kmbt])?$/i.exec(s);
+    if (!m) return NaN;
+    const mult = { k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[(m[2] || '').toLowerCase()] || 1;
+    return parseFloat(m[1]) * mult;
+  }
+
+  const digitsCache = {};
+  function fiatDigits(code) {
+    if (digitsCache[code] !== undefined) return digitsCache[code];
+    let d = 2;
+    try { d = new Intl.NumberFormat('en', { style: 'currency', currency: code }).resolvedOptions().maximumFractionDigits; } catch (e) {}
+    return (digitsCache[code] = d);
+  }
+  function fmtAmount(v, group, code) {
+    if (!Number.isFinite(v)) return '\u2014';
+    const a = Math.abs(v);
+    if (a === 0) return '0';
+    let opts;
+    if (group === 'crypto') opts = a >= 1 ? { minimumFractionDigits: 2, maximumFractionDigits: 6 } : { maximumSignificantDigits: 6 };
+    else if (group === 'metal') opts = a >= 1 ? { minimumFractionDigits: 2, maximumFractionDigits: 4 } : { maximumSignificantDigits: 5 };
+    else {
+      const d = fiatDigits(code);
+      opts = (a >= 1 || (a >= 0.1 && d > 0)) ? { minimumFractionDigits: d, maximumFractionDigits: d } : { maximumSignificantDigits: 4 };
+    }
+    return new Intl.NumberFormat('en-US', opts).format(v);
+  }
+  function fmtRate(v) {
+    if (!Number.isFinite(v)) return '\u2014';
+    return new Intl.NumberFormat('en-US', { maximumSignificantDigits: 6 }).format(v);
+  }
+
+  const GROUP_ORDER = { fiat: 0, metal: 1, crypto: 2, legacy: 3 };
+  function scoreMatch(item, q) {
+    const c = item.code.toLowerCase(), n = item.name.toLowerCase();
+    if (c === q) return 0;
+    if (c.startsWith(q)) return 1;
+    if (n.startsWith(q)) return 2;
+    if (n.split(/[^a-z0-9]+/).some(w => w.startsWith(q))) return 3;   // e.g. "mark" -> German Mark, before Denmark
+    return 4;
+  }
+  function filterCatalog(catalog, query, group) {
+    const tokens = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    let list = catalog.filter(it => (!group || group === 'all' || it.group === group) && tokens.every(t => it.search.includes(t)));
+    if (tokens.length) {
+      const q = tokens[0];
+      list = list.map((it, i) => ({ it, i, s: scoreMatch(it, q) })).sort((a, b) => a.s - b.s || a.i - b.i).map(x => x.it);
+    }
+    return list;
+  }
+  // Rows for the big table: popular first, then group order, then code.
+  function sortForTable(list) {
+    return list.slice().sort((a, b) => {
+      if (a.popular !== b.popular) return a.popular ? -1 : 1;
+      if (a.popular && b.popular) return POPULAR.indexOf(a.code) - POPULAR.indexOf(b.code);
+      return GROUP_ORDER[a.group] - GROUP_ORDER[b.group] || (a.code < b.code ? -1 : 1);
+    });
+  }
+  // Sections shown inside the picker dropdown.
+  function pickerSections(catalog, query) {
+    const q = String(query || '').trim();
+    const sections = [];
+    if (!q) {
+      const pop = POPULAR.map(c => catalog.find(it => it.code === c)).filter(Boolean);
+      if (pop.length) sections.push({ title: 'Popular', items: pop });
+    }
+    GROUPS.forEach(g => {
+      let items = filterCatalog(catalog, q, g.key);
+      if (!q && g.key === 'fiat') items = items.filter(it => !it.popular);
+      if (items.length) sections.push({ title: g.label, items });
+    });
+    return sections;
+  }
+
+  function describeStatus(meta, fmtDate) {
+    const snap = fmtDate(meta.snapshotMs), upd = meta.updatedMs ? fmtDate(meta.updatedMs) : '';
+    if (meta.fiatLive && meta.extrasLive) return { tone: 'ok', text: `Live rates \u00B7 updated ${upd}` };
+    if (meta.fiatLive) return { tone: 'warn', text: `Fiat rates are live (updated ${upd}). Crypto and metals couldn't be fetched, so those use a saved snapshot from ${snap}.` };
+    if (meta.extrasLive) return { tone: 'warn', text: `Crypto and metals are live (updated ${upd}). Fiat rates couldn't be fetched, so they use a saved snapshot from ${snap}.` };
+    return { tone: 'warn', text: `Couldn't reach the rate service, so these are saved snapshot rates from ${snap} and may be out of date.` };
+  }
+  // <<CC-PURE-END>>
+
+  // ══════════════════════════════════════════════════════════════
+  // UI
+  // ══════════════════════════════════════════════════════════════
+  const $ = (id) => document.getElementById(id);
+  const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
+  let meta = null, rates = {}, catalog = [], byCode = {};
+  let state = { from: 'NZD', to: 'USD', amount: '100' };
+  let groupFilter = 'all';
+  let loading = false, refreshError = false, lastFetchAt = 0;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(PAIR_KEY));
+    if (saved && typeof saved === 'object') state = Object.assign(state, { from: saved.from || state.from, to: saved.to || state.to, amount: typeof saved.amount === 'string' ? saved.amount : state.amount });
+  } catch (e) {}
+  function savePair() { try { localStorage.setItem(PAIR_KEY, JSON.stringify(state)); } catch (e) {} }
+
+  // ── Searchable dropdown ──
+  function makePicker(root, getCode, onPick) {
+    root.innerHTML = `
+      <button type="button" class="picker-btn w-full flex items-center gap-3 bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-left hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-haspopup="listbox" aria-expanded="false">
+        <span class="pk-code text-lg font-bold text-white w-14 shrink-0"></span>
+        <span class="pk-name text-sm text-slate-400 truncate flex-1"></span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-500 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="picker-panel hidden absolute z-30 mt-1 w-full">
+        <div class="p-2 border-b border-slate-700"><input type="search" class="pk-search w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Search currency, code or country" autocomplete="off" aria-label="Search currencies"></div>
+        <div class="picker-list" role="listbox"></div>
+      </div>`;
+    const btn = root.querySelector('.picker-btn'), panel = root.querySelector('.picker-panel');
+    const search = root.querySelector('.pk-search'), list = root.querySelector('.picker-list');
+    let active = -1;
+    const opts = () => Array.from(list.querySelectorAll('.picker-opt'));
+
+    function refreshButton() {
+      const it = byCode[getCode()];
+      root.querySelector('.pk-code').textContent = getCode();
+      root.querySelector('.pk-name').textContent = it ? it.name : '';
+    }
+    function renderList() {
+      const secs = pickerSections(catalog, search.value);
+      const cur = getCode();
+      list.innerHTML = secs.length ? secs.map(s => `<div class="picker-group">${s.title}</div>` + s.items.map(it =>
+        `<div class="picker-opt${it.code === cur ? ' selected' : ''}" role="option" aria-selected="${it.code === cur}" data-code="${it.code}"><span class="opt-code">${it.code}</span><span class="opt-name">${it.name}</span>${it.note ? `<span class="opt-note">${it.note}</span>` : ''}</div>`).join('')).join('')
+        : '<p class="px-3 py-4 text-sm text-slate-500">No currencies match.</p>';
+      active = -1;
+    }
+    function setActive(i) {
+      const o = opts(); if (!o.length) return;
+      active = (i + o.length) % o.length;
+      o.forEach((el, k) => el.classList.toggle('active', k === active));
+      o[active].scrollIntoView({ block: 'nearest' });
+    }
+    function open() {
+      document.dispatchEvent(new CustomEvent('picker-open', { detail: root }));
+      panel.classList.remove('hidden'); btn.setAttribute('aria-expanded', 'true');
+      search.value = ''; renderList(); search.focus();
+      const sel = list.querySelector('.picker-opt.selected'); if (sel) sel.scrollIntoView({ block: 'center' });
+    }
+    function close(refocus) { panel.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); }
+    function pick(code) { close(true); onPick(code); }
+
+    btn.addEventListener('click', () => panel.classList.contains('hidden') ? open() : close(false));
+    search.addEventListener('input', renderList);
+    search.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(active + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+      else if (e.key === 'Enter') { e.preventDefault(); const o = opts(); const t = o[active >= 0 ? active : 0]; if (t) pick(t.getAttribute('data-code')); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(true); }
+    });
+    list.addEventListener('click', (e) => { const t = e.target.closest('[data-code]'); if (t) pick(t.getAttribute('data-code')); });
+    document.addEventListener('click', (e) => { if (!root.contains(e.target)) close(false); });
+    document.addEventListener('picker-open', (e) => { if (e.detail !== root) close(false); });
+    refreshButton();
+    return { refreshButton: refreshButton };
+  }
+
+  const pickFrom = makePicker($('pickFrom'), () => state.from, (c) => { state.from = c; renderAll(); });
+  const pickTo = makePicker($('pickTo'), () => state.to, (c) => { state.to = c; renderAll(); });
+
+  // ── Rendering ──
+  function renderResult() {
+    const amt = parseAmount(state.amount);
+    const f = byCode[state.from], t = byCode[state.to];
+    $('amountHint').classList.toggle('text-red-400', Number.isNaN(amt));
+    $('amountHint').classList.toggle('text-slate-500', !Number.isNaN(amt));
+    $('amountHint').textContent = Number.isNaN(amt) ? 'Enter a number, like 1,250.50 or 2.5M.' : 'Commas are fine, and you can use K, M, B or T (e.g. 2.5M).';
+    if (!f || !t || Number.isNaN(amt)) {
+      $('resultFrom').innerHTML = '&nbsp;'; $('resultTo').innerHTML = '&mdash;'; $('resultName').innerHTML = '&nbsp;'; $('rateLine').innerHTML = '&nbsp;';
+      return;
+    }
+    const v = convert(amt, state.from, state.to, rates);
+    const unit = convert(1, state.from, state.to, rates);
+    $('resultFrom').textContent = `${fmtAmount(amt, f.group, f.code)} ${f.code} =`;
+    $('resultTo').textContent = `${fmtAmount(v, t.group, t.code)} ${t.code}`;
+    $('resultName').textContent = `${f.name} to ${t.name}`;
+    $('rateLine').textContent = `1 ${f.code} = ${fmtRate(unit)} ${t.code}  \u00B7  1 ${t.code} = ${fmtRate(1 / unit)} ${f.code}`;
+  }
+
+  function renderChips() {
+    const counts = { all: catalog.length };
+    GROUPS.forEach(g => { counts[g.key] = catalog.filter(it => it.group === g.key).length; });
+    const chips = [{ key: 'all', label: 'All' }].concat(GROUPS);
+    $('groupChips').innerHTML = chips.map(c => `<button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50${groupFilter === c.key ? ' active' : ''}" data-group="${c.key}">${c.label} <span class="opacity-60">${counts[c.key]}</span></button>`).join('');
+    $('groupChips').querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => { groupFilter = b.getAttribute('data-group'); renderChips(); renderTable(); }));
+  }
+
+  function renderTable() {
+    const amt = parseAmount(state.amount);
+    const f = byCode[state.from];
+    const list = sortForTable(filterCatalog(catalog, $('tableSearch').value, groupFilter)).filter(it => it.code !== state.from);
+    $('tableTitle').textContent = Number.isNaN(amt) || !f ? 'Convert to everything' : `${fmtAmount(amt, f.group, f.code)} ${state.from} is worth\u2026`;
+    $('thRate').textContent = f ? `1 ${f.code} =` : 'Rate';
+    $('tableBody').innerHTML = list.map(it => {
+      const v = convert(Number.isNaN(amt) ? NaN : amt, state.from, it.code, rates);
+      const unit = convert(1, state.from, it.code, rates);
+      return `<tr class="rate-row border-t border-slate-800${it.code === state.to ? ' current' : ''}" data-code="${it.code}">
+        <td class="px-3 py-2"><span class="font-bold text-white">${it.code}</span> <span class="text-slate-400">${it.name}</span>${it.note ? ` <span class="text-xs text-slate-600">${it.note}</span>` : ''}</td>
+        <td class="px-3 py-2 text-right tabular-nums text-slate-200">${fmtAmount(v, it.group, it.code)}</td>
+        <td class="px-3 py-2 text-right tabular-nums text-slate-500 hidden sm:table-cell">${fmtRate(unit)}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="px-3 py-6 text-center text-slate-500">No currencies match.</td></tr>';
+    $('tableCount').textContent = `${list.length} ${list.length === 1 ? 'currency' : 'currencies'} shown`;
+  }
+
+  function renderStatus() {
+    const el = $('status');
+    if (loading && !meta.fiatLive && !meta.extrasLive) { el.className = 'text-xs leading-relaxed flex-1 text-slate-400'; el.textContent = 'Fetching live rates\u2026'; return; }
+    const s = describeStatus(meta, fmtDate);
+    el.className = 'text-xs leading-relaxed flex-1 ' + (s.tone === 'ok' ? 'text-emerald-400' : 'text-amber-300');
+    el.textContent = s.text + (refreshError && s.tone === 'ok' ? " (Couldn't refresh just now.)" : '');
+    $('refreshBtn').disabled = loading;
+    $('refreshIcon').classList.toggle('spin', loading);
+  }
+
+  function renderAll() {
+    savePair();
+    pickFrom.refreshButton(); pickTo.refreshButton();
+    renderResult(); renderTable(); renderStatus();
+  }
+
+  function applyRates(composed) {
+    meta = composed; rates = composed.rates; catalog = buildCatalog(rates);
+    byCode = {}; catalog.forEach(it => { byCode[it.code] = it; });
+    if (!byCode[state.from]) state.from = byCode.USD ? 'USD' : catalog[0].code;
+    if (!byCode[state.to]) state.to = byCode.EUR ? 'EUR' : catalog[1].code;
+    $('subtitle').textContent = `Convert between ${catalog.length} currencies: world money, precious metals, crypto and historical currencies.`;
+    renderChips(); renderAll();
+  }
+
+  // ── Fetching ──
+  async function fetchJSON(url, ms) {
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), ms || 8000) : null;
+    try {
+      const res = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } finally { if (timer) clearTimeout(timer); }
+  }
+  async function fetchFA() {
+    for (const url of FA_URLS) { try { const p = parseFA(await fetchJSON(url)); if (p) return p; } catch (e) {} }
+    return null;
+  }
+  async function loadLive() {
+    const [er, fa] = await Promise.all([fetchJSON(ER_URL).then(parseER).catch(() => null), fetchFA().catch(() => null)]);
+    return { er, fa };
+  }
+  function readCache() { try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); return c && (c.er || c.fa) ? c : null; } catch (e) { return null; } }
+  function writeCache(live) { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), er: live.er, fa: live.fa })); } catch (e) {} }
+
+  async function refresh(force) {
+    if (loading) return;
+    const cache = readCache();
+    if (!force && cache && Date.now() - cache.savedAt < CACHE_FRESH_MS) { applyRates(composeRates(cache, SNAPSHOT)); return; }
+    if (force && Date.now() - lastFetchAt < 5000) return;
+    loading = true; refreshError = false; renderStatus();
+    const live = await loadLive();
+    lastFetchAt = Date.now(); loading = false;
+    if (live.er || live.fa) {
+      // keep whichever half we already have if only one source answered this time
+      const merged = { er: live.er || (cache && cache.er) || null, fa: live.fa || (cache && cache.fa) || null };
+      writeCache(merged);
+      refreshError = !(live.er && live.fa);
+      applyRates(composeRates(merged, SNAPSHOT));
+    } else {
+      refreshError = true;
+      applyRates(composeRates(cache || null, SNAPSHOT));
+    }
+  }
+
+  // ── Events ──
+  $('amount').value = state.amount;
+  $('amount').addEventListener('input', () => { state.amount = $('amount').value; savePair(); renderResult(); renderTable(); });
+  $('swapBtn').addEventListener('click', () => { const t = state.from; state.from = state.to; state.to = t; renderAll(); });
+  $('tableSearch').addEventListener('input', renderTable);
+  $('tableBody').addEventListener('click', (e) => { const r = e.target.closest('[data-code]'); if (r) { state.to = r.getAttribute('data-code'); renderAll(); } });
+  $('refreshBtn').addEventListener('click', () => refresh(true));
+  $('copyBtn').addEventListener('click', async () => {
+    const amt = parseAmount(state.amount), f = byCode[state.from], t = byCode[state.to];
+    if (!f || !t || Number.isNaN(amt)) return;
+    const text = `${fmtAmount(amt, f.group, f.code)} ${f.code} = ${fmtAmount(convert(amt, f.code, t.code, rates), t.group, t.code)} ${t.code}`;
+    let msg = 'Copied';
+    try { await navigator.clipboard.writeText(text); } catch (e) { msg = 'Could not copy'; }
+    $('copyStatus').textContent = msg;
+    setTimeout(() => { $('copyStatus').textContent = ''; }, 1500);
+  });
+
+  // ── Init: show the snapshot instantly, then upgrade to live rates ──
+  loading = true;
+  applyRates(composeRates(null, SNAPSHOT));
+  loading = false;
+  refresh(false);
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'currency-converter';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

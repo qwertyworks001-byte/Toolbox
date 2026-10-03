@@ -18,8 +18,8 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'investment',
     name: 'Investment Simulation',
-    description: 'Model best/average/worst-case investment growth over time.',
-    keywords: ['investment', 'simulator', 'returns', 'growth', 'compound', 'stocks', 'portfolio'],
+    description: 'Model best/average/worst-case investment growth over time, or find the present value of future money.',
+    keywords: ['investment', 'simulator', 'returns', 'growth', 'compound', 'stocks', 'portfolio', 'present value', 'pv', 'npv', 'discount', 'annuity', 'perpetuity', 'bond'],
     categories: ['finance'],
     path: 'InvestmentSimulation/investment.html',
     color: '#3b82f6',
@@ -286,10 +286,30 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'pattern-maker',
     name: 'Pattern Maker',
-    description: 'Generative Sunburst pattern tool with full control over shape, color, and variation — export SVG or PNG. (Halftone tab coming next.)',
+    description: 'Generative Sunburst and Halftone pattern tool with full control over shape, color, and variation — export SVG or PNG.',
     keywords: ['sunburst', 'pattern', 'svg', 'generative', 'vector', 'rays', 'halftone', 'design'],
     categories: ['design'],
     path: 'PatternMaker/pattern-maker.html',
     color: '#f6a623'
+  },
+  {
+    id: 'currency-converter',
+    name: 'Currency Converter',
+    description: 'Convert between 270+ currencies: world money, precious metals, crypto and historical currencies like the German Mark.',
+    keywords: ['currency', 'exchange', 'exchange rate', 'convert', 'forex', 'fx', 'money', 'usd', 'eur', 'nzd', 'gbp', 'bitcoin', 'crypto', 'gold', 'silver'],
+    categories: ['finance', 'utilities'],
+    path: 'CurrencyConverter/currency-converter.html',
+    color: '#14b8a6',
+    popular: true
+  },
+  {
+    id: 'robux-cost',
+    name: 'Robux Cost Calculator',
+    description: 'What it costs to buy any amount of Robux, or how many Robux your money gets you: cheapest pack mix, web vs. mobile, 150+ currencies.',
+    keywords: ['robux', 'buy', 'cost', 'price', 'purchase', 'packs', 'gift card', 'roblox', 'how much', 'how many', 'budget', 'spend', 'usd', 'nzd', 'aud', 'gbp', 'eur', 'currency'],
+    categories: ['roblox', 'finance'],
+    path: 'RobuxCost/robux-cost.html',
+    color: '#f87171',
+    popular: false
   },
 ];
