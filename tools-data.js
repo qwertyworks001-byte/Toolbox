@@ -312,4 +312,14 @@ window.TOOLBOX_TOOLS = [
     color: '#f87171',
     popular: false
   },
+  {
+    id: 'habit-tracker',
+    name: 'Habit Tracker',
+    description: 'Check off daily habits, hit weekly goals, keep streaks and watch your progress fill a calendar. Installable, works offline, syncs across devices.',
+    keywords: ['habit', 'habits', 'tracker', 'streak', 'routine', 'calendar', 'goals', 'daily', 'workout', 'check off', 'progress', 'sync'],
+    categories: ['health', 'utilities'],
+    path: 'HabitTracker/habit-tracker.html',
+    color: '#a3e635',
+    popular: true
+  },
 ];

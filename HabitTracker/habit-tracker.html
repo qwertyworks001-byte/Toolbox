@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Habit Tracker</title>
+<meta name="theme-color" content="#0b0f19">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Habits">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="../style.css">
+<script src="../firebase-config.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #e2e8f0; margin: 0; padding-bottom: env(safe-area-inset-bottom); }
+  .wrap { max-width: 56rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+  a { color: #94a3b8; text-decoration: none; } a:hover { color: #60a5fa; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0 0; color: #fff; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin: 0 0 0.75rem; font-weight: 600; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+  .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 1rem; padding: 1rem; margin-top: 1rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr; gap: 0 1rem; } @media (min-width: 52rem) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  button, input, select { font: inherit; color: inherit; }
+  .btn { background: #1e293b; border: 1px solid #475569; color: #cbd5e1; border-radius: 0.6rem; padding: 0.45rem 0.8rem; cursor: pointer; font-size: 0.85rem; }
+  .btn:hover { border-color: #3b82f6; color: #93c5fd; } .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; } .btn.danger:hover { border-color: #ef4444; color: #f87171; }
+  .btn.small { padding: 0.25rem 0.55rem; font-size: 0.75rem; } .btn:disabled { opacity: 0.4; cursor: default; }
+  .pill { border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.78rem; border: 1px solid #475569; background: #1e293b; cursor: pointer; }
+  .pill.ok { border-color: #10b981; color: #6ee7b7; } .pill.warn { border-color: #f59e0b; color: #fcd34d; }
+  input[type=text], input[type=number], input[type=email], input[type=password], input[type=time] { width: 100%; background: rgba(15,23,42,0.8); border: 1px solid #334155; border-radius: 0.6rem; padding: 0.5rem 0.7rem; }
+  label.f { display: block; font-size: 0.8rem; color: #94a3b8; margin: 0.8rem 0 0.3rem; }
+  .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .datebar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+  .datebar .t { font-weight: 600; color: #fff; }
+  .habit { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.5rem; border-radius: 0.8rem; border: 1px solid transparent; }
+  .habit + .habit { border-top: 1px solid rgba(255,255,255,0.06); } .habit.rest { opacity: 0.55; }
+  .check { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2px solid var(--c); background: transparent; color: #0b0f19; font-size: 1.2rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+  .check:active { transform: scale(0.92); } .check.done { background: var(--c); } .check.part { background: color-mix(in srgb, var(--c) 35%, transparent); color: #fff; font-size: 0.8rem; }
+  .info { flex: 1; min-width: 0; } .name { font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { font-size: 0.78rem; color: #94a3b8; margin-top: 0.1rem; } .meta b { color: #fbbf24; font-weight: 600; }
+  .stepper { display: flex; align-items: center; gap: 0.3rem; } .stepper span { min-width: 3rem; text-align: center; font-size: 0.85rem; }
+  .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .chip { border: 1px solid #475569; background: #1e293b; border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.8rem; cursor: pointer; }
+  .chip.on { border-color: var(--c, #3b82f6); background: color-mix(in srgb, var(--c, #3b82f6) 25%, transparent); color: #fff; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; } .dow { text-align: center; font-size: 0.7rem; color: #64748b; padding-bottom: 2px; }
+  .day { aspect-ratio: 1; border-radius: 0.5rem; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.03); font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #cbd5e1; padding: 0; position: relative; }
+  .day.empty { border: 0; background: none; cursor: default; } .day.future { opacity: 0.45; } .day.missed { border: 1px dashed rgba(248,113,113,0.55); }
+  .day.today { box-shadow: 0 0 0 2px #fff inset; } .day.sel { outline: 2px solid #60a5fa; outline-offset: 1px; } .day.full { color: #0b0f19; font-weight: 700; }
+  .stats { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.82rem; color: #94a3b8; } .stats b { color: #fff; font-size: 1rem; }
+  .empty-state { text-align: center; padding: 1rem 0; color: #94a3b8; } .empty-state .chips { justify-content: center; margin-top: 0.75rem; }
+  dialog { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 1rem; padding: 1.2rem; width: min(30rem, 94vw); max-height: 90vh; overflow: auto; }
+  dialog::backdrop { background: rgba(0,0,0,0.65); } dialog[open] { display: block; }
+  .sw { display: flex; gap: 0.4rem; flex-wrap: wrap; } .sw button { width: 1.7rem; height: 1.7rem; border-radius: 50%; border: 2px solid transparent; cursor: pointer; } .sw button.on { border-color: #fff; }
+  .dayp { display: flex; gap: 0.3rem; } .dayp button { flex: 1; padding: 0.4rem 0; border-radius: 0.5rem; border: 1px solid #475569; background: #1e293b; cursor: pointer; font-size: 0.78rem; } .dayp button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .seg { display: flex; gap: 0.4rem; } .seg button { flex: 1; padding: 0.45rem 0.2rem; border-radius: 0.6rem; border: 1px solid #475569; background: #1e293b; cursor: pointer; font-size: 0.8rem; } .seg button.on { border-color: #3b82f6; background: rgba(59,130,246,0.2); color: #bfdbfe; }
+  .err { color: #fca5a5; font-size: 0.8rem; margin-top: 0.5rem; } .hide { display: none !important; } .note { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+  .rem { color: #94a3b8; } .rem.due { color: #fbbf24; font-weight: 600; } .btn.fill { background: #dc2626; border-color: #dc2626; color: #fff; } .btn.fill:hover { background: #ef4444; color: #fff; }
+  pre { background: #020617; padding: 0.7rem; border-radius: 0.6rem; font-size: 0.72rem; overflow: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="../index.html">&larr; Toolbox</a>
+    <div class="row"><button class="pill" id="syncPill" type="button">Local only</button><button type="button" id="favToggle" style="background:none;border:0;font-size:1.3rem;cursor:pointer;color:#475569" aria-label="Add to favorites" aria-pressed="false">&#9734;</button></div>
+  </div>
+  <h1>Habit Tracker</h1>
+
+  <div class="grid2">
+   <div>
+    <section class="card" id="todayCard" aria-label="Today">
+      <h2>Check-ins</h2>
+      <div class="datebar"><button class="btn small" id="prevDay" type="button" aria-label="Previous day">&larr;</button><span class="t" id="dateLabel"></span><button class="btn small" id="nextDay" type="button" aria-label="Next day">&rarr;</button></div>
+      <div id="list"></div>
+      <div class="row" style="margin-top:0.75rem"><button class="btn primary" id="addBtn" type="button">+ Add habit</button><button class="btn small" id="todayBtn" type="button">Jump to today</button></div>
+    </section>
+    <section class="card" id="quickCard" aria-label="Quick add"><h2>Quick add</h2><div class="chips" id="quickChips" style="margin-bottom:0"></div></section>
+   </div>
+
+    <section class="card" aria-label="Calendar">
+      <h2>Calendar</h2>
+      <div class="chips" id="chips"></div>
+      <div class="datebar"><button class="btn small" id="prevMonth" type="button" aria-label="Previous month">&larr;</button><span class="t" id="monthLabel"></span><button class="btn small" id="nextMonth" type="button" aria-label="Next month">&rarr;</button></div>
+      <div class="cal" id="cal"></div>
+      <div class="stats" id="stats"></div>
+    </section>
+  </div>
+
+  <div class="row" style="margin-top:1rem"><button class="btn small" id="exportBtn" type="button">Export backup</button><button class="btn small" id="importBtn" type="button">Import backup</button><input type="file" id="importFile" accept="application/json" class="hide"><span class="note" id="ioMsg"></span></div>
+</div>
+
+<dialog id="habitDlg">
+  <h2 id="habitTitle">New habit</h2>
+  <div id="presetWrap"><label class="f" style="margin-top:0">Start from a preset</label><div class="chips" id="presets"></div></div>
+  <label class="f" for="hName">Name</label><input type="text" id="hName" maxlength="40" placeholder="e.g. Workout">
+  <div class="row"><div style="width:5rem"><label class="f" for="hEmoji">Emoji</label><input type="text" id="hEmoji" maxlength="4" placeholder="&#127947;"></div><div style="flex:1"><label class="f">Colour</label><div class="sw" id="hColors"></div></div></div>
+  <label class="f">How often?</label>
+  <div class="seg" id="hMode"><button type="button" data-m="daily">Every day</button><button type="button" data-m="days">Set days</button><button type="button" data-m="weekly">Times a week</button></div>
+  <div id="daysWrap" class="hide" style="margin-top:0.6rem"><div class="dayp" id="hDays"></div></div>
+  <div id="weeklyWrap" class="hide" style="margin-top:0.6rem"><label class="f" for="hWeekly" style="margin-top:0">Goal: times per week</label><input type="number" id="hWeekly" min="1" max="7" value="3"></div>
+  <label class="f" for="hTarget">Times per day to count as done <span style="color:#64748b">(1 = simple tick; 8 = e.g. 8 glasses)</span></label><input type="number" id="hTarget" min="1" max="99" value="1">
+  <label class="f" for="hRemind">Reminder time <span style="color:#64748b">(optional)</span></label>
+  <div class="row"><input type="time" id="hRemind" style="width:9.5rem"><button class="btn small" id="hRemindClear" type="button">Clear</button></div>
+  <div id="icsWrap" class="hide" style="margin-top:0.6rem"><button class="btn small" id="hIcs" type="button">&#128197; Add this reminder to my calendar</button>
+    <p class="note" style="margin:0.4rem 0 0">Your phone&rsquo;s calendar will then remind you at that time, even when this page is closed. Do this once per habit, and again if you change the time or days.</p></div>
+  <div class="err hide" id="hErr"></div>
+  <div class="row" id="hFoot" style="margin-top:1.2rem;justify-content:space-between"><button class="btn danger hide" id="hDelete" type="button">Delete</button><span style="flex:1"></span><button class="btn" id="hCancel" type="button">Cancel</button><button class="btn primary" id="hSave" type="button">Save</button></div>
+  <div id="hConfirm" class="hide" style="margin-top:1.2rem"><p style="margin:0 0 0.6rem;color:#fca5a5">Delete this habit? It will disappear from your check-ins and calendar.</p><div class="row" style="justify-content:flex-end"><button class="btn" id="hKeep" type="button">Keep it</button><button class="btn fill" id="hYes" type="button">Yes, delete</button></div></div>
+</dialog>
+
+<dialog id="syncDlg"><h2>Sync across devices</h2><div id="syncBody"></div><div class="row" style="margin-top:1rem;justify-content:flex-end"><button class="btn" id="syncClose" type="button">Close</button></div></dialog>
+
+<script>
+(function () {
+  // ══════════════ pure logic (unit-tested in Node) ══════════════
+  // <<HT-PURE-START>>
+  const pad = (n) => (n < 10 ? '0' + n : '' + n);
+  const keyOf = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const fromKey = (k) => { const p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  const addDays = (k, n) => { const d = fromKey(k); d.setDate(d.getDate() + n); return keyOf(d); };
+  const dow = (k) => (fromKey(k).getDay() + 6) % 7;                 // Monday = 0 ... Sunday = 6
+  const weekStart = (k) => addDays(k, -dow(k));
+
+  const emptyData = () => ({ v: 1, habits: {}, log: {} });
+  function normalize(d) {
+    const out = emptyData();
+    if (!d || typeof d !== 'object') return out;
+    Object.keys(d.habits || {}).forEach(id => {
+      const h = d.habits[id]; if (!h || typeof h !== 'object') return;
+      out.habits[id] = { id, name: String(h.name || 'Habit').slice(0, 40), emoji: String(h.emoji || '').slice(0, 4), color: /^#[0-9a-f]{6}$/i.test(h.color) ? h.color : '#3b82f6',
+        target: Math.min(99, Math.max(1, parseInt(h.target, 10) || 1)), mode: ['daily', 'days', 'weekly'].includes(h.mode) ? h.mode : 'daily',
+        days: Array.isArray(h.days) ? h.days.filter(x => Number.isInteger(x) && x >= 0 && x <= 6) : [], weekly: Math.min(7, Math.max(1, parseInt(h.weekly, 10) || 3)),
+        remind: /^([01]\d|2[0-3]):[0-5]\d$/.test(h.remind) ? h.remind : '',
+        c: Number(h.c) || 0, u: Number(h.u) || 0, deleted: !!h.deleted };
+      if (out.habits[id].mode === 'days' && !out.habits[id].days.length) out.habits[id].mode = 'daily';
+    });
+    Object.keys(d.log || {}).forEach(k => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !d.log[k]) return;
+      Object.keys(d.log[k]).forEach(id => {
+        const e = d.log[k][id]; if (!Array.isArray(e)) return;
+        const n = Math.min(999, Math.max(0, parseInt(e[0], 10) || 0)); (out.log[k] = out.log[k] || {})[id] = [n, Number(e[1]) || 0];
+      });
+    });
+    return out;
+  }
+
+  const getCount = (data, id, k) => { const e = data.log[k] && data.log[k][id]; return e ? e[0] : 0; };
+  const isDone = (h, data, k) => getCount(data, h.id, k) >= h.target;
+  const isScheduled = (h, k) => (h.mode === 'days' ? h.days.includes(dow(k)) : true);
+  function setCount(data, id, k, n, ts) { (data.log[k] = data.log[k] || {})[id] = [Math.min(999, Math.max(0, n)), ts]; }
+  const weekGoal = (h) => (h.mode === 'daily' ? 7 : h.mode === 'days' ? h.days.length : h.weekly);
+  function weekDone(h, data, k) { const s = weekStart(k); let c = 0; for (let i = 0; i < 7; i++) if (isDone(h, data, addDays(s, i))) c++; return c; }
+
+  // Streaks: daily / set-days habits count consecutive scheduled days; "times a week" habits count consecutive weeks that hit the goal.
+  // Today (or this week) not being finished yet never breaks a streak.
+  function currentStreak(h, data, today) {
+    let s = 0;
+    if (h.mode === 'weekly') {
+      let ws = weekStart(today);
+      for (let i = 0; i < 520; i++) { if (weekDone(h, data, ws) >= h.weekly) s++; else if (i > 0) break; ws = addDays(ws, -7); }
+      return s;
+    }
+    let k = today;
+    for (let i = 0; i < 3650; i++) { if (isScheduled(h, k)) { if (isDone(h, data, k)) s++; else if (k !== today) break; } k = addDays(k, -1); }
+    return s;
+  }
+  function bestStreak(h, data, today) {
+    const dates = Object.keys(data.log).filter(k => data.log[k][h.id]).sort();
+    if (!dates.length) return 0;
+    let best = 0, run = 0;
+    if (h.mode === 'weekly') {
+      for (let ws = weekStart(dates[0]); ws <= weekStart(today); ws = addDays(ws, 7)) { if (weekDone(h, data, ws) >= h.weekly) { run++; best = Math.max(best, run); } else if (ws !== weekStart(today)) run = 0; }
+      return best;
+    }
+    for (let k = dates[0]; k <= today; k = addDays(k, 1)) { if (!isScheduled(h, k)) continue; if (isDone(h, data, k)) { run++; best = Math.max(best, run); } else if (k !== today) run = 0; }
+    return best;
+  }
+  function monthGrid(y, m) {            // m = 0..11; weeks of 7 date keys (null = padding), Monday first
+    const first = keyOf(new Date(y, m, 1)), n = new Date(y, m + 1, 0).getDate(), cells = [];
+    for (let i = 0; i < dow(first); i++) cells.push(null);
+    for (let d = 1; d <= n; d++) cells.push(keyOf(new Date(y, m, d)));
+    while (cells.length % 7) cells.push(null);
+    return cells;
+  }
+
+  // A recurring calendar event (.ics) with an alarm, so the phone's own Calendar app does the reminding even when this page is closed.
+  const icsEscape = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  function icsFold(line) {                                   // lines may not exceed 75 octets: continue on a new line starting with a space
+    const cps = Array.from(line), out = []; let cur = '', bytes = 0;
+    cps.forEach(ch => { const b = unescape(encodeURIComponent(ch)).length; if (bytes + b > 70) { out.push(cur); cur = ' ' + ch; bytes = 1 + b; } else { cur += ch; bytes += b; } });
+    out.push(cur); return out.join('\r\n');
+  }
+  function buildICS(h, todayK, stamp) {
+    const hh = h.remind.slice(0, 2), mm = h.remind.slice(3, 5);
+    let k = todayK; if (h.mode === 'days') for (let i = 0; i < 7 && !h.days.includes(dow(k)); i++) k = addDays(k, 1);   // first event lands on a scheduled day
+    const BY = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+    const rrule = h.mode === 'days' ? 'FREQ=WEEKLY;BYDAY=' + h.days.slice().sort((a, b) => a - b).map(i => BY[i]).join(',') : 'FREQ=DAILY';
+    const goal = h.mode === 'weekly' ? ' (goal: ' + h.weekly + ' times this week)' : '';
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Toolbox//Habit Tracker//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+      'UID:' + h.id + '@toolbox-habits', 'DTSTAMP:' + stamp, 'DTSTART:' + k.replace(/-/g, '') + 'T' + hh + mm + '00', 'DURATION:PT15M', 'RRULE:' + rrule,
+      'SUMMARY:' + icsEscape((h.emoji ? h.emoji + ' ' : '') + h.name), 'DESCRIPTION:' + icsEscape('Habit reminder' + goal),
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape(h.name), 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].map(icsFold).join('\r\n') + '\r\n';
+  }
+
+  // Merge two copies of the data (this device + the cloud). Newest timestamp wins per habit and per day-entry, so two devices
+  // that were each used offline never overwrite each other wholesale.
+  function mergeData(a, b) {
+    const out = emptyData(); let changedLocal = false, changedRemote = false;
+    new Set(Object.keys(a.habits).concat(Object.keys(b.habits))).forEach(id => {
+      const x = a.habits[id], y = b.habits[id];
+      if (x && !y) { out.habits[id] = x; changedRemote = true; } else if (y && !x) { out.habits[id] = y; changedLocal = true; }
+      else if (x.u >= y.u) { out.habits[id] = x; if (x.u > y.u) changedRemote = true; } else { out.habits[id] = y; changedLocal = true; }
+    });
+    new Set(Object.keys(a.log).concat(Object.keys(b.log))).forEach(k => {
+      const la = a.log[k] || {}, lb = b.log[k] || {}, o = {};
+      new Set(Object.keys(la).concat(Object.keys(lb))).forEach(id => {
+        const x = la[id], y = lb[id];
+        if (x && !y) { o[id] = x; changedRemote = true; } else if (y && !x) { o[id] = y; changedLocal = true; }
+        else if (x[1] >= y[1]) { o[id] = x; if (x[1] > y[1]) changedRemote = true; } else { o[id] = y; changedLocal = true; }
+      });
+      out.log[k] = o;
+    });
+    return { data: out, changedLocal, changedRemote };
+  }
+  // <<HT-PURE-END>>
+
+  // ══════════════ presets / constants ══════════════
+  const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+  const PRESETS = [
+    { name: 'Workout', emoji: '\uD83C\uDFCB\uFE0F', color: '#ef4444', mode: 'days', days: [0, 2, 4], target: 1 },
+    { name: 'Drink water', emoji: '\uD83D\uDCA7', color: '#06b6d4', mode: 'daily', target: 8 },
+    { name: 'Read', emoji: '\uD83D\uDCDA', color: '#8b5cf6', mode: 'daily', target: 1 },
+    { name: 'Meditate', emoji: '\uD83E\uDDD8', color: '#14b8a6', mode: 'daily', target: 1 },
+    { name: 'Walk', emoji: '\uD83D\uDEB6', color: '#22c55e', mode: 'daily', target: 1 },
+    { name: 'Stretch', emoji: '\uD83E\uDD38', color: '#f97316', mode: 'daily', target: 1 },
+    { name: 'Journal', emoji: '\u270D\uFE0F', color: '#f59e0b', mode: 'daily', target: 1 },
+    { name: 'Study', emoji: '\uD83C\uDF93', color: '#3b82f6', mode: 'weekly', weekly: 5, target: 1 },
+    { name: 'Sleep 8 hours', emoji: '\uD83D\uDE34', color: '#6366f1', mode: 'daily', target: 1 },
+    { name: 'Vitamins', emoji: '\uD83D\uDC8A', color: '#ec4899', mode: 'daily', target: 1 },
+    { name: 'Healthy meal', emoji: '\uD83E\uDD57', color: '#84cc16', mode: 'daily', target: 3 },
+    { name: 'Tidy up', emoji: '\uD83E\uDDF9', color: '#a855f7', mode: 'weekly', weekly: 3, target: 1 }
+  ];
+  const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const STORE = 'toolbox:habits';
+
+  // ══════════════ state ══════════════
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let data;
+  try { data = normalize(JSON.parse(localStorage.getItem(STORE))); } catch (e) { data = emptyData(); }
+  const todayKey = () => keyOf(new Date());
+  const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const fmtTime = (hm) => new Date(2000, 0, 1, +hm.slice(0, 2), +hm.slice(3, 5)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  let sel = todayKey(), followToday = true;
+  let view = { y: new Date().getFullYear(), m: new Date().getMonth() }, calSel = 'all';
+  let editing = null, form = null, pendingId = null;
+
+  const liveHabits = () => Object.values(data.habits).filter(h => !h.deleted).sort((a, b) => a.c - b.c || (a.name < b.name ? -1 : 1));
+  const saveLocal = () => { try { localStorage.setItem(STORE, JSON.stringify(data)); } catch (e) {} };
+  function changed() { saveLocal(); render(); Sync.schedulePush(); }
+  const newId = () => 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // ══════════════ rendering ══════════════
+  function fmtDay(k) { const d = fromKey(k), t = todayKey(); return k === t ? 'Today, ' + d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) : (k === addDays(t, -1) ? 'Yesterday, ' : '') + d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
+
+  function renderList() {
+    const hs = liveHabits(), t = todayKey();
+    $('dateLabel').textContent = fmtDay(sel);
+    $('nextDay').disabled = sel >= t;
+    if (!hs.length) {
+      $('list').innerHTML = '<div class="empty-state"><p>No habits yet. Tap one in <b>Quick add</b> below, or use <b>+ Add habit</b> to make your own.</p></div>';
+      return;
+    }
+    $('list').innerHTML = hs.map(h => {
+      const n = getCount(data, h.id, sel), done = n >= h.target, streak = currentStreak(h, data, t), sched = isScheduled(h, sel);
+      const wk = h.mode === 'daily' ? '' : ` \u00B7 ${weekDone(h, data, sel)}/${weekGoal(h)} this week`;
+      const due = h.remind && sel === t && sched && !done && nowHM() >= h.remind;
+      const rem = h.remind ? ` \u00B7 <span class="rem${due ? ' due' : ''}">\u23F0 ${fmtTime(h.remind)}</span>` : '';
+      const unit = h.mode === 'weekly' ? (streak === 1 ? 'week' : 'weeks') : (streak === 1 ? 'day' : 'days');
+      return `<div class="habit${sched ? '' : ' rest'}" style="--c:${h.color}" data-id="${h.id}">
+        <button type="button" class="check${done ? ' done' : (n > 0 ? ' part' : '')}" data-act="check" aria-label="${done ? 'Mark not done' : 'Mark done'}: ${esc(h.name)}">${done ? '\u2713' : (h.target > 1 && n > 0 ? n : '')}</button>
+        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${streak ? `<b>\uD83D\uDD25 ${streak} ${unit}</b>` : 'No streak yet'}${wk}${sched ? '' : ' \u00B7 rest day'}${rem}</div></div>
+        ${h.target > 1 ? `<div class="stepper"><button type="button" class="btn small" data-act="dec" aria-label="One less">\u2212</button><span>${n}/${h.target}</span><button type="button" class="btn small" data-act="inc" aria-label="One more">+</button></div>` : ''}
+        <button type="button" class="btn small" data-act="edit" aria-label="Edit ${esc(h.name)}">\u22EF</button></div>`;
+    }).join('');
+  }
+
+  function renderCal() {
+    const hs = liveHabits(), t = todayKey();
+    if (calSel !== 'all' && !hs.find(h => h.id === calSel)) calSel = 'all';
+    $('chips').innerHTML = `<button type="button" class="chip${calSel === 'all' ? ' on' : ''}" data-cal="all">All habits</button>` + hs.map(h => `<button type="button" class="chip${calSel === h.id ? ' on' : ''}" style="--c:${h.color}" data-cal="${h.id}">${esc(h.emoji)} ${esc(h.name)}</button>`).join('');
+    $('monthLabel').textContent = new Date(view.y, view.m, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const cells = monthGrid(view.y, view.m), H = hs.find(h => h.id === calSel);
+    let html = DAYN.map(d => `<div class="dow">${d[0]}</div>`).join('');
+    let done = 0, sched = 0, perfect = 0;
+    cells.forEach(k => {
+      if (!k) { html += '<div class="day empty"></div>'; return; }
+      const future = k > t; let style = '', cls = '';
+      if (H) {
+        const n = getCount(data, H.id, k), full = n >= H.target, s = isScheduled(H, k);
+        if (!future && s) sched++; if (full) done++;
+        if (full) { style = `background:${H.color};border-color:${H.color}`; cls = ' full'; }
+        else if (n > 0) style = `background:color-mix(in srgb, ${H.color} 40%, transparent)`;
+        else if (!future && s && H.mode !== 'weekly' && k !== t) cls = ' missed';
+      } else {
+        const on = hs.filter(h => isScheduled(h, k) || getCount(data, h.id, k) > 0);
+        const d = on.filter(h => isDone(h, data, k)).length;
+        if (on.length && d) { const f = d / on.length; style = `background:rgba(34,197,94,${0.18 + 0.72 * f});border-color:rgba(34,197,94,0.9)`; if (f === 1) { cls = ' full'; if (!future) perfect++; } }
+      }
+      html += `<button type="button" class="day${cls}${future ? ' future' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" style="${style}" data-day="${k}" aria-label="${k}">${fromKey(k).getDate()}</button>`;
+    });
+    $('cal').innerHTML = html;
+    if (H) {
+      const mode = H.mode === 'weekly' ? '' : ` of <b>${sched}</b> scheduled`;
+      $('stats').innerHTML = `<span><b>${done}</b> day${done === 1 ? '' : 's'} done${mode}</span><span>Streak <b>${currentStreak(H, data, t)}</b></span><span>Best <b>${bestStreak(H, data, t)}</b></span>`;
+    } else $('stats').innerHTML = hs.length ? `<span><b>${perfect}</b> perfect day${perfect === 1 ? '' : 's'} this month</span><span class="note">Greener = more habits done</span>` : '';
+  }
+
+  function renderQuick() {
+    const have = new Set(liveHabits().map(h => h.name.trim().toLowerCase()));
+    const left = PRESETS.map((p, i) => ({ p, i })).filter(x => !have.has(x.p.name.toLowerCase()));
+    $('quickCard').classList.toggle('hide', !left.length);
+    $('quickChips').innerHTML = left.map(x => `<button type="button" class="chip" data-quick="${x.i}" style="--c:${x.p.color}">${x.p.emoji} ${esc(x.p.name)}</button>`).join('');
+  }
+  function render() { if (followToday) sel = todayKey(); renderList(); renderQuick(); renderCal(); Sync.renderPill(); }
+
+  // ══════════════ interactions ══════════════
+  $('list').addEventListener('click', (e) => {
+    const row = e.target.closest('.habit'), btn = e.target.closest('[data-act]'); if (!row || !btn) return;
+    const h = data.habits[row.getAttribute('data-id')], act = btn.getAttribute('data-act'), n = getCount(data, h.id, sel);
+    if (act === 'edit') { openHabit(h); return; }
+    const next = act === 'check' ? (n >= h.target ? 0 : h.target) : act === 'inc' ? n + 1 : n - 1;
+    setCount(data, h.id, sel, next, Date.now()); changed();
+  });
+  $('quickChips').addEventListener('click', (e) => { const q = e.target.closest('[data-quick]'); if (q) addHabit(PRESETS[+q.getAttribute('data-quick')]); });
+  $('cal').addEventListener('click', (e) => { const d = e.target.closest('[data-day]'); if (d) { sel = d.getAttribute('data-day'); followToday = sel === todayKey(); render(); } });
+  $('chips').addEventListener('click', (e) => { const c = e.target.closest('[data-cal]'); if (c) { calSel = c.getAttribute('data-cal'); renderCal(); } });
+  $('prevDay').addEventListener('click', () => { sel = addDays(sel, -1); followToday = false; render(); });
+  $('nextDay').addEventListener('click', () => { if (sel < todayKey()) { sel = addDays(sel, 1); followToday = sel === todayKey(); render(); } });
+  $('todayBtn').addEventListener('click', () => { followToday = true; view = { y: new Date().getFullYear(), m: new Date().getMonth() }; render(); });
+  $('prevMonth').addEventListener('click', () => { view = view.m ? { y: view.y, m: view.m - 1 } : { y: view.y - 1, m: 11 }; renderCal(); });
+  $('nextMonth').addEventListener('click', () => { view = view.m < 11 ? { y: view.y, m: view.m + 1 } : { y: view.y + 1, m: 0 }; renderCal(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+  function addHabit(p) {
+    const now = Date.now(), id = newId();
+    data.habits[id] = normalize({ habits: { [id]: Object.assign({ c: now, u: now }, p) } }).habits[id];
+    changed();
+  }
+
+  // ── add / edit dialog ──
+  const openDlg = (d) => { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); };
+  const closeDlg = (d) => { if (d.close) d.close(); else d.removeAttribute('open'); };
+  function drawForm() {
+    $('hName').value = form.name; $('hEmoji').value = form.emoji; $('hWeekly').value = form.weekly; $('hTarget').value = form.target; $('hRemind').value = form.remind; $('icsWrap').classList.toggle('hide', !form.remind);
+    $('hColors').innerHTML = COLORS.map(c => `<button type="button" style="background:${c}" class="${c === form.color ? 'on' : ''}" data-color="${c}" aria-label="Colour ${c}"></button>`).join('');
+    $('hMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.getAttribute('data-m') === form.mode));
+    $('daysWrap').classList.toggle('hide', form.mode !== 'days'); $('weeklyWrap').classList.toggle('hide', form.mode !== 'weekly');
+    $('hDays').innerHTML = DAYN.map((d, i) => `<button type="button" class="${form.days.includes(i) ? 'on' : ''}" data-d="${i}">${d}</button>`).join('');
+  }
+  function openHabit(h) {
+    editing = h ? h.id : null;
+    form = h ? { name: h.name, emoji: h.emoji, color: h.color, mode: h.mode, days: h.days.slice(), weekly: h.weekly, target: h.target, remind: h.remind } : { name: '', emoji: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], mode: 'daily', days: [0, 2, 4], weekly: 3, target: 1, remind: '' };
+    pendingId = h ? null : newId(); $('hFoot').classList.remove('hide'); $('hConfirm').classList.add('hide');
+    $('habitTitle').textContent = h ? 'Edit habit' : 'New habit';
+    $('presetWrap').classList.toggle('hide', !!h); $('hDelete').classList.toggle('hide', !h); $('hErr').classList.add('hide');
+    $('presets').innerHTML = PRESETS.map((p, i) => `<button type="button" class="chip" data-p="${i}" style="--c:${p.color}">${p.emoji} ${esc(p.name)}</button>`).join('');
+    drawForm(); openDlg($('habitDlg'));
+  }
+  const readForm = () => { form.name = $('hName').value; form.emoji = $('hEmoji').value; form.weekly = parseInt($('hWeekly').value, 10) || 3; form.target = parseInt($('hTarget').value, 10) || 1; form.remind = $('hRemind').value || ''; };
+  $('addBtn').addEventListener('click', () => openHabit(null));
+  $('presets').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const p = PRESETS[+b.getAttribute('data-p')]; form = { name: p.name, emoji: p.emoji, color: p.color, mode: p.mode, days: (p.days || [0, 2, 4]).slice(), weekly: p.weekly || 3, target: p.target || 1, remind: $('hRemind').value || '' }; drawForm(); });
+  $('hColors').addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) { readForm(); form.color = b.getAttribute('data-color'); drawForm(); } });
+  $('hMode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { readForm(); form.mode = b.getAttribute('data-m'); drawForm(); } });
+  $('hDays').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (!b) return; readForm(); const i = +b.getAttribute('data-d'); form.days = form.days.includes(i) ? form.days.filter(x => x !== i) : form.days.concat(i); drawForm(); });
+  $('hCancel').addEventListener('click', () => closeDlg($('habitDlg')));
+  const formError = () => (!form.name.trim() ? 'Give it a name.' : (form.mode === 'days' && !form.days.length ? 'Pick at least one day.' : ''));
+  $('hSave').addEventListener('click', () => {
+    readForm();
+    const err = formError();
+    if (err) { $('hErr').textContent = err; $('hErr').classList.remove('hide'); return; }
+    const now = Date.now(), fields = { name: form.name.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind };
+    if (editing) { Object.assign(data.habits[editing], normalize({ habits: { [editing]: Object.assign({}, data.habits[editing], fields) } }).habits[editing], { u: now }); }
+    else addHabitNoRender(fields, now, pendingId || newId());
+    closeDlg($('habitDlg')); changed();
+  });
+  function addHabitNoRender(p, now, id) { data.habits[id] = normalize({ habits: { [id]: Object.assign({ c: now, u: now }, p) } }).habits[id]; }
+  // Deleting asks for confirmation inside the dialog (no browser pop-up).
+  $('hDelete').addEventListener('click', () => { $('hFoot').classList.add('hide'); $('hConfirm').classList.remove('hide'); });
+  $('hKeep').addEventListener('click', () => { $('hConfirm').classList.add('hide'); $('hFoot').classList.remove('hide'); });
+  $('hYes').addEventListener('click', () => { if (editing) { data.habits[editing].deleted = true; data.habits[editing].u = Date.now(); closeDlg($('habitDlg')); changed(); } });
+
+  // ── reminders: a calendar file so the phone's own Calendar app does the reminding ──
+  $('hRemind').addEventListener('input', () => { readForm(); $('icsWrap').classList.toggle('hide', !form.remind); });
+  $('hRemindClear').addEventListener('click', () => { $('hRemind').value = ''; readForm(); $('icsWrap').classList.add('hide'); });
+  $('hIcs').addEventListener('click', () => {
+    readForm(); const err = formError();
+    if (err) { $('hErr').textContent = err; $('hErr').classList.remove('hide'); return; }
+    $('hErr').classList.add('hide');
+    const id = editing || pendingId, now = Date.now();
+    const h = normalize({ habits: { [id]: { id, name: form.name.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind, c: now, u: now } } }).habits[id];
+    const text = buildICS(h, todayKey(), new Date().toISOString().replace(/[-:]|\.\d{3}/g, ''));
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/calendar' })); a.download = h.name.replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '-').toLowerCase() + '-reminder.ics'; a.click();
+  });
+
+  // ── backup ──
+  $('exportBtn').addEventListener('click', () => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' })); a.download = 'habit-tracker-backup-' + todayKey() + '.json'; a.click();
+    $('ioMsg').textContent = 'Backup downloaded.';
+  });
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { try { const m = mergeData(data, normalize(JSON.parse(r.result))); data = m.data; changed(); $('ioMsg').textContent = 'Backup merged in.'; } catch (err) { $('ioMsg').textContent = "That file isn't a valid backup."; } };
+    r.readAsText(f); e.target.value = '';
+  });
+
+  // ══════════════ optional cloud sync (Firebase) ══════════════
+  const Sync = (function () {
+    const cfg = window.TOOLBOX_FIREBASE, configured = !!(cfg && cfg.apiKey && cfg.projectId);
+    let status = configured ? 'signedout' : 'unconfigured', user = null, auth = null, db = null, unsub = null, timer = null, busy = false, msg = '';
+    const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    const load = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+    const ref = () => db.doc('users/' + user.uid + '/tracker/data');
+
+    async function init() {
+      if (!configured || window.__noFirebase) return;
+      try {
+        await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js');
+        firebase.initializeApp(cfg); auth = firebase.auth(); db = firebase.firestore();
+        auth.onAuthStateChanged((u) => { user = u; if (unsub) { unsub(); unsub = null; } if (u) { status = 'syncing'; listen(); } else status = 'signedout'; renderPill(); renderDialog(); });
+      } catch (e) { status = 'offline'; renderPill(); }
+    }
+    function listen() {
+      unsub = ref().onSnapshot((snap) => {
+        let needPush = true;
+        if (snap.exists) {
+          try {
+            const m = mergeData(data, normalize(JSON.parse(snap.data().json)));
+            if (m.changedLocal) { data = m.data; saveLocal(); render(); }
+            needPush = m.changedRemote;
+          } catch (e) {}
+        }
+        if (needPush) push(); else { status = 'synced'; renderPill(); }
+      }, () => { status = 'offline'; renderPill(); });
+    }
+    async function push() {
+      if (!user || busy) return; busy = true; status = 'syncing'; renderPill();
+      try {
+        const merged = await db.runTransaction(async (tx) => {
+          const s = await tx.get(ref()); const remote = s.exists ? normalize(JSON.parse(s.data().json)) : null;
+          const m = remote ? mergeData(data, remote).data : data;
+          tx.set(ref(), { json: JSON.stringify(m), updated: firebase.firestore.FieldValue.serverTimestamp() }); return m;
+        });
+        data = merged; saveLocal(); status = 'synced'; render();
+      } catch (e) { status = 'offline'; }
+      busy = false; renderPill();
+    }
+    function schedulePush() { if (!user) return; clearTimeout(timer); timer = setTimeout(push, 600); }
+    window.addEventListener('online', () => { if (user) push(); });
+
+    function renderPill() {
+      const p = $('syncPill'); p.className = 'pill';
+      const t = { unconfigured: ['Local only', ''], signedout: ['Sign in to sync', 'warn'], syncing: ['Syncing\u2026', ''], synced: ['Synced \u2713', 'ok'], offline: ['Offline, will sync later', 'warn'] }[status];
+      p.textContent = t[0]; if (t[1]) p.classList.add(t[1]);
+    }
+    function renderDialog() {
+      const b = $('syncBody');
+      if (!configured) {
+        b.innerHTML = `<p class="note">Right now your habits are saved <b>on this device only</b>. To sync them between your phone and computer you need a free Firebase project (a one-time, 5-minute setup):</p>
+          <ol class="note"><li>Go to <b>console.firebase.google.com</b>, create a project, then add a <b>Web app</b> (the &lt;/&gt; icon) and copy its config.</li>
+          <li>In <b>Build &rarr; Authentication</b>, turn on <b>Google</b> (and <b>Email/Password</b> if you want it). Under Settings &rarr; Authorized domains, add your GitHub Pages domain (like <i>yourname.github.io</i>).</li>
+          <li>In <b>Build &rarr; Firestore Database</b>, create a database, then paste these into the <b>Rules</b> tab and publish:<pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /users/{uid}/{doc=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == uid;
+    }
+  }
+}</pre></li>
+          <li>Paste your config into <b>firebase-config.js</b> in the Toolbox folder and upload it. Reload this page.</li></ol>`;
+      } else if (!user) {
+        b.innerHTML = `<p class="note">Sign in and your habits sync automatically between every device where you sign in. They keep working offline and catch up later.</p>
+          <div class="row" style="margin-top:0.6rem"><button class="btn primary" id="gBtn" type="button">Continue with Google</button></div>
+          <label class="f">Or use email</label><input type="email" id="aEmail" placeholder="Email" autocomplete="email"><div style="height:0.5rem"></div><input type="password" id="aPass" placeholder="Password (6+ characters)" autocomplete="current-password">
+          <div class="row" style="margin-top:0.6rem"><button class="btn" id="inBtn" type="button">Sign in</button><button class="btn" id="upBtn" type="button">Create account</button></div>
+          <div class="err ${msg ? '' : 'hide'}">${esc(msg)}</div>`;
+        $('gBtn').onclick = () => run(() => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
+        $('inBtn').onclick = () => run(() => auth.signInWithEmailAndPassword($('aEmail').value.trim(), $('aPass').value));
+        $('upBtn').onclick = () => run(() => auth.createUserWithEmailAndPassword($('aEmail').value.trim(), $('aPass').value));
+      } else {
+        b.innerHTML = `<p class="note">Signed in as <b>${esc(user.email || user.displayName || 'your account')}</b>. ${status === 'synced' ? 'Everything is up to date.' : status === 'offline' ? 'You seem to be offline; changes will sync when you are back.' : 'Syncing\u2026'}</p>
+          <div class="row" style="margin-top:0.6rem"><button class="btn" id="nowBtn" type="button">Sync now</button><button class="btn danger" id="outBtn" type="button">Sign out</button></div>`;
+        $('nowBtn').onclick = push; $('outBtn').onclick = () => auth.signOut();
+      }
+    }
+    async function run(fn) { msg = ''; try { await fn(); } catch (e) { msg = (e && e.message ? e.message : 'Could not sign in.').replace('Firebase: ', ''); renderDialog(); } }
+    $('syncPill').addEventListener('click', () => { msg = ''; renderDialog(); openDlg($('syncDlg')); });
+    $('syncClose').addEventListener('click', () => closeDlg($('syncDlg')));
+    return { init, schedulePush, renderPill };
+  })();
+
+  // ══════════════ boot ══════════════
+  render();
+  setInterval(() => { if (!document.hidden) renderList(); }, 60000);   // keeps the "due" highlight current
+  Sync.init();
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'habit-tracker', FAV_KEY = 'toolbox:favorites', btn = document.getElementById('favToggle');
+  const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } };
+  function render() { const f = getFavs().includes(TOOL_ID); btn.innerHTML = f ? '&#9733;' : '&#9734;'; btn.style.color = f ? '#fbbf24' : '#475569'; btn.setAttribute('aria-pressed', f); btn.setAttribute('aria-label', f ? 'Remove from favorites' : 'Add to favorites'); }
+  btn.addEventListener('click', () => { const favs = getFavs(), i = favs.indexOf(TOOL_ID); if (i === -1) favs.push(TOOL_ID); else favs.splice(i, 1); try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {} render(); });
+  render();
+})();
+</script>
+</body>
+</html>
