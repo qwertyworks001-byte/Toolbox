@@ -423,10 +423,11 @@
     const cfg = window.TOOLBOX_FIREBASE, configured = !!(cfg && cfg.apiKey && cfg.projectId);
     let status = configured ? 'signedout' : 'unconfigured', user = null, auth = null, db = null, unsub = null, timer = null, busy = false, msg = '', err = '', watch = null;
     const WATCH_MS = window.__syncTimeoutMs || 12000, TX_MS = window.__syncTimeoutMs || 15000;
+    const RULES = "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /users/{uid}/{doc=**} {\n      allow read, write: if request.auth != null && request.auth.uid == uid;\n    }\n  }\n}";
     // Turn a Firebase error into something a person can act on (and keep the raw code visible).
     function explain(e) {
       const code = (e && e.code) || '', tag = code ? ' [' + code + ']' : '';
-      if (code === 'permission-denied') return 'Firebase refused the request. This usually means the Firestore database has not been created yet, or its security rules have not been published. In the Firebase console open Build \u2192 Firestore Database: create the database if it is missing, then open the Rules tab, paste the rules from the setup guide and press Publish.' + tag;
+      if (code === 'permission-denied') return 'Firebase refused the request. This usually means the Firestore database has not been created yet, or its security rules have not been published. In the Firebase console open Build \u2192 Firestore Database: create the database if it is missing, then open the Rules tab (on the Firestore page, not Storage), paste the rules shown below and press Publish.' + tag;
       if (code === 'timeout' || code === 'unavailable' || code === 'deadline-exceeded') return "Couldn't get an answer from the database. Check that it has been created (Build \u2192 Firestore Database \u2192 Create database), and that an ad blocker or privacy extension isn't blocking Google's database connection (try a private window with extensions turned off)." + tag;
       if (code === 'failed-precondition') return 'The Firestore database is not ready. If you only just created it, wait a minute and try again.' + tag;
       return ((e && e.message) || 'Something went wrong while syncing.') + tag;
@@ -509,8 +510,10 @@ service cloud.firestore {
       } else {
         b.innerHTML = `<p class="note">Signed in as <b>${esc(user.email || user.displayName || 'your account')}</b>. ${status === 'synced' ? 'Everything is up to date.' : status === 'offline' ? 'Your device reports no internet connection; changes will sync when you are back online.' : status === 'error' ? 'You are signed in, but syncing hit a problem:' : 'Syncing\u2026'}</p>
           ${err && (status === 'error' || status === 'offline') ? `<div class="err" style="margin-top:0.4rem">${esc(err)}</div>` : ''}
+          ${/\[permission-denied\]/.test(err) ? `<pre id="rulesPre" style="margin-top:0.6rem">${esc(RULES)}</pre><button class="btn small" id="copyRules" type="button">Copy rules</button>` : ''}
           <div class="row" style="margin-top:0.8rem"><button class="btn" id="nowBtn" type="button">${status === 'error' ? 'Try again' : 'Sync now'}</button><button class="btn danger" id="outBtn" type="button">Sign out</button></div>`;
         $('nowBtn').onclick = retry; $('outBtn').onclick = () => auth.signOut();
+        if ($('copyRules')) $('copyRules').onclick = async () => { try { await navigator.clipboard.writeText(RULES); $('copyRules').textContent = 'Copied'; } catch (e) { $('copyRules').textContent = 'Select the text above and copy it'; } };
       }
     }
     async function run(fn) { msg = ''; try { await fn(); } catch (e) { msg = (e && e.message ? e.message : 'Could not sign in.').replace('Firebase: ', ''); renderDialog(); } }

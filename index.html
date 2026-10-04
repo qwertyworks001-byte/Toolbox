@@ -7,6 +7,8 @@
 <link rel="icon" type="image/png" href="Assets/Favicon/Favicon.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="tools-data.js"></script>
+<script src="firebase-config.js"></script>
+<script src="toolbox-sync.js"></script>
 <link rel="stylesheet" href="style.css">
 <script src="timer-engine.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -164,7 +166,7 @@
   toolStat.textContent = `${TOOLS.length} tools across ${CATEGORIES.length} categories`;
 
   function getFavorites() {
-    try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; }
+    try { const v = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
   }
   function setFavorites(list) {
     try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) {}
@@ -178,7 +180,7 @@
   }
 
   function getRecent() {
-    try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) { return []; }
+    try { const v = JSON.parse(localStorage.getItem(RECENT_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
   }
   function pushRecent(id) {
     let recent = getRecent().filter(x => x !== id);
@@ -309,6 +311,7 @@
     window.location.href = pick.path;
   });
 
+  window.addEventListener('toolbox:synced', render);   // favourites / recents arrived from another device
   render();
 })();
 </script>
