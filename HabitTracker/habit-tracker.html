@@ -421,7 +421,17 @@
   // ══════════════ optional cloud sync (Firebase) ══════════════
   const Sync = (function () {
     const cfg = window.TOOLBOX_FIREBASE, configured = !!(cfg && cfg.apiKey && cfg.projectId);
-    let status = configured ? 'signedout' : 'unconfigured', user = null, auth = null, db = null, unsub = null, timer = null, busy = false, msg = '';
+    let status = configured ? 'signedout' : 'unconfigured', user = null, auth = null, db = null, unsub = null, timer = null, busy = false, msg = '', err = '', watch = null;
+    const WATCH_MS = window.__syncTimeoutMs || 12000, TX_MS = window.__syncTimeoutMs || 15000;
+    // Turn a Firebase error into something a person can act on (and keep the raw code visible).
+    function explain(e) {
+      const code = (e && e.code) || '', tag = code ? ' [' + code + ']' : '';
+      if (code === 'permission-denied') return 'Firebase refused the request. This usually means the Firestore database has not been created yet, or its security rules have not been published. In the Firebase console open Build \u2192 Firestore Database: create the database if it is missing, then open the Rules tab, paste the rules from the setup guide and press Publish.' + tag;
+      if (code === 'timeout' || code === 'unavailable' || code === 'deadline-exceeded') return "Couldn't get an answer from the database. Check that it has been created (Build \u2192 Firestore Database \u2192 Create database), and that an ad blocker or privacy extension isn't blocking Google's database connection (try a private window with extensions turned off)." + tag;
+      if (code === 'failed-precondition') return 'The Firestore database is not ready. If you only just created it, wait a minute and try again.' + tag;
+      return ((e && e.message) || 'Something went wrong while syncing.') + tag;
+    }
+    function setStatus(s, e) { status = s; if (e !== undefined) err = e ? explain(e) : ''; renderPill(); if ($('syncDlg').open) renderDialog(); }
     const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
     const load = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
     const ref = () => db.doc('users/' + user.uid + '/tracker/data');
@@ -431,11 +441,14 @@
       try {
         await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js');
         firebase.initializeApp(cfg); auth = firebase.auth(); db = firebase.firestore();
-        auth.onAuthStateChanged((u) => { user = u; if (unsub) { unsub(); unsub = null; } if (u) { status = 'syncing'; listen(); } else status = 'signedout'; renderPill(); renderDialog(); });
+        auth.onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (u) { status = 'syncing'; err = ''; listen(); } else status = 'signedout'; renderPill(); renderDialog(); });
       } catch (e) { status = 'offline'; renderPill(); }
     }
     function listen() {
+      clearTimeout(watch);
+      watch = setTimeout(() => { if (status === 'syncing') setStatus('error', { code: 'timeout' }); }, WATCH_MS);   // never sit on "Syncing..." forever
       unsub = ref().onSnapshot((snap) => {
+        clearTimeout(watch);
         let needPush = true;
         if (snap.exists) {
           try {
@@ -444,27 +457,28 @@
             needPush = m.changedRemote;
           } catch (e) {}
         }
-        if (needPush) push(); else { status = 'synced'; renderPill(); }
-      }, () => { status = 'offline'; renderPill(); });
+        if (needPush) push(); else setStatus('synced', null);
+      }, (e) => { clearTimeout(watch); setStatus(navigator.onLine === false ? 'offline' : 'error', e); });
     }
     async function push() {
-      if (!user || busy) return; busy = true; status = 'syncing'; renderPill();
+      if (!user || busy) return; busy = true; setStatus('syncing');
       try {
-        const merged = await db.runTransaction(async (tx) => {
+        const merged = await Promise.race([db.runTransaction(async (tx) => {
           const s = await tx.get(ref()); const remote = s.exists ? normalize(JSON.parse(s.data().json)) : null;
           const m = remote ? mergeData(data, remote).data : data;
           tx.set(ref(), { json: JSON.stringify(m), updated: firebase.firestore.FieldValue.serverTimestamp() }); return m;
-        });
-        data = merged; saveLocal(); status = 'synced'; render();
-      } catch (e) { status = 'offline'; }
-      busy = false; renderPill();
+        }), new Promise((_, no) => setTimeout(() => no({ code: 'timeout' }), TX_MS))]);
+        data = merged; saveLocal(); busy = false; setStatus('synced', null); render();
+      } catch (e) { busy = false; setStatus(navigator.onLine === false ? 'offline' : 'error', e); }
+      busy = false;
     }
+    function retry() { if (!user) return; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } busy = false; status = 'syncing'; err = ''; renderPill(); renderDialog(); listen(); }
     function schedulePush() { if (!user) return; clearTimeout(timer); timer = setTimeout(push, 600); }
     window.addEventListener('online', () => { if (user) push(); });
 
     function renderPill() {
       const p = $('syncPill'); p.className = 'pill';
-      const t = { unconfigured: ['Local only', ''], signedout: ['Sign in to sync', 'warn'], syncing: ['Syncing\u2026', ''], synced: ['Synced \u2713', 'ok'], offline: ['Offline, will sync later', 'warn'] }[status];
+      const t = { unconfigured: ['Local only', ''], signedout: ['Sign in to sync', 'warn'], syncing: ['Syncing\u2026', ''], synced: ['Synced \u2713', 'ok'], offline: ['Offline, will sync later', 'warn'], error: ['Sync problem, tap for details', 'warn'] }[status];
       p.textContent = t[0]; if (t[1]) p.classList.add(t[1]);
     }
     function renderDialog() {
@@ -493,9 +507,10 @@ service cloud.firestore {
         $('inBtn').onclick = () => run(() => auth.signInWithEmailAndPassword($('aEmail').value.trim(), $('aPass').value));
         $('upBtn').onclick = () => run(() => auth.createUserWithEmailAndPassword($('aEmail').value.trim(), $('aPass').value));
       } else {
-        b.innerHTML = `<p class="note">Signed in as <b>${esc(user.email || user.displayName || 'your account')}</b>. ${status === 'synced' ? 'Everything is up to date.' : status === 'offline' ? 'You seem to be offline; changes will sync when you are back.' : 'Syncing\u2026'}</p>
-          <div class="row" style="margin-top:0.6rem"><button class="btn" id="nowBtn" type="button">Sync now</button><button class="btn danger" id="outBtn" type="button">Sign out</button></div>`;
-        $('nowBtn').onclick = push; $('outBtn').onclick = () => auth.signOut();
+        b.innerHTML = `<p class="note">Signed in as <b>${esc(user.email || user.displayName || 'your account')}</b>. ${status === 'synced' ? 'Everything is up to date.' : status === 'offline' ? 'Your device reports no internet connection; changes will sync when you are back online.' : status === 'error' ? 'You are signed in, but syncing hit a problem:' : 'Syncing\u2026'}</p>
+          ${err && (status === 'error' || status === 'offline') ? `<div class="err" style="margin-top:0.4rem">${esc(err)}</div>` : ''}
+          <div class="row" style="margin-top:0.8rem"><button class="btn" id="nowBtn" type="button">${status === 'error' ? 'Try again' : 'Sync now'}</button><button class="btn danger" id="outBtn" type="button">Sign out</button></div>`;
+        $('nowBtn').onclick = retry; $('outBtn').onclick = () => auth.signOut();
       }
     }
     async function run(fn) { msg = ''; try { await fn(); } catch (e) { msg = (e && e.message ? e.message : 'Could not sign in.').replace('Firebase: ', ''); renderDialog(); } }
