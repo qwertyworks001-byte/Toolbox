@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="../style.css">
 <script src="../firebase-config.js"></script>
+<script src="../timer-engine.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #e2e8f0; margin: 0; padding-bottom: env(safe-area-inset-bottom); }
@@ -89,6 +90,7 @@
   </div>
 
   <div class="row" style="margin-top:1rem"><button class="btn small" id="exportBtn" type="button">Export backup</button><button class="btn small" id="importBtn" type="button">Import backup</button><input type="file" id="importFile" accept="application/json" class="hide"><span class="note" id="ioMsg"></span></div>
+  <div class="row" style="margin-top:0.6rem"><button class="btn small" id="notifyBtn" type="button">&#128276; Turn on habit notifications</button><span class="note" id="notifyMsg"></span></div>
 </div>
 
 <dialog id="habitDlg">
@@ -441,7 +443,8 @@
       if (!configured || window.__noFirebase) return;
       try {
         await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js');
-        firebase.initializeApp(cfg); auth = firebase.auth(); db = firebase.firestore();
+        if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(cfg);
+        auth = firebase.auth(); db = firebase.firestore();
         auth.onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (u) { status = 'syncing'; err = ''; listen(); } else status = 'signedout'; renderPill(); renderDialog(); });
       } catch (e) { status = 'offline'; renderPill(); }
     }
@@ -522,10 +525,32 @@ service cloud.firestore {
     return { init, schedulePush, renderPill };
   })();
 
+  // ── notifications for habit reminder times (the shared engine does the checking) ──
+  const TT = window.ToolboxTimers;
+  function renderNotify() {
+    const b = $('notifyBtn');
+    if (!TT || !TT.notifyState) { b.classList.add('hide'); return; }
+    const s = TT.notifyState('habits');
+    b.textContent = s === 'on' ? '\uD83D\uDD14 Habit notifications: on' : '\uD83D\uDD14 Turn on habit notifications';
+    b.disabled = s === 'unsupported' || s === 'denied';
+    $('notifyMsg').textContent = s === 'denied' ? 'Blocked in your browser settings: allow notifications for this site to use this.'
+      : s === 'unsupported' ? "This browser doesn't support notifications."
+      : s === 'on' ? "You'll get a notification at each habit's reminder time while Toolbox is open in a tab or the installed app. For when it's closed, add the reminder to your calendar."
+      : 'Get a notification at each habit\u2019s reminder time.';
+  }
+  $('notifyBtn').addEventListener('click', async () => {
+    if (!TT) return;
+    if (TT.notifyState('habits') === 'on') TT.disableNotifications('habits'); else await TT.enableNotifications('habits');
+    renderNotify();
+  });
+  window.addEventListener('toolbox:audio', renderNotify);
+  renderNotify();
+
   // ══════════════ boot ══════════════
   render();
   setInterval(() => { if (!document.hidden) renderList(); }, 60000);   // keeps the "due" highlight current
   Sync.init();
+  if (location.hash === '#sync') $('syncPill').click();   // opened from the "Sign in to sync" badge on other pages
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
