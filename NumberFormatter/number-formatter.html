@@ -25,7 +25,7 @@
       <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Number Formatter</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Turn huge numbers into compact, readable leaderboard-style values.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Turn huge numbers into compact, readable leaderboard-style values, count their figures, or find the range for any number of figures.</p>
   </header>
 
   <div class="glass rounded-2xl p-6">
@@ -48,6 +48,60 @@
     <div class="flex items-center justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
       <code class="text-sm text-emerald-300 font-mono truncate" id="luaOut">"123.46M"</code>
       <button type="button" id="copyLuaBtn" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0">Copy Lua</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════ FIGURES ═══════════════ -->
+  <div class="glass rounded-2xl p-6 mt-5" id="figuresCard">
+    <h2 class="text-lg font-semibold text-white mb-1">Figures</h2>
+    <p class="text-sm text-slate-400 mb-4">&ldquo;Six figures&rdquo; means a number with six digits. Count them, or look up what a number of figures covers.</p>
+
+    <div class="flex flex-wrap gap-2 mb-5" role="tablist" aria-label="Figures mode">
+      <button type="button" class="tab-btn active text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-fig-mode="count" role="tab" aria-selected="true">How many figures?</button>
+      <button type="button" class="tab-btn text-sm px-4 py-2 rounded-lg border border-slate-700 bg-slate-900/50" data-fig-mode="range" role="tab" aria-selected="false">Figures &rarr; range</button>
+    </div>
+
+    <!-- number -> figures -->
+    <div id="figCountPanel">
+      <label for="figNumInput" class="block text-sm font-medium text-slate-300 mb-2">Number</label>
+      <input type="text" inputmode="decimal" id="figNumInput" value="6,700,000" autocomplete="off"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 mb-5">
+      <div class="text-center border-t border-slate-700/60 pt-6">
+        <p class="text-3xl sm:text-4xl font-bold text-white" id="figCountOut">7 figures</p>
+        <p class="text-sm text-slate-400 mt-2" id="figCountSub"></p>
+      </div>
+      <div class="mt-5 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-3 hidden" id="figCountRangeBox">
+        <p class="text-xs text-slate-500 mb-1" id="figCountRangeLabel"></p>
+        <p class="text-sm text-emerald-300 font-mono break-words" id="figCountRange"></p>
+      </div>
+    </div>
+
+    <!-- figures -> range -->
+    <div id="figRangePanel" class="hidden">
+      <label for="figCountInput" class="block text-sm font-medium text-slate-300 mb-2">Number of figures</label>
+      <input type="text" inputmode="numeric" id="figCountInput" value="6" autocomplete="off"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+      <div class="flex flex-wrap gap-2 mb-5" id="figQuick">
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="3">3</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="4">4</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="5">5</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="6">6</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="7">7</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="9">9</button>
+        <button type="button" class="fmt-btn text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50" data-figs="12">12</button>
+      </div>
+
+      <div class="text-center border-t border-slate-700/60 pt-6 mb-4">
+        <p class="text-2xl sm:text-3xl font-bold text-white break-words" id="figRangeOut">100,000 &rarr; 999,999</p>
+      </div>
+      <div class="flex items-start justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-3 mb-3">
+        <p class="text-sm text-emerald-300 leading-relaxed break-words min-w-0" id="figWordsOut"></p>
+        <button type="button" id="copyWordsBtn" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0">Copy words</button>
+      </div>
+      <div class="flex items-start justify-between gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5">
+        <code class="block min-w-0 flex-1 text-sm text-slate-300 font-mono break-all" id="figNumsOut"></code>
+        <button type="button" id="copyNumsBtn" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 shrink-0">Copy numbers</button>
+      </div>
     </div>
   </div>
 
@@ -123,6 +177,113 @@
   });
 
   update();
+})();
+</script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const MAX_FIGURES = 66;                       // names below go up to the vigintillions (10^63)
+  const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const SCALES = ['', 'Thousand', 'Million', 'Billion', 'Trillion', 'Quadrillion', 'Quintillion', 'Sextillion', 'Septillion', 'Octillion', 'Nonillion', 'Decillion', 'Undecillion', 'Duodecillion', 'Tredecillion', 'Quattuordecillion', 'Quindecillion', 'Sexdecillion', 'Septendecillion', 'Octodecillion', 'Novemdecillion', 'Vigintillion'];
+
+  // <<FIGURES-PURE-START>>
+  // Works on digit strings / BigInt, so huge numbers never lose precision.
+  function parseWhole(raw) {            // -> { int: '6700000', hadDecimals: bool } or null if it isn't a plain number
+    let t = String(raw).trim().replace(/[,\s_']/g, '').replace(/^[+-]/, '');
+    if (!/^(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+    const parts = t.split('.');
+    let int = parts[0].replace(/^0+(?=\d)/, '') || '0';
+    return { int, hadDecimals: parts.length > 1 && /[1-9]/.test(parts[1]) };
+  }
+  function below100(n) { return n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + ONES[n % 10] : ''); }
+  function below1000(n) {
+    const h = Math.floor(n / 100), r = n % 100;
+    if (!h) return below100(r);
+    return ONES[h] + ' Hundred' + (r ? ' & ' + below100(r) : '');
+  }
+  function toWords(big) {               // BigInt -> "Nine Hundred & Ninety Nine Thousand, Nine Hundred & Ninety Nine"
+    const str = big.toString();
+    if (str === '0') return 'Zero';
+    const groups = [];
+    for (let end = str.length; end > 0; end -= 3) groups.unshift(parseInt(str.slice(Math.max(0, end - 3), end), 10));
+    const out = [];
+    groups.forEach((v, i) => { if (v) { const scale = groups.length - 1 - i; out.push(below1000(v) + (scale ? ' ' + SCALES[scale] : '')); } });
+    return out.join(', ');
+  }
+  function rangeFor(figs) {             // n figures -> lowest and highest whole number with that many digits
+    const lo = figs === 1 ? 0n : 10n ** BigInt(figs - 1), hi = 10n ** BigInt(figs) - 1n;
+    return { lo, hi };
+  }
+  function bucketName(figs) {           // 7 -> "millions", 5 -> "tens of thousands"
+    const g = Math.floor((figs - 1) / 3), pos = (figs - 1) % 3;
+    if (g === 0) return ['ones', 'tens', 'hundreds'][pos];
+    return ['', 'tens of ', 'hundreds of '][pos] + SCALES[g].toLowerCase() + 's';
+  }
+  // <<FIGURES-PURE-END>>
+
+  const fmt = (b) => b.toLocaleString('en-US');
+  const plural = (n) => n + (n === 1 ? ' figure' : ' figures');
+
+  // ── mode switch ──
+  const tabs = document.querySelectorAll('[data-fig-mode]');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    const mode = t.getAttribute('data-fig-mode');
+    tabs.forEach(b => { const on = b === t; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+    $('figCountPanel').classList.toggle('hidden', mode !== 'count');
+    $('figRangePanel').classList.toggle('hidden', mode !== 'range');
+  }));
+
+  // ── number -> figures ──
+  function updateCount() {
+    const raw = $('figNumInput').value;
+    const box = $('figCountRangeBox');
+    if (!raw.trim()) { $('figCountOut').textContent = 'Enter a number'; $('figCountSub').textContent = ''; box.classList.add('hidden'); return; }
+    const p = parseWhole(raw);
+    if (!p) { $('figCountOut').textContent = 'Enter a valid number'; $('figCountSub').textContent = 'Digits only, commas and spaces are fine (e.g. 6,700,000).'; box.classList.add('hidden'); return; }
+    const figs = p.int === '0' ? 1 : p.int.length;
+    $('figCountOut').textContent = plural(figs);
+    $('figCountSub').textContent = 'In the ' + bucketName(figs) + (p.hadDecimals ? ' \u2014 decimals aren\u2019t counted, only the whole part (' + fmt(BigInt(p.int)) + ').' : '.');
+    const r = rangeFor(figs);
+    $('figCountRangeLabel').textContent = 'Every ' + figs + '-figure number runs from';
+    $('figCountRange').textContent = fmt(r.lo) + ' \u2192 ' + fmt(r.hi);
+    box.classList.remove('hidden');
+  }
+  $('figNumInput').addEventListener('input', updateCount);
+
+  // ── figures -> range ──
+  function updateRange() {
+    const raw = $('figCountInput').value.trim();
+    const out = $('figRangeOut'), words = $('figWordsOut'), nums = $('figNumsOut');
+    const bad = (msg) => { out.textContent = msg; words.textContent = ''; nums.textContent = ''; };
+    if (!raw) return bad('Enter a number of figures');
+    if (!/^\d+$/.test(raw)) return bad('Use a whole number, like 6');
+    const figs = parseInt(raw, 10);
+    if (figs < 1) return bad('Needs at least 1 figure');
+    if (figs > MAX_FIGURES) return bad('Up to ' + MAX_FIGURES + ' figures supported');
+    const r = rangeFor(figs);
+    out.textContent = fmt(r.lo) + ' \u2192 ' + fmt(r.hi);
+    words.textContent = toWords(r.lo) + ' \u2192 ' + toWords(r.hi);
+    nums.textContent = fmt(r.lo) + ' -> ' + fmt(r.hi);
+    document.querySelectorAll('#figQuick [data-figs]').forEach(b => b.classList.toggle('active', b.getAttribute('data-figs') === String(figs)));
+  }
+  $('figCountInput').addEventListener('input', updateRange);
+  document.querySelectorAll('#figQuick [data-figs]').forEach(b => b.addEventListener('click', () => { $('figCountInput').value = b.getAttribute('data-figs'); updateRange(); }));
+
+  function copyButton(btn, getText) {
+    btn.addEventListener('click', async () => {
+      const text = getText(); if (!text) return;
+      const original = btn.dataset.label || (btn.dataset.label = btn.textContent);
+      let ok = false;
+      try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {}
+      btn.textContent = ok ? '\u2713 Copied' : 'Copy blocked \u2014 select the text instead';
+      setTimeout(() => { btn.textContent = original; }, ok ? 1200 : 2500);
+    });
+  }
+  copyButton($('copyWordsBtn'), () => $('figWordsOut').textContent);
+  copyButton($('copyNumsBtn'), () => $('figNumsOut').textContent);
+
+  updateCount(); updateRange();
 })();
 </script>
 <script>

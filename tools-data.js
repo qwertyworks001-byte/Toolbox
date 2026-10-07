@@ -137,8 +137,8 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'number-formatter',
     name: 'Number Formatter',
-    description: 'Format big numbers into compact K/M/B/T leaderboard style.',
-    tags: ['number', 'format', 'compact', 'leaderboard', 'roblox', 'k m b t', 'abbreviate', 'suffix', 'commas', 'large numbers', 'thousand million', 'scripting'],
+    description: 'Format big numbers into compact K/M/B/T leaderboard style, count how many figures a number has, or see the range for any number of figures.',
+    tags: ['number', 'format', 'compact', 'leaderboard', 'roblox', 'k m b t', 'abbreviate', 'suffix', 'commas', 'large numbers', 'figures', 'digits', 'how many digits', 'six figures', 'number in words', 'scripting'],
     categories: ['roblox', 'math'],
     path: 'NumberFormatter/number-formatter.html',
     color: '#facc15'
