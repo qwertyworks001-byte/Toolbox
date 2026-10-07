@@ -2,6 +2,12 @@
 // Add a new tool here and it automatically shows up in search, its
 // categories, and becomes eligible for "Random Tool" — no other
 // homepage changes needed.
+//
+// TAGS: give every tool about 10 tags (lowercase, one idea each). Search matches
+// the tool's name and tags first (exact tag > start of a tag > inside a tag) and
+// only then its description, so tags are what make a tool findable. Include the
+// obvious words, synonyms ("colour"), common abbreviations ("fx"), and what
+// someone might type when they don't know the tool exists ("how old").
 
 window.TOOLBOX_CATEGORIES = [
   { key: 'finance',   label: 'Finance',      emoji: '💰' },
@@ -19,7 +25,7 @@ window.TOOLBOX_TOOLS = [
     id: 'investment',
     name: 'Investment Simulation',
     description: 'Model best/average/worst-case investment growth over time, or find the present value of future money.',
-    keywords: ['investment', 'simulator', 'returns', 'growth', 'compound', 'stocks', 'portfolio', 'present value', 'pv', 'npv', 'discount', 'annuity', 'perpetuity', 'bond'],
+    tags: ['investment', 'simulator', 'compound interest', 'returns', 'growth', 'stocks', 'portfolio', 'present value', 'npv', 'annuity', 'perpetuity', 'retirement'],
     categories: ['finance'],
     path: 'InvestmentSimulation/investment.html',
     color: '#3b82f6',
@@ -29,7 +35,7 @@ window.TOOLBOX_TOOLS = [
     id: 'devex',
     name: 'DevEx Calculator',
     description: 'Convert Robux to estimated DevEx value, or the reverse.',
-    keywords: ['robux', 'devex', 'roblox', 'usd', 'currency', 'nzd', 'payout'],
+    tags: ['devex', 'robux', 'roblox', 'usd', 'nzd', 'payout', 'cash out', 'developer exchange', 'currency', 'money', 'earnings', 'convert'],
     categories: ['roblox', 'finance'],
     path: 'DevExCalculator/devex.html',
     color: '#10b981',
@@ -39,7 +45,7 @@ window.TOOLBOX_TOOLS = [
     id: 'sleep',
     name: 'Sleep Stats',
     description: 'Calculate total sleep time and break it into stages.',
-    keywords: ['sleep', 'stages', 'rem', 'deep', 'light', 'awake', 'bedtime'],
+    tags: ['sleep', 'sleep stages', 'rem', 'deep sleep', 'light sleep', 'awake', 'bedtime', 'rest', 'hours slept', 'health', 'tracker'],
     categories: ['health'],
     path: 'SleepStats/sleep.html',
     color: '#8b5cf6'
@@ -48,7 +54,7 @@ window.TOOLBOX_TOOLS = [
     id: 'percentage-change',
     name: 'Percentage Change',
     description: 'Find the % increase or decrease between two values.',
-    keywords: ['percentage', 'percent', 'change', 'increase', 'decrease', '%'],
+    tags: ['percentage', 'percent', '%', 'change', 'increase', 'decrease', 'difference', 'growth rate', 'markup', 'discount', 'math', 'calculator'],
     categories: ['math', 'finance'],
     path: 'PercentageChange/percentage-change.html',
     color: '#f59e0b',
@@ -58,7 +64,7 @@ window.TOOLBOX_TOOLS = [
     id: 'unit-converter',
     name: 'Unit Converter',
     description: 'Convert length, weight, temperature, speed, area, volume, data, and time.',
-    keywords: ['unit', 'convert', 'conversion', 'length', 'weight', 'temperature', 'speed', 'metric', 'imperial', 'data'],
+    tags: ['unit', 'converter', 'conversion', 'length', 'weight', 'temperature', 'speed', 'area', 'volume', 'metric', 'imperial', 'data size'],
     categories: ['utilities', 'math'],
     path: 'UnitConverter/unit-converter.html',
     color: '#06b6d4',
@@ -68,7 +74,7 @@ window.TOOLBOX_TOOLS = [
     id: 'screen-resolution',
     name: 'Screen Resolution',
     description: 'Aspect ratio, total pixels, and megapixels for any resolution.',
-    keywords: ['screen', 'resolution', 'aspect ratio', 'pixels', '1920x1080', 'megapixels'],
+    tags: ['screen', 'resolution', 'aspect ratio', 'pixels', 'megapixels', '1920x1080', 'display', 'monitor', 'ratio', 'width height', '4k', 'design'],
     categories: ['utilities', 'design'],
     path: 'ScreenResolution/screen-resolution.html',
     color: '#ec4899'
@@ -77,7 +83,7 @@ window.TOOLBOX_TOOLS = [
     id: 'random-number',
     name: 'Random Number Generator',
     description: 'Generate random numbers with a custom range and options.',
-    keywords: ['random', 'number', 'generator', 'dice', 'roll', 'rng'],
+    tags: ['random', 'number', 'generator', 'dice', 'roll', 'rng', 'lottery', 'pick a number', 'range', 'coin flip', 'raffle', 'fun'],
     categories: ['random', 'math'],
     path: 'RandomNumber/random-number.html',
     color: '#eab308'
@@ -86,7 +92,7 @@ window.TOOLBOX_TOOLS = [
     id: 'timestamp-converter',
     name: 'Timestamp Converter',
     description: 'Convert Unix timestamps to dates and back.',
-    keywords: ['timestamp', 'unix', 'epoch', 'date', 'utc', 'time'],
+    tags: ['timestamp', 'unix', 'epoch', 'date', 'time', 'utc', 'datetime', 'convert', 'developer', 'seconds since 1970', 'iso', 'milliseconds'],
     categories: ['developer'],
     path: 'TimestampConverter/timestamp-converter.html',
     color: '#64748b'
@@ -95,7 +101,7 @@ window.TOOLBOX_TOOLS = [
     id: 'color-converter',
     name: 'Color Converter & Palette',
     description: 'Convert HEX/RGB/HSL/HSV and generate color palettes.',
-    keywords: ['color', 'colour', 'hex', 'rgb', 'hsl', 'hsv', 'palette', 'design'],
+    tags: ['color', 'colour', 'hex', 'rgb', 'hsl', 'hsv', 'palette', 'picker', 'shades', 'css', 'converter', 'design'],
     categories: ['design'],
     path: 'ColorConverter/color-converter.html',
     color: '#f43f5e',
@@ -105,7 +111,7 @@ window.TOOLBOX_TOOLS = [
     id: 'gamepass-revenue',
     name: 'Gamepass Revenue Calculator',
     description: 'Estimate Robux and DevEx earnings from gamepass sales.',
-    keywords: ['gamepass', 'robux', 'revenue', 'roblox', 'devex', 'earnings', 'sales'],
+    tags: ['gamepass', 'game pass', 'robux', 'revenue', 'roblox', 'devex', 'earnings', 'sales', 'income', 'monetization', 'profit', 'calculator'],
     categories: ['roblox', 'finance'],
     path: 'GamepassRevenue/gamepass-revenue.html',
     color: '#22c55e'
@@ -114,7 +120,7 @@ window.TOOLBOX_TOOLS = [
     id: 'thumbnail-helper',
     name: 'Thumbnail & Icon Size Helper',
     description: 'Recommended dimensions for Roblox icons, thumbnails, and badges.',
-    keywords: ['thumbnail', 'icon', 'badge', 'roblox', 'dimensions', 'size', 'aspect ratio'],
+    tags: ['thumbnail', 'icon', 'badge', 'roblox', 'dimensions', 'size', 'aspect ratio', 'image', 'resolution', 'game page', 'pixels', 'design'],
     categories: ['roblox', 'design'],
     path: 'ThumbnailHelper/thumbnail-helper.html',
     color: '#a855f7'
@@ -123,7 +129,7 @@ window.TOOLBOX_TOOLS = [
     id: 'udim2-generator',
     name: 'UDim2 Generator',
     description: 'Build Roblox UDim2 position/size values with a live preview.',
-    keywords: ['udim2', 'roblox', 'lua', 'ui', 'gui', 'scale', 'offset'],
+    tags: ['udim2', 'roblox', 'lua', 'luau', 'ui', 'gui', 'scale', 'offset', 'position', 'size', 'studio', 'scripting'],
     categories: ['roblox', 'developer', 'design'],
     path: 'UDim2Generator/udim2-generator.html',
     color: '#0ea5e9'
@@ -132,7 +138,7 @@ window.TOOLBOX_TOOLS = [
     id: 'number-formatter',
     name: 'Number Formatter',
     description: 'Format big numbers into compact K/M/B/T leaderboard style.',
-    keywords: ['number', 'format', 'roblox', 'compact', 'leaderboard', 'k', 'm', 'b', 't'],
+    tags: ['number', 'format', 'compact', 'leaderboard', 'roblox', 'k m b t', 'abbreviate', 'suffix', 'commas', 'large numbers', 'thousand million', 'scripting'],
     categories: ['roblox', 'math'],
     path: 'NumberFormatter/number-formatter.html',
     color: '#facc15'
@@ -141,7 +147,7 @@ window.TOOLBOX_TOOLS = [
     id: 'time-until',
     name: 'Time Until Calculator',
     description: 'Find out exactly how long remains until a target time.',
-    keywords: ['time', 'until', 'countdown', 'remaining', 'clock'],
+    tags: ['time until', 'countdown', 'remaining', 'clock', 'how long', 'target time', 'deadline', 'hours left', 'event', 'wait', 'date', 'timer'],
     categories: ['health', 'utilities'],
     path: 'TimeUntil/time-until.html',
     color: '#38bdf8'
@@ -150,7 +156,7 @@ window.TOOLBOX_TOOLS = [
     id: 'age-at-date',
     name: 'Age-at-Date Calculator',
     description: 'Work out an exact age on any date, past or future.',
-    keywords: ['age', 'birthday', 'date of birth', 'years old', 'how old'],
+    tags: ['age', 'birthday', 'date of birth', 'years old', 'how old', 'future age', 'past age', 'dob', 'anniversary', 'date', 'calculator', 'life'],
     categories: ['health', 'math'],
     path: 'AgeAtDate/age-at-date.html',
     color: '#fb7185'
@@ -159,7 +165,7 @@ window.TOOLBOX_TOOLS = [
     id: 'how-long-is-that',
     name: 'How Long Is That?',
     description: 'Turn a big number of time units into a readable duration, or the reverse.',
-    keywords: ['duration', 'seconds', 'days', 'how long', 'time conversion'],
+    tags: ['duration', 'seconds', 'minutes', 'hours', 'days', 'weeks', 'years', 'how long', 'time conversion', 'readable', 'big numbers', 'math'],
     categories: ['math', 'random'],
     path: 'HowLongIsThat/how-long-is-that.html',
     color: '#c084fc'
@@ -168,7 +174,7 @@ window.TOOLBOX_TOOLS = [
     id: 'what-can-i-afford',
     name: 'What Can I Afford?',
     description: 'A simple spending calculator for one item or a list of items.',
-    keywords: ['afford', 'budget', 'spending', 'tax', 'money', 'shopping'],
+    tags: ['afford', 'budget', 'spending', 'tax', 'money', 'shopping', 'items', 'total', 'price', 'cost', 'finance', 'list'],
     categories: ['finance'],
     path: 'WhatCanIAfford/what-can-i-afford.html',
     color: '#4ade80'
@@ -177,7 +183,7 @@ window.TOOLBOX_TOOLS = [
     id: 'storage-calculator',
     name: 'Storage Calculator',
     description: 'How many files fit in a given storage capacity, or how much room is left.',
-    keywords: ['storage', 'disk', 'drive', 'files', 'gb', 'tb', 'capacity'],
+    tags: ['storage', 'disk', 'drive', 'files', 'gb', 'tb', 'capacity', 'space', 'how many files', 'memory', 'free space', 'data'],
     categories: ['utilities', 'math'],
     path: 'StorageCalculator/storage-calculator.html',
     color: '#2dd4bf'
@@ -186,7 +192,7 @@ window.TOOLBOX_TOOLS = [
     id: 'download-time',
     name: 'Download Time Calculator',
     description: 'How long a file will take at a given connection speed.',
-    keywords: ['download', 'time', 'speed', 'mbps', 'internet', 'file size'],
+    tags: ['download', 'download time', 'speed', 'mbps', 'internet', 'file size', 'bandwidth', 'connection', 'upload', 'transfer', 'gb', 'network'],
     categories: ['utilities'],
     path: 'DownloadTime/download-time.html',
     color: '#60a5fa'
@@ -195,7 +201,7 @@ window.TOOLBOX_TOOLS = [
     id: 'chance-simulator',
     name: 'Chance Simulator',
     description: 'Theoretical probability vs. real randomized simulation results.',
-    keywords: ['chance', 'probability', 'odds', 'simulator', 'random', 'luck'],
+    tags: ['chance', 'probability', 'odds', 'simulator', 'random', 'luck', 'percent', 'drop rate', 'trials', 'gacha', 'statistics', 'dice'],
     categories: ['random', 'math'],
     path: 'ChanceSimulator/chance-simulator.html',
     color: '#f472b6'
@@ -204,7 +210,7 @@ window.TOOLBOX_TOOLS = [
     id: 'json-formatter',
     name: 'JSON Formatter',
     description: 'Format, minify, and validate JSON, with helpful error locations.',
-    keywords: ['json', 'format', 'minify', 'validate', 'developer'],
+    tags: ['json', 'format', 'minify', 'validate', 'pretty print', 'beautify', 'developer', 'api', 'syntax', 'errors', 'data', 'parser'],
     categories: ['developer'],
     path: 'JsonFormatter/json-formatter.html',
     color: '#34d399'
@@ -213,7 +219,7 @@ window.TOOLBOX_TOOLS = [
     id: 'text-diff',
     name: 'Text Difference Tool',
     description: 'Compare two pieces of text and see exactly what changed.',
-    keywords: ['diff', 'compare', 'text', 'difference', 'changes'],
+    tags: ['diff', 'compare', 'text', 'difference', 'changes', 'compare files', 'developer', 'merge', 'before after', 'edits', 'lines', 'code'],
     categories: ['developer'],
     path: 'TextDiff/text-diff.html',
     color: '#fbbf24'
@@ -222,7 +228,7 @@ window.TOOLBOX_TOOLS = [
     id: 'regex-tester',
     name: 'Regex Tester',
     description: 'Test regular expressions against text with live match highlighting.',
-    keywords: ['regex', 'regular expression', 'pattern', 'match', 'developer'],
+    tags: ['regex', 'regular expression', 'pattern', 'match', 'developer', 'test', 'highlight', 'capture groups', 'replace', 'string', 'flags', 'search'],
     categories: ['developer'],
     path: 'RegexTester/regex-tester.html',
     color: '#818cf8'
@@ -231,7 +237,7 @@ window.TOOLBOX_TOOLS = [
     id: 'how-many-x',
     name: 'How Many X?',
     description: 'A playful "how many of this fit into that" calculator, using your own units.',
-    keywords: ['how many', 'divide', 'fun', 'comparison', 'ratio'],
+    tags: ['how many', 'divide', 'fun', 'comparison', 'ratio', 'fit into', 'units', 'compare sizes', 'silly', 'custom units', 'math', 'random'],
     categories: ['random'],
     path: 'HowManyX/how-many-x.html',
     color: '#fb923c'
@@ -240,7 +246,7 @@ window.TOOLBOX_TOOLS = [
     id: 'link-tool',
     name: 'Link Tool',
     description: 'Keep a simple collection of useful links with names and descriptions.',
-    keywords: ['links', 'link', 'urls', 'url', 'bookmarks', 'websites', 'website'],
+    tags: ['links', 'link', 'urls', 'url', 'bookmarks', 'websites', 'website', 'collection', 'favorites', 'save', 'list', 'organize'],
     categories: ['utilities'],
     path: 'LinkTool/link-tool.html',
     color: '#f97316'
@@ -249,7 +255,7 @@ window.TOOLBOX_TOOLS = [
     id: 'ccu-earnings',
     name: 'CCU Earnings Simulator',
     description: 'Rough estimate of daily/monthly earnings from a steady average CCU.',
-    keywords: ['ccu', 'concurrent', 'players', 'earnings', 'robux', 'creator rewards', 'simulator', 'roblox'],
+    tags: ['ccu', 'concurrent users', 'players', 'earnings', 'robux', 'creator rewards', 'simulator', 'roblox', 'daily', 'monthly', 'income', 'estimate'],
     categories: ['roblox', 'finance'],
     path: 'CCUEarnings/ccu-earnings.html',
     color: '#e879f9'
@@ -258,7 +264,7 @@ window.TOOLBOX_TOOLS = [
     id: 'background-remover',
     name: 'Background Remover',
     description: 'Remove the background from a photo entirely in your browser — no uploads, no account.',
-    keywords: ['background', 'remove', 'remove.bg', 'transparent', 'png', 'image', 'photo', 'cutout'],
+    tags: ['background', 'remove background', 'remove.bg', 'transparent', 'png', 'image', 'photo', 'cutout', 'editor', 'no upload', 'private', 'design'],
     categories: ['design', 'utilities'],
     path: 'BackgroundRemover/background-remover.html',
     color: '#2dd4bf',
@@ -268,7 +274,7 @@ window.TOOLBOX_TOOLS = [
     id: 'timers',
     name: 'Timers',
     description: 'Stopwatch, countdown timer, alarm, and a repeating interval loop (e.g. 90/20 min cycles).',
-    keywords: ['timer', 'stopwatch', 'alarm', 'countdown', 'interval', 'loop', 'pomodoro'],
+    tags: ['timer', 'stopwatch', 'alarm', 'countdown', 'interval', 'loop', 'pomodoro', 'laps', 'alarm clock', 'notifications', 'study', 'workout'],
     categories: ['utilities', 'health'],
     path: 'Timers/timers.html',
     color: '#fbbf24',
@@ -278,7 +284,7 @@ window.TOOLBOX_TOOLS = [
     id: 'timezone-chart',
     name: 'Timezone Comparison',
     description: 'Compare local time across timezones on one UTC-aligned timeline, with a reference-time alignment line.',
-    keywords: ['timezone', 'time zone', 'utc', 'world clock', 'meeting time', 'nzst', 'est', 'gmt'],
+    tags: ['timezone', 'time zone', 'utc', 'world clock', 'meeting time', 'nzst', 'est', 'gmt', 'compare time', 'convert time', 'schedule', 'international'],
     categories: ['utilities'],
     path: 'TimezoneChart/timezone-chart.html',
     color: '#38bdf8'
@@ -287,7 +293,7 @@ window.TOOLBOX_TOOLS = [
     id: 'pattern-maker',
     name: 'Pattern Maker',
     description: 'Generative Sunburst and Halftone pattern tool with full control over shape, color, and variation — export SVG or PNG.',
-    keywords: ['sunburst', 'pattern', 'svg', 'generative', 'vector', 'rays', 'halftone', 'design'],
+    tags: ['sunburst', 'pattern', 'svg', 'generative', 'vector', 'rays', 'halftone', 'design', 'background', 'export png', 'art', 'wallpaper'],
     categories: ['design'],
     path: 'PatternMaker/pattern-maker.html',
     color: '#f6a623'
@@ -296,7 +302,7 @@ window.TOOLBOX_TOOLS = [
     id: 'currency-converter',
     name: 'Currency Converter',
     description: 'Convert between 270+ currencies: world money, precious metals, crypto and historical currencies like the German Mark.',
-    keywords: ['currency', 'exchange', 'exchange rate', 'convert', 'forex', 'fx', 'money', 'usd', 'eur', 'nzd', 'gbp', 'bitcoin', 'crypto', 'gold', 'silver'],
+    tags: ['currency', 'exchange', 'exchange rate', 'convert', 'forex', 'fx', 'money', 'usd', 'eur', 'nzd', 'gbp', 'bitcoin', 'crypto', 'gold', 'silver'],
     categories: ['finance', 'utilities'],
     path: 'CurrencyConverter/currency-converter.html',
     color: '#14b8a6',
@@ -306,7 +312,7 @@ window.TOOLBOX_TOOLS = [
     id: 'robux-cost',
     name: 'Robux Cost Calculator',
     description: 'What it costs to buy any amount of Robux, or how many Robux your money gets you: cheapest pack mix, web vs. mobile, 150+ currencies.',
-    keywords: ['robux', 'buy', 'cost', 'price', 'purchase', 'packs', 'gift card', 'roblox', 'how much', 'how many', 'budget', 'spend', 'usd', 'nzd', 'aud', 'gbp', 'eur', 'currency'],
+    tags: ['robux', 'buy robux', 'cost', 'price', 'purchase', 'packs', 'gift card', 'roblox', 'how much', 'budget', 'spend', 'local currency'],
     categories: ['roblox', 'finance'],
     path: 'RobuxCost/robux-cost.html',
     color: '#f87171',
@@ -316,7 +322,7 @@ window.TOOLBOX_TOOLS = [
     id: 'habit-tracker',
     name: 'Habit Tracker',
     description: 'Check off daily habits, hit weekly goals, keep streaks and watch your progress fill a calendar. Installable, works offline, syncs across devices.',
-    keywords: ['habit', 'habits', 'tracker', 'streak', 'routine', 'calendar', 'goals', 'daily', 'workout', 'check off', 'progress', 'sync'],
+    tags: ['habit', 'habits', 'tracker', 'streak', 'routine', 'calendar', 'goals', 'daily', 'workout', 'check off', 'progress', 'reminders', 'sync'],
     categories: ['health', 'utilities'],
     path: 'HabitTracker/habit-tracker.html',
     color: '#a3e635',

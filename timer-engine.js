@@ -5,8 +5,9 @@
 //
 // This version also:
 //  - ticks from a Web Worker, so background tabs aren't slowed to one tick a minute by the browser
-//  - plays alarms through the Web Audio API, which is "unlocked" by your first tap/click on any page and then stays
-//    allowed (a plain <audio> element gets blocked again on a tab that has been idle a long time)
+//  - plays alarms through ordinary <audio> elements fed with generated sound clips. Phones treat that as media (so an
+//    iPhone's silent switch doesn't mute it), the volume is baked into the clip, and your first tap/click/key on any
+//    page "unlocks" the elements so they can ring later without another tap
 //  - lets you pick the alarm sound, and can show system notifications (timers finishing, habit reminders)
 //
 // Known limitation: if you have the Toolbox open in more than one tab at once, more than one tab could notice a
@@ -99,79 +100,99 @@
     return { swElapsed, timerRemaining, loopRemaining };
   }
 
-  // ── Alarm sounds (Web Audio) ─────────────────────────────────
-  // A tab may only make sound after you've interacted with the page. We listen for your first tap/click/key on any
-  // Toolbox page and "unlock" one shared AudioContext; after that alarms can ring even if the tab sat idle for hours.
-  function tone(c, out, nodes, type, freq, t, dur, gain, freq2) {
-    const o = c.createOscillator(), g = c.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, t);
-    if (freq2) o.frequency.linearRampToValueAtTime(freq2, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05); nodes.push(o);
-  }
+  // ── Alarm sounds ─────────────────────────────────────────────
+  // Every built-in sound is generated as one repeat of a small WAV clip, which an <audio> element then loops. Why not
+  // Web Audio: phones mute it when the silent switch is on, and its AudioContext can get stuck "suspended/interrupted".
+  // Browsers only allow sound after you've touched the page, so the first tap/click/key on any Toolbox page "unlocks"
+  // the timer/alarm/loop elements by playing a silent clip on each; after that alarms can ring with no further tap.
+  const SR = 22050;
   const SOUNDS = [
-    { id: 'beep', name: 'Digital beep', period: 1.2, build(c, t, out, n) { for (let i = 0; i < 3; i++) tone(c, out, n, 'square', 880, t + i * 0.25, 0.16, 0.35); } },
-    { id: 'chime', name: 'Chime', period: 2.4, build(c, t, out, n) { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(c, out, n, 'sine', f, t + i * 0.3, 1.0, 0.6)); } },
-    { id: 'bell', name: 'Bell', period: 2.6, build(c, t, out, n) { [[660, 0.5], [1821.6, 0.25], [3564, 0.12]].forEach(p => tone(c, out, n, 'sine', p[0], t, 2.2, p[1])); } },
-    { id: 'siren', name: 'Siren', period: 1.6, build(c, t, out, n) { tone(c, out, n, 'triangle', 600, t, 0.7, 0.5, 950); tone(c, out, n, 'triangle', 950, t + 0.8, 0.7, 0.5, 600); } },
-    { id: 'rise', name: 'Gentle rise', period: 3, build(c, t, out, n) { tone(c, out, n, 'sine', 392, t, 1.4, 0.55, 784); tone(c, out, n, 'sine', 523.25, t + 1.5, 1.4, 0.45, 1046.5); } },
-    { id: 'classic', name: 'Original alarm', period: 1, file: true, build() {} }
+    { id: 'beep', name: 'Digital beep', period: 1.2, voices: [0, 1, 2].map(i => ({ type: 'square', f: 880, t: i * 0.25, d: 0.16, g: 0.35 })) },
+    { id: 'chime', name: 'Chime', period: 2.4, voices: [523.25, 659.25, 783.99, 1046.5].map((f, i) => ({ type: 'sine', f, t: i * 0.3, d: 1.0, g: 0.6 })) },
+    { id: 'bell', name: 'Bell', period: 2.6, voices: [[660, 0.5], [1821.6, 0.25], [3564, 0.12]].map(p => ({ type: 'sine', f: p[0], t: 0, d: 2.2, g: p[1] })) },
+    { id: 'siren', name: 'Siren', period: 1.6, voices: [{ type: 'triangle', f: 600, f2: 950, t: 0, d: 0.7, g: 0.5 }, { type: 'triangle', f: 950, f2: 600, t: 0.8, d: 0.7, g: 0.5 }] },
+    { id: 'rise', name: 'Gentle rise', period: 3, voices: [{ type: 'sine', f: 392, f2: 784, t: 0, d: 1.4, g: 0.55 }, { type: 'sine', f: 523.25, f2: 1046.5, t: 1.5, d: 1.4, g: 0.45 }] },
+    { id: 'classic', name: 'Original alarm', period: 1, file: true, voices: [] }
   ];
-  let ctx = null, bufferPromise = null;
-  const ringing = {}, playing = {}, blocked = {}, fallbackAudio = {}, soundTimeouts = {};
-  const AC = () => window.AudioContext || window.webkitAudioContext;
-  const audioChanged = () => { try { window.dispatchEvent(new CustomEvent('toolbox:audio')); } catch (e) {} };
-  function getCtx() {
-    if (!ctx && AC()) { try { ctx = new (AC())(); ctx.onstatechange = audioChanged; } catch (e) { ctx = null; } }
-    return ctx;
+  const baseSamples = {}, wavUrls = {};
+  function samplesFor(snd) {      // one period of the sound, scaled so its loudest point is 0.9
+    if (baseSamples[snd.id]) return baseSamples[snd.id];
+    const n = Math.round(snd.period * SR), out = new Float32Array(n);
+    snd.voices.forEach(v => {
+      const start = Math.round(v.t * SR), len = Math.round(v.d * SR); let phase = 0;
+      for (let i = 0; i < len && start + i < n; i++) {
+        const t = i / SR, f = v.f2 ? v.f + (v.f2 - v.f) * (t / v.d) : v.f;
+        phase += f / SR; const ph = phase % 1;
+        const w = v.type === 'square' ? (ph < 0.5 ? 1 : -1) : v.type === 'triangle' ? 1 - 4 * Math.abs(ph - 0.5) : Math.sin(2 * Math.PI * ph);
+        const env = t < 0.015 ? 0.0001 * Math.pow(v.g / 0.0001, t / 0.015) : v.g * Math.pow(0.0001 / v.g, (t - 0.015) / (v.d - 0.015));
+        out[start + i] += w * env;
+      }
+    });
+    let peak = 0; for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(out[i]));
+    if (peak > 0) for (let i = 0; i < n; i++) out[i] *= 0.9 / peak;
+    return (baseSamples[snd.id] = out);
   }
-  function audioState() { if (!AC()) return 'unsupported'; return ctx && ctx.state === 'running' ? 'running' : 'locked'; }
-  function ensureRunning() {
-    const c = getCtx(); if (!c) return Promise.resolve(false);
-    if (c.state === 'running') return Promise.resolve(true);
-    let p; try { p = Promise.resolve(c.resume()); } catch (e) { return Promise.resolve(false); }
-    return Promise.race([p.then(() => c.state === 'running'), new Promise(r => setTimeout(() => r(c.state === 'running'), 400))]).catch(() => false);
+  function wavUrl(samples, vol) {
+    const n = samples.length, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, SR, true); v.setUint32(28, SR * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, samples[i] * vol)) * 32767), true);
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
-  function unlock() {
-    const c = getCtx(); if (!c) return Promise.resolve(false);
-    try { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } catch (e) {}   // iOS wants a real sound started inside the tap
-    return ensureRunning().then((ok) => { if (ok) Object.keys(blocked).forEach(startRinging); audioChanged(); return ok; });
-  }
-  ['pointerdown', 'touchend', 'keydown', 'click'].forEach(ev => document.addEventListener(ev, () => { if (audioState() !== 'running') unlock(); }, { capture: true, passive: true }));
-
+  let silentUrl = null;
+  const getSilent = () => silentUrl || (silentUrl = wavUrl(new Float32Array(Math.round(SR * 0.3)), 1));
   const currentSound = () => SOUNDS.find(s => s.id === lsGet(SOUND_KEY)) || SOUNDS[0];
   function volume() { const v = parseFloat(lsGet(VOL_KEY)); return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
-  function loadBuffer(c) {
-    if (!bufferPromise) bufferPromise = fetch(ALARM_SRC).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('missing')))).then(ab => new Promise((ok, no) => c.decodeAudioData(ab, ok, no))).catch(() => null);
-    return bufferPromise;
+  function soundUrl(snd) {
+    if (snd.file) return ALARM_SRC;
+    const key = snd.id + '|' + Math.round(volume() * 40);
+    return wavUrls[key] || (wavUrls[key] = wavUrl(samplesFor(snd), volume()));
   }
-  function begin(key, sound, durMs) {
-    const c = getCtx(); if (!c) return false;
-    const master = c.createGain(); master.gain.value = volume(); master.connect(c.destination);
-    const nodes = [], session = { master, nodes }; playing[key] = session;
-    const schedule = (snd) => { const t0 = c.currentTime + 0.05, reps = Math.max(1, Math.ceil(durMs / 1000 / snd.period)); for (let i = 0; i < reps; i++) snd.build(c, t0 + i * snd.period, master, nodes); };
-    if (sound.file) {
-      loadBuffer(c).then(buf => {
-        if (playing[key] !== session) return;
-        if (!buf) { schedule(SOUNDS[0]); return; }
-        const src = c.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(master); src.start(); nodes.push(src);
-      });
-    } else schedule(sound);
-    return true;
+
+  const KEYS = ['timer', 'alarm', 'loop', 'preview'], UNLOCK_KEYS = ['timer', 'alarm', 'loop'];
+  const els = {}, ringing = {}, blocked = {}, starting = {}, soundTimeouts = {};
+  let unlocked = false, unlocking = false, previewId = null;
+  const canAudio = () => typeof Audio === 'function';
+  const audioChanged = () => { try { window.dispatchEvent(new CustomEvent('toolbox:audio')); } catch (e) {} };
+  const anyBlocked = () => Object.keys(blocked).some(k => k !== 'preview');
+  function el(key) {
+    if (!els[key] && canAudio()) { try { const a = new Audio(); a.preload = 'auto'; a.setAttribute('playsinline', ''); els[key] = a; } catch (e) {} }
+    return els[key] || null;
   }
-  function startRinging(key) {
-    ensureRunning().then((ok) => {
-      if (!ringing[key] || ringing[key] < Date.now()) return;
-      if (ok) { delete blocked[key]; stopFallback(key); if (playing[key]) return; begin(key, currentSound(), Math.max(1000, ringing[key] - Date.now())); }
-      else { blocked[key] = true; tryFallback(key); }
-      audioChanged();
+  function audioState() { if (!canAudio()) return 'unsupported'; return unlocked ? 'running' : 'locked'; }
+  function playEl(a) {
+    let p; try { p = a.play(); } catch (e) { return Promise.reject(e); }
+    return Promise.resolve(p).then(() => { if (!unlocked) { unlocked = true; audioChanged(); } });
+  }
+  // Called straight from taps/clicks/keys: phones only accept play() inside the gesture, so nothing here waits first.
+  function unlock() {
+    if (!canAudio()) return Promise.resolve(false);
+    Object.keys(blocked).forEach(k => { if (k !== 'preview') startRinging(k); });      // an alarm is waiting on this tap
+    if (unlocking) return Promise.resolve(unlocked);
+    unlocking = true;
+    const jobs = UNLOCK_KEYS.filter(k => !ringing[k]).map(k => {
+      const a = el(k); if (!a) return Promise.resolve();
+      try { a.loop = false; a.src = getSilent(); a.volume = 1; } catch (e) {}
+      return playEl(a).then(() => { if (a.src === silentUrl) a.pause(); }).catch(() => {});
+    });
+    return Promise.race([Promise.all(jobs), new Promise(r => setTimeout(r, 1500))]).then(() => { unlocking = false; audioChanged(); return unlocked; });
+  }
+  ['pointerup', 'touchend', 'keydown', 'click'].forEach(ev => document.addEventListener(ev, () => { if (!unlocked || anyBlocked()) unlock(); }, { capture: true, passive: true }));
+
+  function startRinging(key, useBeep) {
+    if (!ringing[key] || ringing[key] < Date.now() || starting[key]) return Promise.resolve(false);
+    const a = el(key); if (!a) { blocked[key] = true; audioChanged(); return Promise.resolve(false); }
+    const snd = useBeep ? SOUNDS[0] : (key === 'preview' ? (SOUNDS.find(s => s.id === previewId) || currentSound()) : currentSound());
+    try { a.loop = true; a.src = soundUrl(snd); a.volume = snd.file ? volume() : 1; } catch (e) {}
+    starting[key] = true;
+    return playEl(a).then(() => { starting[key] = false; delete blocked[key]; audioChanged(); return true; }, (err) => {
+      starting[key] = false;
+      if (!ringing[key] || (err && err.name === 'AbortError')) return false;      // stopped or restarted meanwhile
+      if (snd.file && !(err && err.name === 'NotAllowedError')) return startRinging(key, true);      // alarm.wav missing: use the beep instead
+      blocked[key] = true; audioChanged(); return false;
     });
   }
-  function tryFallback(key) {      // last resort: a plain <audio> element (works only if the browser happens to allow it)
-    if (fallbackAudio[key]) return;
-    try { const a = new Audio(ALARM_SRC); a.loop = true; fallbackAudio[key] = a; Promise.resolve(a.play()).then(() => { if (!ringing[key]) a.pause(); else { delete blocked[key]; audioChanged(); } }).catch(() => {}); } catch (e) {}
-  }
-  function stopFallback(key) { const a = fallbackAudio[key]; if (a) { try { a.pause(); a.currentTime = 0; } catch (e) {} delete fallbackAudio[key]; } }
   function fireAlarmSound(key) {
     stopAlarmSound(key);
     ringing[key] = Date.now() + ALARM_MAX_MS;
@@ -179,20 +200,16 @@
     startRinging(key);
   }
   function stopAlarmSound(key) {
-    delete ringing[key]; delete blocked[key]; stopFallback(key);
-    const p = playing[key];
-    if (p) { try { p.master.gain.value = 0; } catch (e) {} p.nodes.forEach(n => { try { n.stop(); } catch (e) {} }); try { p.master.disconnect(); } catch (e) {} delete playing[key]; }
+    delete ringing[key]; delete blocked[key]; delete starting[key];
+    const a = els[key]; if (a) { try { a.pause(); a.loop = false; } catch (e) {} }
     if (soundTimeouts[key]) { clearTimeout(soundTimeouts[key]); delete soundTimeouts[key]; }
     audioChanged();
   }
-  function previewSound(id) {
+  function previewSound(id) {      // resolves true if you can hear it, false if the browser blocked it
     const s = SOUNDS.find(x => x.id === id) || currentSound();
-    stopAlarmSound('preview');
-    return unlock().then((ok) => {
-      if (!ok) return false;
-      ringing.preview = Date.now() + 3000; soundTimeouts.preview = setTimeout(() => stopAlarmSound('preview'), 3000);
-      return begin('preview', s, 3000);
-    });
+    stopAlarmSound('preview'); previewId = s.id;
+    ringing.preview = Date.now() + 3000; soundTimeouts.preview = setTimeout(() => stopAlarmSound('preview'), 3000);
+    return startRinging('preview');
   }
 
   // ── Notifications ────────────────────────────────────────────
@@ -385,12 +402,12 @@
     getSound() { return currentSound().id; },
     setSound(id) { if (SOUNDS.some(s => s.id === id)) { lsSet(SOUND_KEY, id); audioChanged(); } },
     getVolume: volume,
-    setVolume(v) { lsSet(VOL_KEY, String(Math.min(1, Math.max(0, +v || 0)))); const p = playing.preview; if (p) { try { p.master.gain.value = volume(); } catch (e) {} } },
+    setVolume(v) { lsSet(VOL_KEY, String(Math.min(1, Math.max(0, +v || 0)))); },
     previewSound,
     stopPreview() { stopAlarmSound('preview'); },
     unlock,
     audioState,
-    audioBlocked() { return Object.keys(blocked).length > 0; },
+    audioBlocked: anyBlocked,
     isRinging() { return Object.keys(ringing).some(k => k !== 'preview' && ringing[k] > Date.now()); },
     notifyState,
     enableNotifications,

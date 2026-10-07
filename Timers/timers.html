@@ -25,6 +25,12 @@
   .wheel { width: 5.2rem; height: 192px; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; outline: none; -webkit-overflow-scrolling: touch;
            -webkit-mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); }
   .wheel::-webkit-scrollbar { display: none; }
+  .wheel { cursor: grab; user-select: none; -webkit-user-select: none; }
+  .wheel.dragging { cursor: grabbing; }
+  .wheel-hint { display: none; }
+  @media (hover: hover) and (pointer: fine) { .wheel-hint { display: block; } }
+  .sound-chip { transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  .sound-chip.active { background: rgba(59,130,246,0.18); border-color: #3b82f6; color: #bfdbfe; }
   .wheel:focus-visible { box-shadow: 0 0 0 2px #3b82f6; border-radius: 0.75rem; }
   .wpad { height: 64px; flex: none; }
   .wi { height: 64px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-size: 2.1rem; font-weight: 700; color: #475569; font-variant-numeric: tabular-nums; cursor: pointer; user-select: none; transition: color 0.12s ease, font-size 0.12s ease; }
@@ -89,6 +95,8 @@
         <div class="wheel-col"><div class="wheel-label">Seconds</div><div class="wheel" id="wheelS" tabindex="0" role="spinbutton" aria-label="Seconds" aria-valuemin="0" aria-valuemax="59"></div></div>
       </div>
 
+      <p class="wheel-hint text-center text-xs text-slate-500 -mt-2 mb-4">Drag a column, scroll over it, or use &uarr; &darr; &mdash; or just click a number.</p>
+
       <div class="flex flex-wrap justify-center gap-2 mb-6" id="timerPresets">
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="15">15 sec</button>
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="30">30 sec</button>
@@ -108,6 +116,7 @@
       <p class="text-sm text-red-400 font-medium mt-3 hidden" id="timerDoneNote">Time&rsquo;s up!</p>
     </div>
 
+    <p class="text-center text-sm text-amber-300 mb-3 hidden" id="timerHint" role="status">Pick a time first (use the wheels or a preset).</p>
     <div class="flex justify-center items-center gap-3">
       <button type="button" id="timerStartBtn" class="start-circle">Start</button>
       <button type="button" id="timerResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hidden">Reset</button>
@@ -169,11 +178,14 @@
   <div id="soundCard" class="glass rounded-2xl p-5 mt-4 hidden">
     <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Alarm sound &amp; alerts</h2>
     <div class="flex flex-wrap items-center gap-2 mb-3">
-      <label for="soundSelect" class="sr-only">Alarm sound</label>
-      <select id="soundSelect" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"></select>
-      <button type="button" id="soundPreview" class="text-xs px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">&#9654; Preview</button>
-      <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-1">Volume <input type="range" id="volume" min="0" max="100" class="w-24"></label>
+      <div id="soundList" class="flex flex-wrap gap-2" role="radiogroup" aria-label="Alarm sound"></div>
     </div>
+    <div class="flex flex-wrap items-center gap-3 mb-1">
+      <button type="button" id="soundPreview" class="text-xs px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">&#9654; Play current sound</button>
+      <label class="inline-flex items-center gap-2 text-xs text-slate-400">Volume <input type="range" id="volume" min="0" max="100" class="w-28"></label>
+    </div>
+    <p class="text-xs min-h-[1.25rem] mb-3 text-emerald-300" id="soundMsg" role="status" aria-live="polite"></p>
+
     <div class="flex flex-wrap items-center gap-2">
       <span id="audioChip" class="text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300"></span>
       <button type="button" id="notifyBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50 disabled:pointer-events-none"></button>
@@ -192,6 +204,10 @@
 <script>
 (function () {
   const T = window.ToolboxTimers;
+
+  // Only write to the page when the value changed. Rewriting a button's text 4x a second can swallow taps on phones.
+  function setText(el, t) { if (el.textContent !== t) el.textContent = t; }
+  function setHTML(el, h) { if (el.__h !== h) { el.__h = h; el.innerHTML = h; } }
 
   // ── Tabs ──────────────────────────────────────────────────────
   const tabs = document.querySelectorAll('.tab-btn[data-tab]');
@@ -226,19 +242,19 @@
   const swLapsList = document.getElementById('swLapsList');
 
   function renderLaps(laps) {
-    swLapsList.innerHTML = laps.slice().reverse().map((lap, i) => {
+    setHTML(swLapsList, laps.slice().reverse().map((lap, i) => {
       const num = laps.length - i;
       return `<div class="flex items-center justify-between text-sm bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2">
         <span class="text-slate-400">Lap ${num}</span>
         <span class="font-mono text-slate-300">+${T.formatStopwatch(lap.split)}</span>
         <span class="font-mono text-white">${T.formatStopwatch(lap.total)}</span>
       </div>`;
-    }).join('');
+    }).join(''));
   }
   function renderStopwatch(state) {
     const d = T.getDerived(state);
-    swDisplay.textContent = T.formatStopwatch(d.swElapsed);
-    swStartBtn.textContent = state.stopwatch.status === 'running' ? 'Pause' : (state.stopwatch.status === 'paused' ? 'Resume' : 'Start');
+    setText(swDisplay, T.formatStopwatch(d.swElapsed));
+    setText(swStartBtn, state.stopwatch.status === 'running' ? 'Pause' : (state.stopwatch.status === 'paused' ? 'Resume' : 'Start'));
     swLapBtn.disabled = state.stopwatch.status !== 'running';
     renderLaps(state.stopwatch.laps);
   }
@@ -253,28 +269,74 @@
   // ═══════════════ WHEEL PICKER ═══════════════
   const ITEM = 64;
   function makeWheel(el, count, onChange) {
-    let value = 0, timer = null;
+    // `value` is the truth. The scroll position only follows it (and is read back when you scroll, drag or tap).
+    let value = 0, settle = null, target = null, drag = null, snapTimer = null, acc = 0, accT = 0;
     el.innerHTML = '<div class="wpad"></div>' + Array.from({ length: count }, (_, i) => `<div class="wi" data-v="${i}">${String(i).padStart(2, '0')}</div>`).join('') + '<div class="wpad"></div>';
+    const items = Array.from(el.querySelectorAll('.wi'));
     const clamp = (v) => Math.max(0, Math.min(count - 1, v));
+    const laidOut = () => el.clientHeight > 0;                  // a hidden wheel has no layout and reports scrollTop 0
     function paint(v) {
-      el.querySelectorAll('.wi').forEach((it, i) => { it.classList.toggle('sel', i === v); it.classList.toggle('near', Math.abs(i - v) === 1); });
+      items.forEach((it, i) => { it.classList.toggle('sel', i === v); it.classList.toggle('near', Math.abs(i - v) === 1); });
       el.setAttribute('aria-valuenow', v);
     }
-    function set(v, smooth) {
-      value = clamp(v); paint(value);
-      if (smooth && el.scrollTo) el.scrollTo({ top: value * ITEM, behavior: 'smooth' }); else el.scrollTop = value * ITEM;
+    function pos(v, smooth) {
+      if (!laidOut()) return;
+      if (smooth && el.scrollTo) el.scrollTo({ top: v * ITEM, behavior: 'smooth' }); else el.scrollTop = v * ITEM;
+    }
+    function set(v, smooth) { value = clamp(v); paint(value); pos(value, smooth); }
+    function step(n) {                                           // move n rows (used by mouse wheel, keys)
+      target = clamp((target === null ? value : target) + n);
+      if (target !== value) set(target, true);
     }
     el.addEventListener('scroll', () => {
+      if (!laidOut()) return;
       const v = clamp(Math.round(el.scrollTop / ITEM));
       if (v !== value) { value = v; paint(v); }
-      clearTimeout(timer); timer = setTimeout(() => { if (onChange) onChange(value); }, 80);
+      clearTimeout(settle); settle = setTimeout(() => { target = null; if (onChange) onChange(value); }, 90);
     });
     el.addEventListener('click', (e) => { const it = e.target.closest('.wi'); if (it) { set(parseInt(it.dataset.v, 10), true); if (onChange) onChange(value); } });
     el.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); set(value + (e.key === 'ArrowDown' ? 1 : -1), true); if (onChange) onChange(value); }
+      const k = { ArrowUp: -1, ArrowDown: 1, PageUp: -5, PageDown: 5 }[e.key];
+      if (k) { e.preventDefault(); step(k); }
+      else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); set(e.key === 'Home' ? 0 : count - 1, true); }
     });
+    // PC: mouse wheel moves one row per notch (trackpads add up to a row per ~100px)
+    el.addEventListener('wheel', (e) => {
+      if (!e.deltaY) return;
+      e.preventDefault();
+      if (e.deltaMode !== 0) { step(e.deltaY > 0 ? 1 : -1); return; }
+      const now = Date.now(); if (now - accT > 200 || (acc && Math.sign(acc) !== Math.sign(e.deltaY))) acc = 0; accT = now;
+      acc += e.deltaY;
+      const n = Math.trunc(acc / 100); if (n) { acc -= n * 100; step(n); }
+    }, { passive: false });
+    // PC: click-and-drag the column like swiping on a phone (touch already scrolls natively)
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      try { el.focus({ preventScroll: true }); } catch (x) {}
+      drag = { id: e.pointerId, y: e.clientY, top: el.scrollTop, moved: false };
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved) {
+        if (Math.abs(dy) < 4) return;
+        drag.moved = true; clearTimeout(snapTimer); el.style.scrollSnapType = 'none'; el.classList.add('dragging');
+        try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      }
+      el.scrollTop = drag.top - dy;
+    });
+    function endDrag() {
+      if (!drag) return;
+      const moved = drag.moved; drag = null;
+      if (!moved) return;
+      el.classList.remove('dragging');
+      set(clamp(Math.round(el.scrollTop / ITEM)), true);
+      snapTimer = setTimeout(() => { el.style.scrollSnapType = ''; }, 400);
+      if (onChange) setTimeout(() => onChange(value), 120);
+    }
+    el.addEventListener('pointerup', endDrag); el.addEventListener('pointercancel', endDrag);
     paint(0);
-    const api = { get: () => value, set, refresh: () => { el.scrollTop = value * ITEM; } };
+    const api = { get: () => value, set, refresh: () => { paint(value); pos(value, false); } };
     wheelsToRefresh.push(api);
     return api;
   }
@@ -306,26 +368,34 @@
     const d = T.getDerived(state);
     const st = state.timer.status;
     const isActive = st === 'running' || st === 'paused';
+    const wasHidden = timerSetup.classList.contains('hidden');
     timerSetup.classList.toggle('hidden', st !== 'idle');                 // wheels + presets only while setting a time
+    if (wasHidden && st === 'idle') refreshWheels();                      // put the wheels back where the chosen time says
     timerDisplayWrap.classList.toggle('hidden', st === 'idle');
-    timerDisplay.textContent = T.formatCountdown(isActive ? d.timerRemaining : 0);
-    timerSetFor.textContent = state.timer.totalMs ? `Timer for ${T.formatCountdown(state.timer.totalMs)}` : '';
-    timerBar.style.width = (isActive && state.timer.totalMs ? Math.max(0, Math.min(100, d.timerRemaining / state.timer.totalMs * 100)) : 0) + '%';
-    timerStartBtn.textContent = st === 'running' ? 'Pause' : (st === 'paused' ? 'Resume' : 'Start');
-    timerStartBtn.disabled = st === 'idle' && readTimerInputs() <= 0;
+    setText(timerDisplay, T.formatCountdown(isActive ? d.timerRemaining : 0));
+    setText(timerSetFor, state.timer.totalMs ? `Timer for ${T.formatCountdown(state.timer.totalMs)}` : '');
+    const barW = (isActive && state.timer.totalMs ? Math.max(0, Math.min(100, d.timerRemaining / state.timer.totalMs * 100)) : 0) + '%';
+    if (timerBar.style.width !== barW) timerBar.style.width = barW;
+    setText(timerStartBtn, st === 'running' ? 'Pause' : (st === 'paused' ? 'Resume' : 'Start'));
     timerStartBtn.classList.toggle('hidden', st === 'finished');
     timerResetBtn.classList.toggle('hidden', st === 'idle');
     timerDoneNote.classList.toggle('hidden', st !== 'finished');
     timerDisplayWrap.classList.toggle('flash', st === 'finished');
   }
 
+  let hintTimer = null;
   timerStartBtn.addEventListener('click', () => {
-    T.unlock();                                    // this tap is what lets the alarm make sound later
+    try { T.unlock(); } catch (e) {}               // this tap is what lets the alarm make sound later; it can never stop the timer starting
     const s = T.getState();
     if (s.timer.status === 'running') { T.timerPause(); return; }
     if (s.timer.status === 'paused') { T.timerStart(); return; }
     const ms = readTimerInputs();
-    if (ms <= 0) return;
+    if (ms <= 0) {                                 // no dead button: say what's missing
+      const h = document.getElementById('timerHint'); h.classList.remove('hidden');
+      clearTimeout(hintTimer); hintTimer = setTimeout(() => h.classList.add('hidden'), 3000);
+      return;
+    }
+    document.getElementById('timerHint').classList.add('hidden');
     T.timerStart(ms);
   });
   timerResetBtn.addEventListener('click', () => T.timerReset());
@@ -355,7 +425,7 @@
   function pad2(n) { return n.toString().padStart(2, '0'); }
   function updateClock() {
     const now = new Date();
-    alarmClock.textContent = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+    setText(alarmClock, `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`);
   }
   function renderAlarm(state) {
     const armed = state.alarm.status === 'armed';
@@ -372,7 +442,7 @@
       const mins = Math.max(0, Math.round(diffMs / 60000));
       const h = Math.floor(mins / 60), m = mins % 60;
       const inText = h > 0 ? `${h}h ${m}m` : `${m}m`;
-      alarmArmedNote.textContent = `Alarm set for ${state.alarm.timeStr} \u2014 in about ${inText}${state.alarm.repeatDaily ? ' (repeats daily)' : ''}`;
+      setText(alarmArmedNote, `Alarm set for ${state.alarm.timeStr} \u2014 in about ${inText}${state.alarm.repeatDaily ? ' (repeats daily)' : ''}`);
       alarmArmedNote.classList.remove('hidden');
     } else {
       alarmArmedNote.classList.add('hidden');
@@ -417,9 +487,9 @@
 
   function renderPills(state) {
     const intervals = state.loop.intervals;
-    loopPills.innerHTML = intervals.map((iv, idx) => `
+    setHTML(loopPills, intervals.map((iv, idx) => `
       <span class="interval-pill text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50 ${idx === state.loop.currentIndex ? 'active' : ''}">${loopLabelFor(iv)}</span>
-    `).join('');
+    `).join(''));
   }
 
   function renderLoopHeader(state) {
@@ -427,14 +497,14 @@
     const intervals = state.loop.intervals;
     const isActive = state.loop.status === 'running' || state.loop.status === 'paused';
     if (!intervals.length) {
-      loopCurrentLabel.textContent = 'No intervals';
-      loopDisplay.textContent = '0:00';
+      setText(loopCurrentLabel, 'No intervals');
+      setText(loopDisplay, '0:00');
       return;
     }
-    loopCurrentLabel.textContent = `Interval ${state.loop.currentIndex + 1} of ${intervals.length} \u2014 ${loopLabelFor(intervals[state.loop.currentIndex])}`;
+    setText(loopCurrentLabel, `Interval ${state.loop.currentIndex + 1} of ${intervals.length} \u2014 ${loopLabelFor(intervals[state.loop.currentIndex])}`);
     const ms = isActive ? d.loopRemaining : (intervals[state.loop.currentIndex] ? (intervals[state.loop.currentIndex].minutes * 60 + intervals[state.loop.currentIndex].seconds) * 1000 : 0);
-    loopDisplay.textContent = T.formatCountdown(ms);
-    loopStartBtn.textContent = state.loop.status === 'running' ? 'Pause' : (state.loop.status === 'paused' ? 'Resume' : 'Start');
+    setText(loopDisplay, T.formatCountdown(ms));
+    setText(loopStartBtn, state.loop.status === 'running' ? 'Pause' : (state.loop.status === 'paused' ? 'Resume' : 'Start'));
   }
 
   // Slides rows to their new position whenever the list is rebuilt, so a
@@ -531,6 +601,7 @@
   }
 
   loopStartBtn.addEventListener('click', () => {
+    try { T.unlock(); } catch (e) {}
     const s = T.getState();
     if (s.loop.status === 'running') T.loopPause(); else T.loopStart();
   });
@@ -545,21 +616,43 @@
   });
 
   // ═══════════════ SOUND, ALERTS, SCREEN ═══════════════
-  const soundSelect = document.getElementById('soundSelect');
-  const soundPreview = document.getElementById('soundPreview');
-  const volume = document.getElementById('volume');
   const audioChip = document.getElementById('audioChip');
   const audioBanner = document.getElementById('audioBanner');
   const notifyBtn = document.getElementById('notifyBtn');
   const notifyTest = document.getElementById('notifyTest');
   const keepAwake = document.getElementById('keepAwake');
 
-  soundSelect.innerHTML = T.sounds.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  soundSelect.value = T.getSound();
-  soundSelect.addEventListener('change', () => { T.setSound(soundSelect.value); T.previewSound(soundSelect.value); });
-  soundPreview.addEventListener('click', () => T.previewSound(soundSelect.value));
+  const soundList = document.getElementById('soundList');
+  const soundMsg = document.getElementById('soundMsg');
+  const soundPreview = document.getElementById('soundPreview');
+  const volume = document.getElementById('volume');
+  let msgTimer = null;
+  function say(text, warn) {
+    soundMsg.textContent = text; soundMsg.className = 'text-xs min-h-[1.25rem] mb-3 ' + (warn ? 'text-amber-300' : 'text-emerald-300');
+    clearTimeout(msgTimer); msgTimer = setTimeout(() => { soundMsg.textContent = ''; }, 5000);
+  }
+  const soundName = (id) => (T.sounds.find(x => x.id === id) || {}).name || id;
+  function renderSoundList() {
+    const cur = T.getSound();
+    soundList.innerHTML = T.sounds.map(x => `<button type="button" role="radio" aria-checked="${x.id === cur}" data-sound="${x.id}" class="sound-chip text-sm px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-900/50 text-slate-300 ${x.id === cur ? 'active' : ''}">${x.id === cur ? '\u2713 ' : ''}${x.name}</button>`).join('');
+  }
+  function playSample(id, announce) {
+    return T.previewSound(id).then(ok => {
+      if (ok) { if (announce) say('\u2713 ' + soundName(id) + ' is now your alarm sound.'); }
+      else say(T.audioState() === 'unsupported' ? 'This browser can\u2019t play sounds.' : 'Your browser blocked the sound. Tap the button again to hear it.', true);
+    });
+  }
+  soundList.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sound]'); if (!b) return;
+    const id = b.getAttribute('data-sound');
+    T.setSound(id); renderSoundList();
+    playSample(id, true);                       // called straight from the tap, as phones require
+  });
+  soundPreview.addEventListener('click', () => playSample(T.getSound(), false));
   volume.value = Math.round(T.getVolume() * 100);
   volume.addEventListener('input', () => T.setVolume(parseInt(volume.value, 10) / 100));
+  volume.addEventListener('change', () => playSample(T.getSound(), false));      // let go of the slider = hear the new level
+  renderSoundList();
 
   function renderAudio() {
     const st = T.audioState();
@@ -584,14 +677,14 @@
   renderAudio(); renderNotify();
 
   // Screen wake lock: stops the phone sleeping (and freezing this tab) while a timer or loop is counting down.
-  let wake = null;
+  let wake = null, wakeRetryAt = 0;
   try { keepAwake.checked = localStorage.getItem('toolbox:keep-awake') !== 'off'; } catch (e) { keepAwake.checked = true; }
   keepAwake.addEventListener('change', () => { try { localStorage.setItem('toolbox:keep-awake', keepAwake.checked ? 'on' : 'off'); } catch (e) {} syncWake(T.getState()); });
   function syncWake(state) {
     const need = keepAwake.checked && !document.hidden && (state.timer.status === 'running' || state.loop.status === 'running');
-    if (need && !wake && navigator.wakeLock && navigator.wakeLock.request) {
+    if (need && !wake && Date.now() >= wakeRetryAt && navigator.wakeLock && navigator.wakeLock.request) {
       wake = 'pending';
-      navigator.wakeLock.request('screen').then(l => { wake = l; if (l.addEventListener) l.addEventListener('release', () => { if (wake === l) wake = null; }); }).catch(() => { wake = null; });
+      navigator.wakeLock.request('screen').then(l => { wake = l; if (l.addEventListener) l.addEventListener('release', () => { if (wake === l) wake = null; }); }).catch(() => { wake = null; wakeRetryAt = Date.now() + 30000; });
     } else if (!need && wake && wake !== 'pending') { try { wake.release(); } catch (e) {} wake = null; }
   }
 
