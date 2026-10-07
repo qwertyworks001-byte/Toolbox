@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goal Tracker</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .goal-row { transition: background .15s ease, border-color .15s ease; }
+  .goal-row.done .goal-text { text-decoration: line-through; color: #64748b; }
+  .check { width: 1.35rem; height: 1.35rem; border-radius: .45rem; border: 2px solid #475569; background: transparent; flex: none; display: inline-flex; align-items: center; justify-content: center; color: transparent; font-size: .85rem; line-height: 1; transition: all .12s ease; }
+  .check:hover { border-color: #a78bfa; }
+  .goal-row.done .check { background: #8b5cf6; border-color: #8b5cf6; color: #fff; }
+  .icon-btn { color: #64748b; padding: .25rem .4rem; border-radius: .4rem; font-size: .85rem; }
+  .icon-btn:hover { color: #c4b5fd; background: rgba(255,255,255,.05); }
+  .icon-btn.danger:hover { color: #f87171; }
+  .chip.active { background: rgba(139,92,246,.18); border-color: #8b5cf6; color: #ddd6fe; }
+  .bar { height: 5px; border-radius: 999px; background: #1e293b; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8b5cf6, #ec4899); transition: width .25s ease; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-violet-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Goal Tracker</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Write down as many goals as you like, from today to a whole lifetime. Everything saves on this device as you type.</p>
+  </header>
+
+  <!-- Add a goal -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mb-5" aria-label="Add a goal">
+    <label for="newText" class="sr-only">New goal</label>
+    <div class="flex flex-col sm:flex-row gap-2">
+      <input type="text" id="newText" maxlength="300" placeholder="What do you want to achieve?" autocomplete="off"
+        class="flex-1 min-w-0 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500">
+      <label for="newHorizon" class="sr-only">Goal type</label>
+      <select id="newHorizon" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"></select>
+      <button type="button" id="addBtn" class="px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm">Add goal</button>
+    </div>
+    <p class="text-xs mt-2 min-h-[1rem]" id="addMsg" role="status" aria-live="polite"></p>
+  </section>
+
+  <!-- Filter -->
+  <div class="flex flex-wrap gap-2 mb-5" id="chipRow" role="tablist" aria-label="Show goals for"></div>
+
+  <!-- Goals -->
+  <div id="sections" class="space-y-5"></div>
+  <p class="text-sm text-slate-500 text-center py-10 hidden" id="emptyAll">No goals yet. Type one above and press Enter.</p>
+
+  <!-- Backup -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mt-8">
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mr-auto">Backup</h2>
+      <span id="saveState" class="text-xs px-3 py-1.5 rounded-full border border-slate-600 text-slate-300"></span>
+      <button type="button" id="exportBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-violet-500 hover:text-violet-300">Download backup</button>
+      <button type="button" id="importBtn" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-violet-500 hover:text-violet-300">Restore from backup</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </div>
+    <p class="text-xs mt-3 min-h-[1rem]" id="backupMsg" role="status" aria-live="polite"></p>
+    <p class="text-xs text-slate-500 mt-1 leading-relaxed">Goals are stored in this browser on this device, so clearing your browser&rsquo;s site data would erase them. Download a backup now and then to be safe.</p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  const KEY = 'toolbox:goals', DRAFT_KEY = 'toolbox:goals-draft', VIEW_KEY = 'toolbox:goals-view';
+  const HORIZONS = [
+    { id: 'daily',   label: 'Daily Goals',     short: 'Daily' },
+    { id: 'weekly',  label: 'Weekly Goals',    short: 'Weekly' },
+    { id: 'monthly', label: 'Monthly Goals',   short: 'Monthly' },
+    { id: 'yearly',  label: 'Yearly Goals',    short: 'Yearly' },
+    { id: 'y2',      label: '2 Yearly Goals',  short: '2 Yearly' },
+    { id: 'y5',      label: '5 Yearly Goals',  short: '5 Yearly' },
+    { id: 'y10',     label: '10 Yearly Goals', short: '10 Yearly' },
+    { id: 'life',    label: 'Life Goals',      short: 'Life' }
+  ];
+  const HIDS = HORIZONS.map(h => h.id);
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  // <<GOALS-PURE-START>>
+  function cleanData(raw) {                       // accepts anything, returns a safe {v, goals}
+    const out = { v: 1, goals: [] };
+    const list = raw && Array.isArray(raw.goals) ? raw.goals : [];
+    const seen = {};
+    list.forEach(g => {
+      if (!g || typeof g.text !== 'string' || !g.text.trim()) return;
+      let id = typeof g.id === 'string' && g.id ? g.id : uid();
+      while (seen[id]) id += 'x';
+      seen[id] = 1;
+      out.goals.push({
+        id, text: g.text.trim().slice(0, 300),
+        h: HIDS.includes(g.h) ? g.h : 'life',
+        done: !!g.done, doneAt: g.done ? (Number(g.doneAt) || Date.now()) : null,
+        created: Number(g.created) || Date.now()
+      });
+    });
+    return out;
+  }
+  // <<GOALS-PURE-END>>
+
+  // ── storage ──
+  let storageOK = true;
+  function readStore(k) { try { return localStorage.getItem(k); } catch (e) { storageOK = false; return null; } }
+  function writeStore(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { storageOK = false; return false; } }
+  function load() {
+    let parsed = null;
+    try { parsed = JSON.parse(readStore(KEY)); } catch (e) { parsed = null; }
+    if (!parsed) { try { parsed = JSON.parse(readStore(KEY + '-backup')); } catch (e) { parsed = null; } }   // last good copy
+    return cleanData(parsed);
+  }
+  let data = load();
+  let view = HIDS.includes(readStore(VIEW_KEY)) ? readStore(VIEW_KEY) : 'all';
+  let editingId = null, confirmId = null, confirmClear = null;
+
+  function drawSaveState(ok, when) {
+    const el = $('saveState');
+    if (!storageOK || ok === false) { el.textContent = '\u26A0 Not saving: this browser is blocking storage'; el.className = 'text-xs px-3 py-1.5 rounded-full border border-amber-500/50 text-amber-300'; return; }
+    el.textContent = '\u2713 Saved on this device' + (when ? ' at ' + when : '');
+    el.className = 'text-xs px-3 py-1.5 rounded-full border border-emerald-500/50 text-emerald-300';
+  }
+  function save() {
+    const json = JSON.stringify(data);
+    const prev = readStore(KEY);
+    const ok = writeStore(KEY, json);
+    if (ok && prev) writeStore(KEY + '-backup', prev);          // keep the version before this change as a safety net
+    const d = new Date();
+    drawSaveState(ok, d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+  }
+
+  // ── helpers ──
+  const horizonOf = (id) => HORIZONS.find(h => h.id === id);
+  const inView = (g) => view === 'all' || g.h === view;
+  function ago(ts) {
+    const days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 31) return days + ' days ago';
+    return new Date(ts).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function say(el, text, warn) {
+    el.textContent = text; el.className = 'text-xs min-h-[1rem] ' + (warn ? 'text-amber-300' : 'text-emerald-300');
+    clearTimeout(el.__t); el.__t = setTimeout(() => { el.textContent = ''; }, 4500);
+  }
+
+  // ── render ──
+  function renderChips() {
+    const chips = [{ id: 'all', label: 'All', n: data.goals.length }].concat(HORIZONS.map(h => ({ id: h.id, label: h.short, n: data.goals.filter(g => g.h === h.id).length })));
+    $('chipRow').innerHTML = chips.map(c => `<button type="button" role="tab" aria-selected="${view === c.id}" data-view="${c.id}" class="chip text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50 text-slate-300 ${view === c.id ? 'active' : ''}">${c.label} <span class="opacity-60">${c.n}</span></button>`).join('');
+  }
+  function rowHTML(g) {
+    if (editingId === g.id) {
+      return `<div class="goal-row flex flex-col gap-2 bg-slate-900/60 border border-violet-500/60 rounded-lg px-3 py-3" data-id="${g.id}">
+        <input type="text" maxlength="300" value="${esc(g.text)}" class="edit-text w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-violet-500" aria-label="Edit goal">
+        <div class="flex flex-wrap items-center gap-2">
+          <select class="edit-h bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-white" aria-label="Goal type">${HORIZONS.map(h => `<option value="${h.id}" ${h.id === g.h ? 'selected' : ''}>${h.label}</option>`).join('')}</select>
+          <button type="button" class="edit-save text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold">Save</button>
+          <button type="button" class="edit-cancel text-xs px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300">Cancel</button>
+        </div></div>`;
+    }
+    const confirming = confirmId === g.id;
+    return `<div class="goal-row flex items-start gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5 ${g.done ? 'done' : ''}" data-id="${g.id}">
+      <button type="button" class="check mt-0.5" data-act="toggle" role="checkbox" aria-checked="${g.done}" aria-label="Mark done">&#10003;</button>
+      <div class="flex-1 min-w-0">
+        <p class="goal-text text-sm sm:text-base text-white break-words">${esc(g.text)}</p>
+        ${g.done && g.doneAt ? `<p class="text-xs text-slate-500 mt-0.5">Done ${ago(g.doneAt)}</p>` : ''}
+        ${confirming ? `<div class="flex flex-wrap items-center gap-2 mt-2"><span class="text-xs text-red-300">Delete this goal?</span>
+          <button type="button" data-act="del-yes" class="text-xs px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold">Delete</button>
+          <button type="button" data-act="del-no" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300">Keep</button></div>` : ''}
+      </div>
+      <div class="flex items-center flex-none">
+        <button type="button" class="icon-btn" data-act="edit" aria-label="Edit goal" title="Edit">&#9998;</button>
+        <button type="button" class="icon-btn danger" data-act="del" aria-label="Delete goal" title="Delete">&times;</button>
+      </div></div>`;
+  }
+  function sectionHTML(h) {
+    const goals = data.goals.filter(g => g.h === h.id);
+    const done = goals.filter(g => g.done).length;
+    const pct = goals.length ? Math.round(done / goals.length * 100) : 0;
+    const clearing = confirmClear === h.id;
+    return `<section class="glass rounded-2xl p-4 sm:p-5" aria-label="${h.label}">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <h2 class="text-base font-semibold text-white mr-auto">${h.label}</h2>
+        <span class="text-xs text-slate-400">${done} of ${goals.length} done</span>
+        ${done ? (clearing
+          ? `<span class="text-xs text-red-300">Remove ${done} finished?</span>
+             <button type="button" data-clear-yes="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold">Remove</button>
+             <button type="button" data-clear-no="1" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300">Keep</button>`
+          : `<button type="button" data-uncheck="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300 hover:border-violet-500">Uncheck all</button>
+             <button type="button" data-clear="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Clear finished</button>`) : ''}
+      </div>
+      <div class="bar mb-3" aria-hidden="true"><i style="width:${pct}%"></i></div>
+      <div class="space-y-2">${goals.map(rowHTML).join('')}</div>
+    </section>`;
+  }
+  function render() {
+    renderChips();
+    const list = HORIZONS.filter(h => (view === 'all' ? data.goals.some(g => g.h === h.id) : h.id === view));
+    $('sections').innerHTML = list.map(sectionHTML).join('');
+    const none = !data.goals.length;
+    const viewEmpty = view !== 'all' && !data.goals.some(inView);
+    $('emptyAll').classList.toggle('hidden', !none && !viewEmpty);
+    if (none) $('emptyAll').textContent = 'No goals yet. Type one above and press Enter.';
+    else if (viewEmpty) $('emptyAll').textContent = 'No ' + horizonOf(view).label.toLowerCase() + ' yet. Add one above.';
+    if (editingId) { const i = document.querySelector('.edit-text'); if (i && document.activeElement !== i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  }
+
+  // ── actions ──
+  function addGoal() {
+    const text = $('newText').value.trim();
+    if (!text) { say($('addMsg'), 'Type your goal first.', true); $('newText').focus(); return; }
+    const h = $('newHorizon').value;
+    data.goals.push({ id: uid(), text: text.slice(0, 300), h, done: false, doneAt: null, created: Date.now() });
+    save();
+    $('newText').value = ''; writeStore(DRAFT_KEY, '');
+    if (view !== 'all' && view !== h) { view = h; writeStore(VIEW_KEY, view); }
+    render();
+    say($('addMsg'), '\u2713 Added to ' + horizonOf(h).label + '.');
+    $('newText').focus();
+  }
+  $('addBtn').addEventListener('click', addGoal);
+  $('newText').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addGoal(); } });
+  // what you've typed but not added yet is kept too
+  $('newText').addEventListener('input', () => writeStore(DRAFT_KEY, $('newText').value));
+  $('newHorizon').addEventListener('change', () => writeStore(DRAFT_KEY + '-h', $('newHorizon').value));
+
+  $('chipRow').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view]'); if (!b) return;
+    view = b.getAttribute('data-view'); writeStore(VIEW_KEY, view);
+    if (view !== 'all') { $('newHorizon').value = view; writeStore(DRAFT_KEY + '-h', view); }
+    editingId = confirmId = confirmClear = null; render();
+  });
+
+  function finishEdit(saveIt) {
+    if (saveIt) {
+      const row = document.querySelector('.goal-row[data-id="' + editingId + '"]');
+      const g = data.goals.find(x => x.id === editingId);
+      const t = row.querySelector('.edit-text').value.trim();
+      if (!t) { row.querySelector('.edit-text').focus(); return; }
+      g.text = t.slice(0, 300); g.h = row.querySelector('.edit-h').value;
+      save();
+    }
+    editingId = null; render();
+  }
+  $('sections').addEventListener('click', (e) => {
+    const t = e.target;
+    const clearBtn = t.closest('[data-clear]'), clearYes = t.closest('[data-clear-yes]'), clearNo = t.closest('[data-clear-no]'), unc = t.closest('[data-uncheck]');
+    if (clearBtn) { confirmClear = clearBtn.getAttribute('data-clear'); return render(); }
+    if (clearNo) { confirmClear = null; return render(); }
+    if (clearYes) { const h = clearYes.getAttribute('data-clear-yes'); data.goals = data.goals.filter(g => !(g.h === h && g.done)); confirmClear = null; save(); return render(); }
+    if (unc) { const h = unc.getAttribute('data-uncheck'); data.goals.forEach(g => { if (g.h === h) { g.done = false; g.doneAt = null; } }); save(); return render(); }
+    if (t.closest('.edit-save')) return finishEdit(true);
+    if (t.closest('.edit-cancel')) return finishEdit(false);
+    const act = t.closest('[data-act]'); if (!act) return;
+    const id = act.closest('.goal-row').getAttribute('data-id'), g = data.goals.find(x => x.id === id); if (!g) return;
+    switch (act.getAttribute('data-act')) {
+      case 'toggle': g.done = !g.done; g.doneAt = g.done ? Date.now() : null; save(); break;
+      case 'edit': editingId = id; confirmId = null; break;
+      case 'del': confirmId = id; break;
+      case 'del-no': confirmId = null; break;
+      case 'del-yes': data.goals = data.goals.filter(x => x.id !== id); confirmId = null; save(); break;
+    }
+    render();
+  });
+  $('sections').addEventListener('keydown', (e) => {
+    if (!editingId || !e.target.classList.contains('edit-text')) return;
+    if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); } else if (e.key === 'Escape') finishEdit(false);
+  });
+
+  // ── backup ──
+  $('exportBtn').addEventListener('click', () => {
+    try {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'toolbox-goals-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      say($('backupMsg'), '\u2713 Backup downloaded (' + data.goals.length + ' goals).');
+    } catch (err) { say($('backupMsg'), 'Could not create the backup file in this browser.', true); }
+  });
+  $('importBtn').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', () => {
+    const f = $('importFile').files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      let parsed; try { parsed = JSON.parse(r.result); } catch (e) { return say($('backupMsg'), 'That file isn\u2019t a goals backup.', true); }
+      const incoming = cleanData(parsed);
+      if (!incoming.goals.length) return say($('backupMsg'), 'No goals found in that file.', true);
+      const have = new Set(data.goals.map(g => g.id));
+      let added = 0; incoming.goals.forEach(g => { if (!have.has(g.id)) { data.goals.push(g); added++; } });
+      save(); render();
+      say($('backupMsg'), added ? '\u2713 Restored ' + added + ' goal' + (added === 1 ? '' : 's') + ' (nothing you already have was changed).' : 'Everything in that backup is already here.');
+    };
+    r.onerror = () => say($('backupMsg'), 'Could not read that file.', true);
+    r.readAsText(f); $('importFile').value = '';
+  });
+
+  // another tab changed the goals
+  window.addEventListener('storage', (e) => { if (e.key === KEY) { data = load(); editingId = confirmId = null; render(); } });
+
+  // ── start ──
+  $('newHorizon').innerHTML = HORIZONS.map(h => `<option value="${h.id}">${h.label}</option>`).join('');
+  $('newHorizon').value = view !== 'all' ? view : (HIDS.includes(readStore(DRAFT_KEY + '-h')) ? readStore(DRAFT_KEY + '-h') : 'daily');
+  $('newText').value = readStore(DRAFT_KEY) || '';
+  if (!readStore(KEY) && data.goals.length === 0) { /* first visit: nothing saved yet */ }
+  drawSaveState(storageOK);
+  render();
+})();
+</script>
+
+<script>
+(function () {
+  const TOOL_ID = 'goal-tracker';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

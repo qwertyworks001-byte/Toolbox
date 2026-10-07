@@ -328,4 +328,14 @@ window.TOOLBOX_TOOLS = [
     color: '#a3e635',
     popular: true
   },
+  {
+    id: 'goal-tracker',
+    name: 'Goal Tracker',
+    description: 'Write down unlimited goals for today, this week, this year or your whole life. Check them off, edit them, and everything saves automatically.',
+    tags: ['goals', 'goal', 'planner', 'to do', 'todo', 'daily', 'weekly', 'monthly', 'yearly', 'life goals', 'checklist', 'plan', 'productivity', 'resolutions'],
+    categories: ['health', 'utilities'],
+    path: 'GoalTracker/goal-tracker.html',
+    color: '#a78bfa',
+    popular: false
+  },
 ];
