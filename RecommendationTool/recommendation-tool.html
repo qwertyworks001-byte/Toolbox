@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recommendation Tool — Toolbox</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../tools-data.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../toolbox-sync.js"></script>
+<link rel="stylesheet" href="../style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Public Sans', ui-sans-serif, system-ui, sans-serif; }
+  .font-display { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
+  .field { background: #0f131a; border: 1px solid rgba(255,255,255,0.1); }
+  .field:focus { outline: none; border-color: #3b82f6; }
+  .react-btn { border: 1px solid rgba(255,255,255,0.1); background: #0f131a; transition: transform .1s, border-color .15s, background .15s; }
+  .react-btn:hover { transform: translateY(-1px); border-color: #475569; }
+  .react-btn.mine { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #bfdbfe; }
+</style>
+</head>
+<body class="text-slate-200 antialiased">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+
+  <a href="../index.html" class="text-sm text-slate-500 hover:text-slate-300">&larr; Toolbox</a>
+  <header class="mt-4 mb-8">
+    <h1 class="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">💬 Recommendation Tool</h1>
+    <p class="text-slate-400 mt-2">Want a tool that doesn't exist yet? Describe it below. Everyone can see the requests and react to the ones they'd use too &mdash; the most-wanted ones get built first.</p>
+  </header>
+
+  <!-- Post form -->
+  <section class="glass rounded-xl p-5 mb-10" id="formCard">
+    <h2 class="font-display text-lg font-semibold text-white mb-4">Request a tool</h2>
+    <div id="authNote" class="hidden text-sm rounded-lg px-3 py-2 mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-200"></div>
+    <div class="space-y-4">
+      <label class="block"><span class="text-sm text-slate-300">Tool name</span>
+        <input id="fName" maxlength="80" placeholder="e.g. Tip Splitter" class="field w-full rounded-lg px-3 py-2 mt-1 text-white"></label>
+      <label class="block"><span class="text-sm text-slate-300">What does it do?</span>
+        <textarea id="fDesc" maxlength="600" rows="3" placeholder="Describe what you'd put in and what you'd get out" class="field w-full rounded-lg px-3 py-2 mt-1 text-white"></textarea></label>
+      <label class="block"><span class="text-sm text-slate-300">Why do you want it as a tool?</span>
+        <textarea id="fWhy" maxlength="600" rows="3" placeholder="What problem does it solve? What do you do today instead?" class="field w-full rounded-lg px-3 py-2 mt-1 text-white"></textarea></label>
+      <label class="block"><span class="text-sm text-slate-300">Example <span class="text-slate-500">(optional)</span></span>
+        <textarea id="fExample" maxlength="400" rows="2" placeholder="A real example, e.g. 'Bill $84.50, 4 people, 15% tip → $24.29 each'" class="field w-full rounded-lg px-3 py-2 mt-1 text-white"></textarea></label>
+      <div class="flex flex-wrap gap-4 items-end">
+        <label class="block"><span class="text-sm text-slate-300">Closest category</span>
+          <select id="fCat" class="field rounded-lg px-3 py-2 mt-1 text-white block"></select></label>
+        <label class="flex items-center gap-2 text-sm text-slate-400 pb-2"><input type="checkbox" id="fAnon" class="accent-blue-500"> Post anonymously</label>
+        <button id="postBtn" type="button" class="ml-auto font-semibold px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-white transition">Post request</button>
+      </div>
+      <p id="formMsg" class="text-sm hidden" role="status"></p>
+    </div>
+  </section>
+
+  <!-- Forum -->
+  <section>
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <h2 class="font-display text-lg font-semibold text-white mr-auto">Requests <span id="count" class="text-sm text-slate-500 font-normal"></span></h2>
+      <select id="sortSel" class="field rounded-lg px-3 py-1.5 text-sm text-white"><option value="top">Most reactions</option><option value="new">Newest</option></select>
+      <select id="statusSel" class="field rounded-lg px-3 py-1.5 text-sm text-white"><option value="all">All statuses</option></select>
+    </div>
+    <div id="list" class="space-y-4"></div>
+    <p id="emptyMsg" class="text-sm text-slate-500 text-center py-8 hidden" role="status"></p>
+  </section>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-600 text-sm text-slate-100 px-4 py-2 rounded-lg shadow-lg hidden z-[10000]"></div>
+
+<script>
+(function () {
+  const EMOJIS = ['👍', '🔥', '❤️', '💡', '🤔', '👀'];
+  const STATUS = { open: ['Open', '#64748b'], planned: ['Planned', '#3b82f6'], building: ['Building', '#f59e0b'], done: ['Built!', '#10b981'], declined: ['Not planned', '#ef4444'] };
+  const SIGNIN = '../HabitTracker/habit-tracker.html#sync';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const cats = window.TOOLBOX_CATEGORIES || [];
+  let db = null, user = null, isAdmin = false, items = [], loaded = false, loadError = false, delArm = null;
+
+  $('fCat').innerHTML = '<option value="">Not sure</option>' + cats.map(c => `<option value="${c.key}">${c.emoji} ${esc(c.label)}</option>`).join('');
+  $('statusSel').innerHTML += Object.keys(STATUS).map(k => `<option value="${k}">${STATUS[k][0]}</option>`).join('');
+
+  let toastT;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add('hidden'), 2600); }
+  function formMsg(msg, ok) { const m = $('formMsg'); m.textContent = msg; m.className = 'text-sm ' + (ok ? 'text-emerald-400' : 'text-rose-400'); }
+  const ms = (it) => (it.createdAt && it.createdAt.toMillis) ? it.createdAt.toMillis() : Date.now();
+  function ago(t) {
+    const s = Math.max(1, (Date.now() - t) / 1000);
+    if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 2592000) return Math.floor(s / 86400) + 'd ago';
+    return new Date(t).toLocaleDateString();
+  }
+  const total = (it) => Object.values(it.reacts || {}).reduce((n, a) => n + (Array.isArray(a) ? a.length : 0), 0);
+
+  function drawAuth() {
+    const n = $('authNote');
+    if (user) { n.classList.add('hidden'); return; }
+    n.classList.remove('hidden');
+    n.innerHTML = `You can read everything, but you need to be signed in to post or react. <a class="underline font-semibold" href="${SIGNIN}">Sign in</a>`;
+  }
+
+  function render() {
+    const sort = $('sortSel').value, st = $('statusSel').value;
+    let rows = items.filter(i => st === 'all' || (i.status || 'open') === st);
+    rows.sort(sort === 'new' ? (a, b) => ms(b) - ms(a) : (a, b) => total(b) - total(a) || ms(b) - ms(a));
+    $('count').textContent = loaded ? `(${rows.length})` : '';
+    const empty = $('emptyMsg');
+    if (loadError) { empty.textContent = "Couldn't load requests. If this is the first run, publish the Firestore rules from firestore-rules.txt, then refresh."; empty.classList.remove('hidden'); }
+    else if (!loaded) { empty.textContent = 'Loading…'; empty.classList.remove('hidden'); }
+    else if (!rows.length) { empty.textContent = items.length ? 'No requests with that status.' : 'No requests yet — be the first!'; empty.classList.remove('hidden'); }
+    else empty.classList.add('hidden');
+
+    $('list').innerHTML = rows.map(it => {
+      const s = STATUS[it.status] || STATUS.open, cat = cats.find(c => c.key === it.category);
+      const mine = user ? ((it.reacts || {})[user.uid] || []) : [];
+      const react = EMOJIS.map(e => {
+        const n = Object.values(it.reacts || {}).filter(a => Array.isArray(a) && a.includes(e)).length;
+        return `<button type="button" data-act="react" data-id="${it.id}" data-e="${e}" class="react-btn rounded-full px-2.5 py-1 text-sm ${mine.includes(e) ? 'mine' : ''}" aria-pressed="${mine.includes(e)}">${e}${n ? ' <span class="text-xs">' + n + '</span>' : ''}</button>`;
+      }).join('');
+      const canDel = isAdmin || (user && it.authorUid === user.uid);
+      const admin = isAdmin ? `<select data-act="status" data-id="${it.id}" class="field rounded-md px-2 py-1 text-xs text-white">${Object.keys(STATUS).map(k => `<option value="${k}" ${k === (it.status || 'open') ? 'selected' : ''}>${STATUS[k][0]}</option>`).join('')}</select>` : '';
+      const del = canDel ? `<button type="button" data-act="del" data-id="${it.id}" class="text-xs ${delArm === it.id ? 'text-rose-400 font-semibold' : 'text-slate-500 hover:text-rose-400'}">${delArm === it.id ? 'Click again to delete' : 'Delete'}</button>` : '';
+      return `<article class="glass rounded-xl p-5 border-l-[3px]" style="border-left-color:${s[1]}">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <h3 class="font-display text-lg font-semibold text-white mr-1">${esc(it.name)}</h3>
+          <span class="text-[11px] px-2 py-0.5 rounded-full border" style="color:${s[1]};border-color:${s[1]}">${s[0]}</span>
+          ${cat ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">${cat.emoji} ${esc(cat.label)}</span>` : ''}
+        </div>
+        <p class="text-xs text-slate-500 mb-3">${esc(it.authorName || 'Anonymous')} &middot; ${ago(ms(it))}</p>
+        <p class="text-sm text-slate-300 whitespace-pre-line"><span class="text-slate-500">What it does:</span> ${esc(it.description)}</p>
+        <p class="text-sm text-slate-300 whitespace-pre-line mt-2"><span class="text-slate-500">Why:</span> ${esc(it.why)}</p>
+        ${it.example ? `<p class="text-sm text-slate-300 whitespace-pre-line mt-2"><span class="text-slate-500">Example:</span> ${esc(it.example)}</p>` : ''}
+        <div class="flex flex-wrap items-center gap-2 mt-4">${react}<span class="ml-auto flex items-center gap-3">${admin}${del}</span></div>
+      </article>`;
+    }).join('');
+  }
+
+  $('list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]'); if (!b || !db) return;
+    const id = b.dataset.id, act = b.dataset.act;
+    if (act === 'react') {
+      if (!user) { toast('Sign in to react'); return; }
+      const it = items.find(i => i.id === id), cur = ((it.reacts || {})[user.uid]) || [];
+      const next = cur.includes(b.dataset.e) ? cur.filter(x => x !== b.dataset.e) : cur.concat(b.dataset.e);
+      db.collection('requests').doc(id).update({ ['reacts.' + user.uid]: next }).catch(() => toast("Couldn't save that reaction"));
+    } else if (act === 'del') {
+      if (delArm !== id) { delArm = id; render(); setTimeout(() => { if (delArm === id) { delArm = null; render(); } }, 3000); return; }
+      delArm = null; db.collection('requests').doc(id).delete().catch(() => toast("Couldn't delete that"));
+    }
+  });
+  $('list').addEventListener('change', (e) => {
+    if (e.target.dataset.act === 'status') db.collection('requests').doc(e.target.dataset.id).update({ status: e.target.value }).catch(() => toast("Couldn't change status"));
+  });
+  $('sortSel').addEventListener('change', render);
+  $('statusSel').addEventListener('change', render);
+
+  $('postBtn').addEventListener('click', async () => {
+    if (!db) { formMsg('Still connecting — try again in a moment.'); return; }
+    if (!user) { formMsg('Please sign in first.'); return; }
+    const name = $('fName').value.trim(), description = $('fDesc').value.trim(), why = $('fWhy').value.trim();
+    if (!name || !description || !why) { formMsg('Tool name, what it does, and why are all required.'); return; }
+    const who = $('fAnon').checked ? 'Anonymous' : ((user.displayName || (user.email || '').split('@')[0] || 'Toolbox user').split(' ')[0]);
+    $('postBtn').disabled = true;
+    try {
+      await db.collection('requests').add({
+        name, description, why, example: $('fExample').value.trim(), category: $('fCat').value,
+        authorUid: user.uid, authorName: who, status: 'open', reacts: {},
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      ['fName', 'fDesc', 'fWhy', 'fExample'].forEach(i => $(i).value = '');
+      formMsg('Posted — thanks! 🎉', true);
+    } catch (e) { formMsg("Couldn't post. Check your connection and that the Firestore rules are published."); }
+    $('postBtn').disabled = false;
+  });
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+    db = firebase.firestore();
+    firebase.auth().onAuthStateChanged(async (u) => {
+      user = u; isAdmin = false; drawAuth(); render();
+      if (u) { try { isAdmin = (await db.doc('admins/' + u.uid).get()).exists; } catch (e) {} render(); }
+    });
+    db.collection('requests').orderBy('createdAt', 'desc').limit(200).onSnapshot(
+      (snap) => { items = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); loaded = true; loadError = false; render(); },
+      () => { loadError = true; render(); });
+  } catch (e) { loadError = true; }
+  drawAuth(); render();
+  setInterval(render, 60000);
+})();
+</script>
+</body>
+</html>

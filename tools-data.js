@@ -101,7 +101,7 @@ window.TOOLBOX_TOOLS = [
     id: 'color-converter',
     name: 'Color Converter & Palette',
     description: 'Convert HEX/RGB/HSL/HSV and generate color palettes.',
-    tags: ['color', 'colour', 'hex', 'rgb', 'hsl', 'hsv', 'palette', 'picker', 'shades', 'css', 'converter', 'design'],
+    tags: ['color', 'colour', 'hex', 'rgb', 'hsl', 'hsv', 'palette', 'picker', 'shades', 'css', 'converter', 'rgb to hex', 'paste color', 'design'],
     categories: ['design'],
     path: 'ColorConverter/color-converter.html',
     color: '#f43f5e',
@@ -336,6 +336,16 @@ window.TOOLBOX_TOOLS = [
     categories: ['health', 'utilities'],
     path: 'GoalTracker/goal-tracker.html',
     color: '#a78bfa',
+    popular: false
+  },
+  {
+    id: 'recommendation-tool',
+    name: 'Recommendation Tool',
+    description: 'Request a new tool and see what others have asked for. React to the ideas you want built; the most-wanted get built first.',
+    tags: ['recommend', 'recommendation', 'request', 'suggest', 'suggestion', 'idea', 'feedback', 'forum', 'new tool', 'vote', 'wishlist', 'community'],
+    categories: ['utilities'],
+    path: 'RecommendationTool/recommendation-tool.html',
+    color: '#38bdf8',
     popular: false
   },
 ];

@@ -14,6 +14,13 @@
   input[type="color"]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,0.15); border-radius: 0.75rem; }
   .swatch { transition: transform 0.1s ease; }
   .swatch:hover { transform: scale(1.05); }
+  .toast { position: fixed; left: 50%; bottom: max(1.25rem, env(safe-area-inset-bottom)); transform: translate(-50%, 16px); opacity: 0; pointer-events: none; z-index: 50;
+    display: flex; align-items: center; gap: .6rem; padding: .65rem 1rem; border-radius: 999px; background: rgba(15,23,42,.96); border: 1px solid #475569; color: #f1f5f9;
+    font-size: .875rem; box-shadow: 0 8px 24px rgba(0,0,0,.45); transition: opacity .2s ease, transform .2s ease; max-width: calc(100vw - 2rem); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast .dot { width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); flex: none; }
+  .toast.bad { border-color: #f59e0b; color: #fde68a; }
+  .fmt-text.bad { border-color: #f59e0b; }
   </style>
 </head>
 <body class="text-slate-200 font-sans antialiased">
@@ -51,6 +58,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div>
         <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">RGB</p>
+        <input type="text" id="rgbText" placeholder="rgb(255, 100, 50)" aria-label="RGB value (paste here)" class="fmt-text w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" autocomplete="off" spellcheck="false">
         <div class="flex gap-1.5 mb-2">
           <input type="number" id="rInput" min="0" max="255" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <input type="number" id="gInput" min="0" max="255" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -60,6 +68,7 @@
       </div>
       <div>
         <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">HSL</p>
+        <input type="text" id="hslText" placeholder="hsl(15, 100%, 60%)" aria-label="HSL value (paste here)" class="fmt-text w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" autocomplete="off" spellcheck="false">
         <div class="flex gap-1.5 mb-2">
           <input type="number" id="hInput" min="0" max="360" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <input type="number" id="sInput" min="0" max="100" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -69,6 +78,7 @@
       </div>
       <div>
         <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">HSV</p>
+        <input type="text" id="hsvText" placeholder="hsv(15, 80%, 100%)" aria-label="HSV value (paste here)" class="fmt-text w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" autocomplete="off" spellcheck="false">
         <div class="flex gap-1.5 mb-2">
           <input type="number" id="hsvHInput" min="0" max="360" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <input type="number" id="hsvSInput" min="0" max="100" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -77,6 +87,8 @@
         <button type="button" class="copy-btn text-xs w-full px-2 py-1 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400" data-copy-format="hsv">Copy hsv()</button>
       </div>
     </div>
+    <p class="text-xs text-slate-500 mt-4 leading-relaxed">Paste a colour into any box on this page &mdash; HEX, <code>rgb()</code>, <code>hsl()</code>, <code>hsv()</code>, plain numbers like <code>255, 100, 50</code>, or a colour name like <code>tomato</code> &mdash; and every other format updates.</p>
+    <p class="text-xs min-h-[1rem] mt-1" id="pasteMsg" role="status" aria-live="polite"></p>
   </div>
 
   <div class="glass rounded-2xl p-6">
@@ -86,6 +98,8 @@
   </div>
 
 </div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 (function () {
@@ -102,6 +116,11 @@
   const hsvSInput = document.getElementById('hsvSInput');
   const hsvVInput = document.getElementById('hsvVInput');
   const paletteContainer = document.getElementById('paletteContainer');
+  const rgbText = document.getElementById('rgbText');
+  const hslText = document.getElementById('hslText');
+  const hsvText = document.getElementById('hsvText');
+  const pasteMsg = document.getElementById('pasteMsg');
+  const toast = document.getElementById('toast');
 
   // ── Conversions (all operate on 0-255 RGB internally) ────
   function normalizeHex(hex) {
@@ -181,10 +200,105 @@
   }
   // ──────────────────────────────────────────────────────────
 
+  // <<COLOR-PARSE-START>>
+  // Reads a colour written almost any way people copy them. Returns { r, g, b, fmt } (0-255) or null.
+  // hint = which box it was pasted into, so bare numbers like "10, 20, 30" mean that box's format.
+  // loose = also accept bare hex ("FF6432") and colour names; off while typing so half-typed text doesn't flicker.
+  const NUMRE = '[-+]?(?:\\d+\\.?\\d*|\\.\\d+)';
+  function numTok(tok) {
+    const m = String(tok).trim().match(/^([-+]?(?:\d+\.?\d*|\.\d+))(%|deg|grad|rad|turn)?$/i);
+    return m ? { v: parseFloat(m[1]), u: (m[2] || '').toLowerCase() } : null;
+  }
+  function hueDeg(t) {
+    let h = t.v;
+    if (t.u === 'turn') h *= 360; else if (t.u === 'rad') h = h * 180 / Math.PI; else if (t.u === 'grad') h *= 0.9;
+    return ((h % 360) + 360) % 360;
+  }
+  function fromParts(kind, a, b, c) {
+    if (!a || !b || !c) return null;
+    if (kind === 'rgb') { const f = t => Math.round(clamp(t.u === '%' ? t.v * 2.55 : t.v, 0, 255)); return { r: f(a), g: f(b), b: f(c), fmt: 'RGB' }; }
+    const h = hueDeg(a), sat = clamp(b.v, 0, 100), x = clamp(c.v, 0, 100);
+    return Object.assign(kind === 'hsl' ? hslToRgb(h, sat, x) : hsvToRgb(h, sat, x), { fmt: kind.toUpperCase() });
+  }
+  function cssNamed(t) {
+    if (typeof document === 'undefined' || !/^[a-z]{3,20}$/i.test(t) || /^(inherit|initial|unset|revert|currentcolor|transparent)$/i.test(t)) return null;
+    const el = document.createElement('span'); el.style.color = t.toLowerCase();
+    if (!el.style.color) return null;
+    document.body.appendChild(el); const c = getComputedStyle(el).color; el.remove();
+    const m = c.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    return m ? { r: +m[1], g: +m[2], b: +m[3], fmt: 'colour name' } : null;
+  }
+  function parseColor(text, hint, loose) {
+    let t = String(text == null ? '' : text).trim().replace(/;+$/, '').trim();
+    if (!t) return null;
+    // "R: 255 G: 100 B: 50" / "Hue 14 Saturation 100 Lightness 60" (design-tool style)
+    let m = t.match(new RegExp('^\\W*r(?:ed)?\\W*(' + NUMRE + ')\\W+g(?:reen)?\\W*(' + NUMRE + ')\\W+b(?:lue)?\\W*(' + NUMRE + ')\\W*$', 'i'));
+    if (m) return fromParts('rgb', numTok(m[1]), numTok(m[2]), numTok(m[3]));
+    m = t.match(new RegExp('^\\W*h(?:ue)?\\W*(' + NUMRE + ')\\W+s(?:at(?:uration)?)?\\W*(' + NUMRE + ')\\W+l(?:ightness)?\\W*(' + NUMRE + ')\\W*$', 'i'));
+    if (m) return fromParts('hsl', numTok(m[1]), numTok(m[2]), numTok(m[3]));
+    m = t.match(new RegExp('^\\W*h(?:ue)?\\W*(' + NUMRE + ')\\W+s(?:at(?:uration)?)?\\W*(' + NUMRE + ')\\W+(?:v(?:alue)?|b(?:rightness)?)\\W*(' + NUMRE + ')\\W*$', 'i'));
+    if (m) return fromParts('hsv', numTok(m[1]), numTok(m[2]), numTok(m[3]));
+    t = t.replace(/^[a-z-]{3,}\s*:\s*(?=#|(?:rgb|hsl|hsv|hsb)a?\s*\()/i, '');             // "color: rgb(...)" -> "rgb(...)"
+    // functions: rgb(...) rgba(...) hsl(...) hsv(...) hsb(...), commas or spaces, optional "/ alpha"
+    m = t.match(/^(rgb|hsl|hsv|hsb)a?\s*\(\s*([^)]*)\)$/i);
+    if (m) {
+      const kind = m[1].toLowerCase() === 'hsb' ? 'hsv' : m[1].toLowerCase();
+      const toks = m[2].split(/[\s,\/]+/).filter(Boolean).map(numTok);
+      return toks.length >= 3 ? fromParts(kind, toks[0], toks[1], toks[2]) : null;
+    }
+    // #hex (3, 4, 6 or 8 digits; alpha is dropped)
+    m = t.match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (m) {
+      let h = m[1]; if (h.length <= 4) h = h.split('').map(c => c + c).join('');
+      const n = parseInt(h.slice(0, 6), 16); return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, fmt: 'HEX' };
+    }
+    // bare numbers: "255, 100, 50" / "[255 100 50]" / "rgb 255 100 50"
+    const lead = t.match(/^(rgb|hsl|hsv|hsb)a?\b[\s:=]*/i);
+    let rest = lead ? t.slice(lead[0].length) : t;
+    rest = rest.replace(/^[\[(]\s*/, '').replace(/\s*[\])]$/, '');
+    const toks = rest.split(/[\s,;|\/]+/).filter(Boolean);
+    if (toks.length >= 3 && toks.length <= 4 && toks.every(x => numTok(x))) {
+      let kind = lead ? lead[1].toLowerCase() : (hint === 'hsl' || hint === 'hsv' ? hint : 'rgb');
+      if (kind === 'hsb') kind = 'hsv';
+      return fromParts(kind, numTok(toks[0]), numTok(toks[1]), numTok(toks[2]));
+    }
+    if (loose) {
+      m = t.match(/^(?:0x)?([0-9a-f]{3}|[0-9a-f]{6})$/i);                                   // FF6432 with no #
+      if (m) return parseColor('#' + m[1]);
+      return cssNamed(t);
+    }
+    return null;
+  }
+  // <<COLOR-PARSE-END>>
+
+  const rgbStr = (c) => `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+  const hslStr = (v) => `hsl(${v.h}, ${v.s}%, ${v.l}%)`;
+  const hsvStr = (v) => `hsv(${v.h}, ${v.s}%, ${v.v}%)`;
+
+  // Copy to clipboard (falls back to the old method where the modern one isn't allowed). Resolves true/false.
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+    try {
+      const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+  let toastTimer = null;
+  function showToast(text, hex, bad) {                      // the little popup at the bottom of the screen
+    toast.innerHTML = (hex ? '<span class="dot" style="background:' + hex + '"></span>' : '') + '<span></span>';
+    toast.lastChild.textContent = text;
+    toast.classList.toggle('bad', !!bad); toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), bad ? 2600 : 1800);
+  }
+  let msgTimer = null;
+  function say(text) { pasteMsg.textContent = text; pasteMsg.className = 'text-xs min-h-[1rem] mt-1 text-emerald-300'; clearTimeout(msgTimer); msgTimer = setTimeout(() => { pasteMsg.textContent = ''; }, 4500); }
+
   let current = { r: 255, g: 100, b: 50 }; // canonical state
 
   function setFromRgb(rgb, skip) {
-    current = rgb;
+    current = { r: rgb.r, g: rgb.g, b: rgb.b };
+    rgb = current;
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
     const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
@@ -195,8 +309,50 @@
     if (skip !== 'hsl') { hInput.value = hsl.h; sInput.value = hsl.s; lInput.value = hsl.l; }
     if (skip !== 'hsv') { hsvHInput.value = hsv.h; hsvSInput.value = hsv.s; hsvVInput.value = hsv.v; }
 
+    if (skip !== 'rgbText') { rgbText.value = rgbStr(rgb); rgbText.classList.remove('bad'); }
+    if (skip !== 'hslText') { hslText.value = hslStr(hsl); hslText.classList.remove('bad'); }
+    if (skip !== 'hsvText') { hsvText.value = hsvStr(hsv); hsvText.classList.remove('bad'); }
+
     renderPalette(hsl);
   }
+
+  // ── Paste / type a whole colour into any box ──
+  // Pasting reads the text in any format and updates every box. Typing in a text box updates the others live.
+  function applyPasted(text, hint) {
+    const c = parseColor(text, hint, true);
+    if (!c) return false;
+    setFromRgb(c);
+    say('\u2713 Read as ' + c.fmt + ' \u2014 all formats updated.');
+    return true;
+  }
+  [[hexInput, 'hex'], [rgbText, 'rgb'], [hslText, 'hsl'], [hsvText, 'hsv']].forEach(([el, hint]) => {
+    el.addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (applyPasted(text, hint)) e.preventDefault();
+      else if (el !== hexInput) { el.classList.add('bad'); say('Couldn\u2019t read that as a colour.'); pasteMsg.className = 'text-xs min-h-[1rem] mt-1 text-amber-300'; }
+    });
+  });
+  [[rgbText, 'rgb'], [hslText, 'hsl'], [hsvText, 'hsv']].forEach(([el, hint]) => {
+    el.addEventListener('input', () => {
+      const c = parseColor(el.value, hint, false);
+      el.classList.toggle('bad', !c && el.value.trim() !== '');
+      if (c) setFromRgb(c, hint + 'Text');
+    });
+    el.addEventListener('blur', () => {                              // tidy this box back to the real value (doesn't redraw the palette)
+      el.value = hint === 'rgb' ? rgbStr(current) : hint === 'hsl' ? hslStr(rgbToHsl(current.r, current.g, current.b)) : hsvStr(rgbToHsv(current.r, current.g, current.b));
+      el.classList.remove('bad');
+    });
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const c = parseColor(el.value, hint, true); if (c) setFromRgb(c); else el.classList.add('bad'); } });
+  });
+  // The three little number boxes: pasting "255, 100, 50" (or rgb(...), a hex...) into any of them fills the lot.
+  [['rInput', 'gInput', 'bInput', 'rgb'], ['hInput', 'sInput', 'lInput', 'hsl'], ['hsvHInput', 'hsvSInput', 'hsvVInput', 'hsv']].forEach(ids => {
+    const hint = ids[3];
+    ids.slice(0, 3).forEach(id => document.getElementById(id).addEventListener('paste', (e) => {
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (/^\s*[-+]?(\d+\.?\d*|\.\d+)\s*$/.test(text)) return;       // a single number: normal paste
+      if (applyPasted(text, hint)) e.preventDefault();
+    }));
+  });
 
   hexInput.addEventListener('input', () => {
     const rgb = hexToRgb(hexInput.value);
@@ -231,16 +387,14 @@
     btn.addEventListener('click', async () => {
       let text;
       if (btn.dataset.copyTarget) text = document.getElementById(btn.dataset.copyTarget).value;
-      else if (btn.dataset.copyFormat === 'rgb') text = `rgb(${rInput.value}, ${gInput.value}, ${bInput.value})`;
-      else if (btn.dataset.copyFormat === 'hsl') text = `hsl(${hInput.value}, ${sInput.value}%, ${lInput.value}%)`;
-      else if (btn.dataset.copyFormat === 'hsv') text = `hsv(${hsvHInput.value}, ${hsvSInput.value}%, ${hsvVInput.value}%)`;
+      else if (btn.dataset.copyFormat === 'rgb') text = rgbStr(current);
+      else if (btn.dataset.copyFormat === 'hsl') text = hslStr(rgbToHsl(current.r, current.g, current.b));
+      else if (btn.dataset.copyFormat === 'hsv') text = hsvStr(rgbToHsv(current.r, current.g, current.b));
       if (!text) return;
-      try {
-        await navigator.clipboard.writeText(text);
-        const original = btn.textContent;
-        btn.textContent = '\u2713 Copied';
-        setTimeout(() => { btn.textContent = original; }, 1200);
-      } catch (e) {}
+      const original = btn.dataset.label || (btn.dataset.label = btn.textContent);
+      const ok = await copyText(text);
+      btn.textContent = ok ? '\u2713 Copied' : 'Copy blocked';
+      setTimeout(() => { btn.textContent = original; }, 1200);
     });
   });
 
@@ -275,12 +429,14 @@
       paletteGroup('Monochromatic', monochromatic)
     ].join('');
 
-    paletteContainer.querySelectorAll('[data-swatch-copy]').forEach(sw => {
-      sw.addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(sw.getAttribute('data-swatch-copy')); } catch (e) {}
-      });
-    });
   }
+  // one listener for every swatch (the palette is redrawn whenever the colour changes)
+  paletteContainer.addEventListener('click', async (e) => {
+    const sw = e.target.closest('[data-swatch-copy]'); if (!sw) return;
+    const hex = sw.getAttribute('data-swatch-copy');
+    const ok = await copyText(hex);
+    showToast(ok ? 'Copied ' + hex : 'Couldn\u2019t copy \u2014 your browser blocked it', ok ? hex : null, !ok);
+  });
 
   setFromRgb(current);
 })();
