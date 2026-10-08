@@ -24,12 +24,16 @@
   .react-btn { border: 1px solid rgba(255,255,255,0.1); background: #0f131a; transition: transform .1s, border-color .15s, background .15s; }
   .react-btn:hover { transform: translateY(-1px); border-color: #475569; }
   .react-btn.mine { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #bfdbfe; }
+  #toolbox-sync-badge { position: static !important; display: inline-block; }
 </style>
 </head>
 <body class="text-slate-200 antialiased">
 <div class="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
 
-  <a href="../index.html" class="text-sm text-slate-500 hover:text-slate-300">&larr; Toolbox</a>
+  <div class="flex items-center justify-between gap-2">
+    <a href="../index.html" class="text-sm text-slate-500 hover:text-slate-300">&larr; Toolbox</a>
+    <div class="flex items-center gap-2"><span id="syncSlot"></span><button type="button" id="favToggle" style="background:none;border:0;font-size:1.3rem;cursor:pointer;color:#475569" aria-label="Add to favorites" aria-pressed="false">&#9734;</button></div>
+  </div>
   <header class="mt-4 mb-8">
     <h1 class="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">💬 Recommendation Tool</h1>
     <p class="text-slate-400 mt-2">Want a tool that doesn't exist yet? Describe it below. Everyone can see the requests and react to the ones they'd use too &mdash; the most-wanted ones get built first.</p>
@@ -55,6 +59,7 @@
         <button id="postBtn" type="button" class="ml-auto font-semibold px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-white transition">Post request</button>
       </div>
       <p id="formMsg" class="text-sm hidden" role="status"></p>
+      <p id="rateNote" class="text-xs text-slate-500 hidden"></p>
     </div>
   </section>
 
@@ -81,6 +86,26 @@
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const cats = window.TOOLBOX_CATEGORIES || [];
   let db = null, user = null, isAdmin = false, items = [], loaded = false, loadError = false, delArm = null;
+
+  // Post limit: 20 per rolling-from-your-first-post hour. The real enforcement is in the Firestore rules (a counter document per
+  // person that every post must bump); this just reads it so the page can show how many posts are left.
+  const LIMIT = 20, HOUR = 3600000;
+  let rate = null;
+  const winEnd = () => (rate && rate.windowStart && rate.windowStart.toMillis) ? rate.windowStart.toMillis() + HOUR : 0;
+  const windowLive = () => Date.now() < winEnd();
+  const postsLeft = () => windowLive() ? Math.max(0, LIMIT - (rate.count || 0)) : LIMIT;
+  const nextSlot = () => new Date(winEnd()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  function drawRate() {
+    const n = $('rateNote');
+    if (!user) { n.classList.add('hidden'); return; }
+    n.classList.remove('hidden');
+    n.textContent = postsLeft() > 0 ? postsLeft() + ' of ' + LIMIT + ' posts left this hour' : 'Post limit reached. You can post again at ' + nextSlot() + '.';
+  }
+  async function loadRate() {
+    if (!db || !user) { rate = null; drawRate(); return; }
+    try { const s = await db.doc('rateLimits/' + user.uid).get(); rate = s.exists ? s.data() : null; } catch (e) { rate = null; }
+    drawRate();
+  }
 
   $('fCat').innerHTML = '<option value="">Not sure</option>' + cats.map(c => `<option value="${c.key}">${c.emoji} ${esc(c.label)}</option>`).join('');
   $('statusSel').innerHTML += Object.keys(STATUS).map(k => `<option value="${k}">${STATUS[k][0]}</option>`).join('');
@@ -168,14 +193,26 @@
     const who = $('fAnon').checked ? 'Anonymous' : ((user.displayName || (user.email || '').split('@')[0] || 'Toolbox user').split(' ')[0]);
     $('postBtn').disabled = true;
     try {
-      await db.collection('requests').add({
+      await loadRate();
+      if (postsLeft() <= 0) { formMsg('You\u2019ve reached the limit of ' + LIMIT + ' posts per hour. You can post again at ' + nextSlot() + '.'); $('postBtn').disabled = false; return; }
+      const ref = db.collection('requests').doc(), ts = firebase.firestore.FieldValue.serverTimestamp(), batch = db.batch();
+      batch.set(ref, {
         name, description, why, example: $('fExample').value.trim(), category: $('fCat').value,
-        authorUid: user.uid, authorName: who, status: 'open', reacts: {},
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        authorUid: user.uid, authorName: who, status: 'open', reacts: {}, createdAt: ts
       });
+      batch.set(db.doc('rateLimits/' + user.uid), windowLive()
+        ? { windowStart: rate.windowStart, count: (rate.count || 0) + 1, lastPost: ref.id }
+        : { windowStart: ts, count: 1, lastPost: ref.id });
+      await batch.commit();
       ['fName', 'fDesc', 'fWhy', 'fExample'].forEach(i => $(i).value = '');
-      formMsg('Posted — thanks! 🎉', true);
-    } catch (e) { formMsg("Couldn't post. Check your connection and that the Firestore rules are published."); }
+      formMsg('Posted \u2014 thanks! \uD83C\uDF89', true);
+      await loadRate();
+    } catch (e) {
+      formMsg(e && e.code === 'permission-denied'
+        ? 'That post was blocked. You may have reached the limit of ' + LIMIT + ' posts per hour, or the new Firestore rules haven\u2019t been published yet.'
+        : 'Couldn\u2019t post. Check your connection and try again.');
+      loadRate();
+    }
     $('postBtn').disabled = false;
   });
 
@@ -183,7 +220,7 @@
     if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
     db = firebase.firestore();
     firebase.auth().onAuthStateChanged(async (u) => {
-      user = u; isAdmin = false; drawAuth(); render();
+      user = u; isAdmin = false; rate = null; drawAuth(); render(); loadRate();
       if (u) { try { isAdmin = (await db.doc('admins/' + u.uid).get()).exists; } catch (e) {} render(); }
     });
     db.collection('requests').orderBy('createdAt', 'desc').limit(200).onSnapshot(
@@ -192,6 +229,35 @@
   } catch (e) { loadError = true; }
   drawAuth(); render();
   setInterval(render, 60000);
+})();
+</script>
+<script>
+(function () {
+  // Favourite star (same behaviour as the other tools)
+  const TOOL_ID = 'recommendation-tool', KEY = 'toolbox:favorites', btn = document.getElementById('favToggle');
+  const get = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  function draw() {
+    const f = get().includes(TOOL_ID);
+    btn.innerHTML = f ? '&#9733;' : '&#9734;'; btn.style.color = f ? '#fbbf24' : '#475569';
+    btn.setAttribute('aria-pressed', f); btn.setAttribute('aria-label', f ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = get(), i = favs.indexOf(TOOL_ID);
+    if (i === -1) favs.push(TOOL_ID); else favs.splice(i, 1);
+    try { localStorage.setItem(KEY, JSON.stringify(favs)); } catch (e) {}
+    draw();
+  });
+  window.addEventListener('toolbox:synced', draw);
+  draw();
+
+  // Move the "Sign in to sync" badge (created by toolbox-sync.js) into the header row
+  function dock() {
+    const b = document.getElementById('toolbox-sync-badge'), slot = document.getElementById('syncSlot');
+    if (!b || !slot) return false;
+    if (b.parentNode !== slot) slot.appendChild(b);
+    return true;
+  }
+  if (!dock()) new MutationObserver((m, o) => { if (dock()) o.disconnect(); }).observe(document.body, { childList: true });
 })();
 </script>
 </body>

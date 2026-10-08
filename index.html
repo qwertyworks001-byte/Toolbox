@@ -73,6 +73,13 @@
     outline-offset: 2px;
   }
 
+  .drag-handle { touch-action: none; cursor: grab; color: #64748b; font-size: 1.3rem; line-height: 1; min-width: 2rem; height: 2rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.5rem; }
+  .drag-handle:hover, .drag-handle:focus-visible { color: var(--accent-2); background: rgba(255,255,255,0.06); }
+  .reorderable { cursor: grab; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .drag-origin { opacity: 0.3; outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .drag-ghost { position: fixed !important; margin: 0 !important; pointer-events: none; z-index: 1000; transform: scale(1.045) rotate(1.2deg); box-shadow: 0 20px 45px rgba(0,0,0,0.6); border-color: var(--accent); opacity: 0.97; transition: none; }
+  .drag-ghost.dropping { transform: none; box-shadow: none; transition: left 0.18s ease, top 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease; }
+  body.is-dragging, body.is-dragging * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
   .fav-btn { transition: transform 0.15s ease, color 0.15s ease; }
   .fav-btn:hover { transform: scale(1.15); }
 </style>
@@ -111,7 +118,7 @@
 
   <!-- Favorites -->
   <section class="mb-10 hidden" id="favoritesSection">
-    <h2 class="font-display text-lg font-semibold text-white mb-3">&#11088; Favorites</h2>
+    <h2 class="font-display text-lg font-semibold text-white mb-3">&#11088; Favorites <span class="text-xs font-normal text-slate-500 ml-1">drag a card to reorder (on touch, press and hold)</span></h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="favoritesGrid"></div>
   </section>
 
@@ -227,7 +234,7 @@
     return raw.filter(t => words.some(w => norm(t).includes(w))).slice(0, 4);
   }
 
-  function cardHTML(tool) {
+  function cardHTML(tool, reorder) {
     const fav = isFavorite(tool.id);
     const tags = query ? matchedTags(tool, query) : [];
     const tagRow = tags.length
@@ -238,7 +245,8 @@
         <button type="button" class="fav-btn absolute top-3 right-3 text-lg ${fav ? 'text-amber-400' : 'text-slate-600'}" data-fav-toggle="${tool.id}" aria-label="${fav ? 'Remove from favorites' : 'Add to favorites'}" aria-pressed="${fav}">
           ${fav ? '★' : '☆'}
         </button>
-        <h3 class="font-display text-base font-semibold text-white pr-6">${tool.name}</h3>
+        ${reorder ? `<button type="button" class="drag-handle absolute top-2 right-9" data-drag-handle="${tool.id}" aria-label="Reorder ${esc(tool.name)}: drag it, or use the arrow keys" title="Drag to reorder (or use the arrow keys)">&#10303;</button>` : ''}
+        <h3 class="font-display text-base font-semibold text-white ${reorder ? 'pr-20' : 'pr-6'}">${tool.name}</h3>
         <p class="text-sm text-slate-400 leading-relaxed">${tool.description}</p>
         ${tagRow}
       </a>
@@ -256,6 +264,127 @@
     });
     container.querySelectorAll('a[data-tool-id]').forEach(a => {
       a.addEventListener('click', () => pushRecent(a.getAttribute('data-tool-id')));
+    });
+  }
+
+  // ── Reordering favorites ──
+  // Mouse: drag a card from anywhere. Touch: press and hold a card for a moment (so scrolling still works), or grab its
+  // handle to start right away. Keyboard: focus a handle and use the arrow keys (Home / End jump to the ends).
+  let reordering = false, pendingRender = false;
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function saveOrder(container) {
+    const ids = [...container.querySelectorAll(':scope > a[data-tool-id]')].map(a => a.getAttribute('data-tool-id'));
+    setFavorites(ids.concat(getFavorites().filter(id => !ids.includes(id))));
+  }
+  function announce(msg) {
+    let live = document.getElementById('orderLive');
+    if (!live) { live = document.createElement('div'); live.id = 'orderLive'; live.className = 'sr-only'; live.setAttribute('aria-live', 'polite'); document.body.appendChild(live); }
+    live.textContent = msg;
+  }
+  function enableReorder(container) {
+    const cardsOf = () => [...container.querySelectorAll(':scope > a[data-tool-id]')];
+
+    // Move one card and slide every other card smoothly into its new place.
+    function flip(card, change) {
+      const before = new Map(cardsOf().map(c => [c, c.getBoundingClientRect()]));
+      change();
+      if (reduceMotion) return;
+      cardsOf().forEach(c => {
+        if (c === card) return;
+        const a = c.getBoundingClientRect(), b = before.get(c), dx = b.left - a.left, dy = b.top - a.top;
+        if (!dx && !dy) return;
+        c.style.transition = 'none'; c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        void c.offsetWidth;
+        c.style.transition = 'transform 0.18s ease'; c.style.transform = '';
+        c.__anim = true; clearTimeout(c.__t); c.__t = setTimeout(() => { c.style.transition = ''; c.__anim = false; }, 200);
+      });
+    }
+
+    function startDrag(card, p0) {
+      reordering = true; card.__pressing = true;
+      const r = card.getBoundingClientRect(), off = { x: p0.clientX - r.left, y: p0.clientY - r.top };
+      const ghost = card.cloneNode(true);
+      ghost.removeAttribute('href'); ghost.removeAttribute('data-tool-id'); ghost.classList.add('drag-ghost');
+      ghost.style.cssText = 'position:fixed;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;';
+      document.body.appendChild(ghost);
+      card.classList.add('drag-origin'); document.body.classList.add('is-dragging');
+      try { const sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); } catch (e) {}
+      try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+      let pt = { x: p0.clientX, y: p0.clientY }, raf = 0, done = false;
+      const onMove = (ev) => { pt = { x: ev.clientX, y: ev.clientY }; };
+      const block = (ev) => { ev.preventDefault(); };
+      const tick = () => {
+        if (done) return;
+        ghost.style.left = (pt.x - off.x) + 'px'; ghost.style.top = (pt.y - off.y) + 'px';
+        const edge = 90;
+        if (pt.y < edge) window.scrollBy(0, -Math.ceil((edge - pt.y) / 5));
+        else if (pt.y > window.innerHeight - edge) window.scrollBy(0, Math.ceil((pt.y - (window.innerHeight - edge)) / 5));
+        const kids = cardsOf();
+        const target = kids.find(c => {
+          if (c === card || c.__anim) return false;
+          const b = c.getBoundingClientRect();
+          return pt.x >= b.left && pt.x <= b.right && pt.y >= b.top && pt.y <= b.bottom;
+        });
+        if (target) flip(card, () => container.insertBefore(card, kids.indexOf(target) < kids.indexOf(card) ? target : target.nextSibling));
+        raf = requestAnimationFrame(tick);
+      };
+      const end = () => {
+        if (done) return; done = true; cancelAnimationFrame(raf);
+        window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+        document.removeEventListener('touchmove', block);
+        const stop = (ev) => { ev.preventDefault(); ev.stopPropagation(); };      // dropping must not open the tool
+        window.addEventListener('click', stop, true); setTimeout(() => window.removeEventListener('click', stop, true), 80);
+        const b = card.getBoundingClientRect();
+        ghost.classList.add('dropping'); ghost.style.left = b.left + 'px'; ghost.style.top = b.top + 'px';
+        setTimeout(() => {
+          ghost.remove(); card.classList.remove('drag-origin'); document.body.classList.remove('is-dragging');
+          const ids = cardsOf().map(c => c.getAttribute('data-tool-id')), tool = toolById(card.getAttribute('data-tool-id'));
+          saveOrder(container); reordering = false; pendingRender = false; render();
+          if (tool) announce(tool.name + ' moved to position ' + (ids.indexOf(tool.id) + 1) + ' of ' + ids.length);
+          setTimeout(() => { card.__pressing = false; }, 400);
+        }, reduceMotion ? 0 : 200);
+      };
+      window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+      document.addEventListener('touchmove', block, { passive: false });
+      raf = requestAnimationFrame(tick);
+    }
+
+    cardsOf().forEach(card => {
+      const handle = card.querySelector('[data-drag-handle]'), id = card.getAttribute('data-tool-id');
+      card.classList.add('reorderable');
+      card.addEventListener('dragstart', (e) => e.preventDefault());                       // no native link-dragging
+      card.addEventListener('contextmenu', (e) => { if (card.__pressing) e.preventDefault(); });   // long-press menu on phones
+      if (handle) handle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+
+      card.addEventListener('pointerdown', (e) => {
+        if (reordering || e.button > 0 || e.target.closest('[data-fav-toggle]')) return;
+        const touch = e.pointerType === 'touch', sx = e.clientX, sy = e.clientY;
+        let lx = sx, ly = sy, timer = 0;
+        const cleanup = () => { clearTimeout(timer); card.__pressing = false; window.removeEventListener('pointermove', check); window.removeEventListener('pointerup', cleanup); window.removeEventListener('pointercancel', cleanup); };
+        const begin = (p) => { cleanup(); startDrag(card, p); };
+        function check(ev) {
+          lx = ev.clientX; ly = ev.clientY;
+          const d = Math.hypot(lx - sx, ly - sy);
+          if (touch) { if (d > 9) cleanup(); }          // finger moved first: they're scrolling, not dragging
+          else if (d > 5) begin(ev);                    // mouse moved a little: it's a drag, not a click
+        }
+        if (e.target.closest('[data-drag-handle]')) { e.preventDefault(); begin(e); return; }   // handle: start at once
+        card.__pressing = true;
+        window.addEventListener('pointermove', check); window.addEventListener('pointerup', cleanup); window.addEventListener('pointercancel', cleanup);
+        if (touch) timer = setTimeout(() => begin({ clientX: lx, clientY: ly }), 230);
+      });
+
+      if (handle) handle.addEventListener('keydown', (e) => {
+        const kids = cardsOf(), i = kids.indexOf(card), k = e.key; let j = i;
+        if (k === 'ArrowLeft' || k === 'ArrowUp') j = i - 1; else if (k === 'ArrowRight' || k === 'ArrowDown') j = i + 1;
+        else if (k === 'Home') j = 0; else if (k === 'End') j = kids.length - 1; else return;
+        e.preventDefault();
+        if (j < 0 || j >= kids.length || j === i) return;
+        container.insertBefore(card, j > i ? kids[j].nextSibling : kids[j]);
+        saveOrder(container); render();
+        const again = document.querySelector('[data-drag-handle="' + id + '"]'); if (again) again.focus();
+        const tool = toolById(id); if (tool) announce(tool.name + ' moved to position ' + (j + 1) + ' of ' + kids.length);
+      });
     });
   }
 
@@ -296,10 +425,11 @@
   }
 
   function filteredTools() {
+    const favOrder = getFavorites(), fi = (id) => { const i = favOrder.indexOf(id); return i < 0 ? 9999 : i; };
     const scored = TOOLS.map((tool, i) => ({ tool, i, score: query ? matchScore(tool, query) : 1 }))
       .filter(x => x.score > 0 && inFilter(x.tool));
     // Best match first; favorites win ties (and lead the list when nothing is typed).
-    scored.sort((a, b) => (b.score - a.score) || ((isFavorite(b.tool.id) ? 1 : 0) - (isFavorite(a.tool.id) ? 1 : 0)) || (a.i - b.i));
+    scored.sort((a, b) => (b.score - a.score) || ((isFavorite(b.tool.id) ? 1 : 0) - (isFavorite(a.tool.id) ? 1 : 0)) || (fi(a.tool.id) - fi(b.tool.id)) || (a.i - b.i));
     return scored.map(x => x.tool);
   }
 
@@ -326,11 +456,14 @@
   }
 
   function render() {
+    if (reordering) { pendingRender = true; return; }
     renderChips();
 
     const results = filteredTools();
-    mainGrid.innerHTML = results.map(cardHTML).join('');
+    const reorderMain = activeFilter === 'favorites' && !query;
+    mainGrid.innerHTML = results.map(t => cardHTML(t, reorderMain)).join('');
     attachCardHandlers(mainGrid);
+    if (reorderMain) enableReorder(mainGrid);
     renderEmpty(results);
 
     const catMeta = CATEGORIES.find(c => c.key === activeFilter);
@@ -342,23 +475,24 @@
     // Favorites + Popular + Recent only show on the default, unfiltered view
     const showExtras = activeFilter === 'all' && !query;
 
-    const favoriteTools = TOOLS.filter(t => isFavorite(t.id));
+    const favoriteTools = getFavorites().map(toolById).filter(Boolean);
     favoritesSection.classList.toggle('hidden', !showExtras || favoriteTools.length === 0);
     if (showExtras && favoriteTools.length) {
-      favoritesGrid.innerHTML = favoriteTools.map(cardHTML).join('');
+      favoritesGrid.innerHTML = favoriteTools.map(t => cardHTML(t, true)).join('');
       attachCardHandlers(favoritesGrid);
+      enableReorder(favoritesGrid);
     }
 
     popularSection.classList.toggle('hidden', !showExtras);
     if (showExtras) {
-      popularGrid.innerHTML = TOOLS.filter(t => t.popular).map(cardHTML).join('');
+      popularGrid.innerHTML = TOOLS.filter(t => t.popular).map(t => cardHTML(t)).join('');
       attachCardHandlers(popularGrid);
     }
 
     const recentIds = getRecent().map(toolById).filter(Boolean);
     recentSection.classList.toggle('hidden', !showExtras || recentIds.length === 0);
     if (showExtras && recentIds.length) {
-      recentGrid.innerHTML = recentIds.map(cardHTML).join('');
+      recentGrid.innerHTML = recentIds.map(t => cardHTML(t)).join('');
       attachCardHandlers(recentGrid);
     }
   }

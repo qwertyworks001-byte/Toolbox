@@ -9,14 +9,25 @@
   // <<TS-PURE-START>>
   // meta = { fav: { toolId: { on: bool, t: timestamp } }, rec: { ids: [...], t: timestamp } }
   // Favourites are tracked one tool at a time (newest change per tool wins) so two devices can both add favourites
-  // without erasing each other. Recents are one short list, so the newest whole list wins.
-  const emptyMeta = () => ({ fav: {}, rec: { ids: [], t: 0 } });
+  // without erasing each other. Recents are one short list, so the newest whole list wins. The favourites ORDER (what you
+  // drag them into) is also one list, newest whole list wins; favourites not in it yet go on the end, oldest first.
+  const emptyMeta = () => ({ fav: {}, rec: { ids: [], t: 0 }, ord: { ids: [], t: 0 } });
   function cleanMeta(m) {
     const out = emptyMeta();
     if (!m || typeof m !== 'object') return out;
     Object.keys(m.fav || {}).forEach(id => { const e = m.fav[id]; if (e && typeof e === 'object') out.fav[id] = { on: !!e.on, t: Number(e.t) || 0 }; });
     if (m.rec && Array.isArray(m.rec.ids)) out.rec = { ids: m.rec.ids.filter(x => typeof x === 'string').slice(0, 12), t: Number(m.rec.t) || 0 };
+    if (m.ord && Array.isArray(m.ord.ids)) out.ord = { ids: m.ord.ids.filter(x => typeof x === 'string').slice(0, 200), t: Number(m.ord.t) || 0 };
     return out;
+  }
+  function orderedFav(meta) {
+    const pos = {}; meta.ord.ids.forEach((id, i) => { if (!(id in pos)) pos[id] = i; });
+    return Object.keys(meta.fav).filter(id => meta.fav[id].on).sort((p, q) => {
+      const a = p in pos, b = q in pos;
+      if (a && b) return pos[p] - pos[q];
+      if (a !== b) return a ? -1 : 1;
+      return meta.fav[p].t - meta.fav[q].t || (p < q ? -1 : 1);
+    });
   }
   // Record what the page currently has in storage (new stars / un-stars / a changed recents list) with the time we noticed it.
   function stamp(meta, favList, recList, now) {
@@ -25,6 +36,7 @@
     have.forEach(id => { const e = meta.fav[id]; if (!e || !e.on) { meta.fav[id] = { on: true, t: now }; changed = true; } });
     Object.keys(meta.fav).forEach(id => { if (meta.fav[id].on && !have.has(id)) { meta.fav[id] = { on: false, t: now }; changed = true; } });
     if (JSON.stringify(recList) !== JSON.stringify(meta.rec.ids)) { meta.rec = { ids: recList.slice(), t: now }; changed = true; }
+    if (JSON.stringify(favList) !== JSON.stringify(orderedFav(meta))) { meta.ord = { ids: favList.slice(), t: now }; changed = true; }   // the page reordered them
     return changed;
   }
   function mergeMeta(a, b) {
@@ -35,10 +47,11 @@
       else if (x.t >= y.t) { out.fav[id] = x; if (x.t > y.t) changedRemote = true; } else { out.fav[id] = y; changedLocal = true; }
     });
     if (a.rec.t >= b.rec.t) { out.rec = a.rec; if (a.rec.t > b.rec.t) changedRemote = true; } else { out.rec = b.rec; changedLocal = true; }
+    if (a.ord.t >= b.ord.t) { out.ord = a.ord; if (a.ord.t > b.ord.t) changedRemote = true; } else { out.ord = b.ord; changedLocal = true; }
     return { meta: out, changedLocal, changedRemote };
   }
   function listsFrom(meta) {
-    const fav = Object.keys(meta.fav).filter(id => meta.fav[id].on).sort((p, q) => meta.fav[p].t - meta.fav[q].t || (p < q ? -1 : 1));
+    const fav = orderedFav(meta);
     return { fav, rec: meta.rec.ids.slice(0, 6) };
   }
   // <<TS-PURE-END>>
@@ -53,7 +66,7 @@
   // Make storage match the merged meta, and tell the page so it can redraw.
   function apply() {
     const want = listsFrom(meta), curFav = readList(FAV), curRec = readList(REC);
-    const sameFav = JSON.stringify(curFav.slice().sort()) === JSON.stringify(want.fav.slice().sort());
+    const sameFav = JSON.stringify(curFav) === JSON.stringify(want.fav);
     const sameRec = JSON.stringify(curRec) === JSON.stringify(want.rec);
     if (sameFav && sameRec) return;
     try { rawSet(FAV, JSON.stringify(want.fav)); rawSet(REC, JSON.stringify(want.rec)); } catch (e) {}

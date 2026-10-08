@@ -1,5 +1,5 @@
 // Toolbox — shared timer engine.
-// Loaded on EVERY page (not just Timers) so a running stopwatch/timer/alarm/loop keeps ticking — and can still
+// Loaded on EVERY page (not just Timers) so any number of running timers, alarms and loops (and the stopwatch) keep ticking — and can still
 // fire its alarm and advance — no matter which page happens to be open. State lives in localStorage; whichever tab
 // is open when a countdown hits zero is the one that notices and acts on it.
 //
@@ -55,23 +55,21 @@
   }
 
   // ── State ────────────────────────────────────────────────────
+  // v2: any number of timers, alarms and loops, each with an optional reminder note.
+  //   timers: { id, note, status: running|paused|finished, totalMs, remainingMs, endAt, alarmUntil }
+  //   alarms: { id, note, status: armed|firing, timeStr, targetMs, repeatDaily, alarmUntil }
+  //   loops:  { id, note, status: running|paused, intervals: [{id,label,minutes,seconds}], currentIndex, remainingMs, endAt, alarmUntil }
+  //   loopDraft: the interval list being edited on the Timer Loop tab (a loop copies it when you start it)
+  const MAX_ITEMS = 30, NOTE_MAX = 120;
+  const arr = (x) => Array.isArray(x) ? x : [];
+  const cleanNote = (n) => String(n == null ? '' : n).slice(0, NOTE_MAX);
   function defaultState() {
     return {
+      v: 2,
       stopwatch: { status: 'idle', elapsedBaseMs: 0, startedAtEpochMs: null, laps: [] },
-      timer: { status: 'idle', remainingMs: 0, endAt: null, totalMs: 0, alarmUntil: null },
-      alarm: { status: 'idle', targetMs: null, timeStr: '', repeatDaily: false, alarmUntil: null },
-      loop: {
-        status: 'idle',
-        intervals: [
-          { id: 1, label: '', minutes: 90, seconds: 0 },
-          { id: 2, label: '', minutes: 20, seconds: 0 }
-        ],
-        nextIntervalId: 3,
-        currentIndex: 0,
-        remainingMs: 0,
-        endAt: null,
-        alarmUntil: null
-      }
+      timers: [], alarms: [], loops: [],
+      loopDraft: { intervals: [{ id: 1, label: '', minutes: 90, seconds: 0 }, { id: 2, label: '', minutes: 20, seconds: 0 }], nextIntervalId: 3 },
+      nextId: 1
     };
   }
   function loadState() {
@@ -79,25 +77,31 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return def;
-      const parsed = JSON.parse(raw);
-      return {
-        stopwatch: Object.assign({}, def.stopwatch, parsed.stopwatch),
-        timer: Object.assign({}, def.timer, parsed.timer),
-        alarm: Object.assign({}, def.alarm, parsed.alarm),
-        loop: Object.assign({}, def.loop, parsed.loop)
-      };
+      const p = JSON.parse(raw);
+      if (p.v === 2) {
+        return { v: 2, stopwatch: Object.assign({}, def.stopwatch, p.stopwatch), timers: arr(p.timers), alarms: arr(p.alarms), loops: arr(p.loops),
+          loopDraft: (p.loopDraft && arr(p.loopDraft.intervals).length) ? p.loopDraft : def.loopDraft, nextId: p.nextId || 1 };
+      }
+      // Older single-timer/alarm/loop state: carry over anything that was running.
+      const s = def; s.stopwatch = Object.assign({}, def.stopwatch, p.stopwatch);
+      const t = p.timer;
+      if (t && t.status && t.status !== 'idle') s.timers.push({ id: s.nextId++, note: '', status: t.status, totalMs: t.totalMs || 0, remainingMs: t.remainingMs || 0, endAt: t.endAt || null, alarmUntil: t.alarmUntil || null });
+      const a = p.alarm;
+      if (a && (a.status === 'armed' || a.status === 'firing')) s.alarms.push({ id: s.nextId++, note: '', status: a.status, timeStr: a.timeStr || '', targetMs: a.targetMs, repeatDaily: !!a.repeatDaily, alarmUntil: a.alarmUntil || null });
+      const l = p.loop;
+      if (l && arr(l.intervals).length) {
+        s.loopDraft = { intervals: l.intervals, nextIntervalId: l.nextIntervalId || (l.intervals.length + 1) };
+        if (l.status === 'running' || l.status === 'paused') s.loops.push({ id: s.nextId++, note: '', status: l.status, intervals: l.intervals.map(x => Object.assign({}, x)), currentIndex: l.currentIndex || 0, remainingMs: l.remainingMs || 0, endAt: l.endAt || null, alarmUntil: l.alarmUntil || null });
+      }
+      return s;
     } catch (e) { return def; }
   }
   function saveState(state) { lsSet(STORAGE_KEY, JSON.stringify(state)); }
+  const left = (it) => (it.status === 'running' && it.endAt !== null) ? Math.max(0, it.endAt - Date.now()) : (it.remainingMs || 0);
+  const isRinging = (it) => !!it.alarmUntil && Date.now() < it.alarmUntil;
   function computeDerived(state) {
-    const now = Date.now();
     const sw = state.stopwatch;
-    const swElapsed = sw.elapsedBaseMs + (sw.status === 'running' && sw.startedAtEpochMs ? now - sw.startedAtEpochMs : 0);
-    const t = state.timer;
-    const timerRemaining = t.status === 'running' && t.endAt !== null ? Math.max(0, t.endAt - now) : t.remainingMs;
-    const l = state.loop;
-    const loopRemaining = l.status === 'running' && l.endAt !== null ? Math.max(0, l.endAt - now) : l.remainingMs;
-    return { swElapsed, timerRemaining, loopRemaining };
+    return { swElapsed: sw.elapsedBaseMs + (sw.status === 'running' && sw.startedAtEpochMs ? Date.now() - sw.startedAtEpochMs : 0) };
   }
 
   // ── Alarm sounds ─────────────────────────────────────────────
@@ -280,33 +284,41 @@
   }
 
   // ── Completion detection (runs on every tick, on whichever tab is open) ──
+  const ivMs = (iv) => ((iv.minutes || 0) * 60 + (iv.seconds || 0)) * 1000;
+  const ivName = (iv) => iv.label ? iv.label : `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''}`;
   function processTick() {
     const state = loadState();
     const now = Date.now();
-    let mutated = false;
+    let mutated = false; const fired = {};
 
-    if (state.timer.status === 'running' && state.timer.endAt !== null && now >= state.timer.endAt) {
-      state.timer.status = 'finished'; state.timer.remainingMs = 0; state.timer.endAt = null; state.timer.alarmUntil = now + ALARM_MAX_MS;
-      fireAlarmSound('timer'); announce('\u23F2 Timer finished', 'Your countdown has reached zero.', 'toolbox-timer', 'timer');
-      mutated = true;
-    }
-    if (state.alarm.status === 'armed' && state.alarm.targetMs !== null && now >= state.alarm.targetMs) {
-      state.alarm.status = 'firing'; state.alarm.alarmUntil = now + ALARM_MAX_MS;
-      fireAlarmSound('alarm'); announce('\u23F0 Alarm', state.alarm.timeStr ? 'It is ' + state.alarm.timeStr + '.' : 'Your alarm is ringing.', 'toolbox-alarm', 'alarm');
-      mutated = true;
-    }
-    if (state.loop.status === 'running' && state.loop.endAt !== null && now >= state.loop.endAt && state.loop.intervals.length) {
-      state.loop.alarmUntil = now + ALARM_MAX_MS;
-      fireAlarmSound('loop');
-      state.loop.currentIndex = (state.loop.currentIndex + 1) % state.loop.intervals.length;
-      const iv = state.loop.intervals[state.loop.currentIndex];
-      const ms = (iv.minutes * 60 + iv.seconds) * 1000;
-      state.loop.remainingMs = ms; state.loop.endAt = now + ms;
-      announce('\uD83D\uDD01 Next interval', iv.label ? iv.label : `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''} starts now.`, 'toolbox-loop', 'loop');
-      mutated = true;
-    }
+    state.timers.forEach(t => {
+      if (t.status === 'running' && t.endAt !== null && now >= t.endAt) {
+        t.status = 'finished'; t.remainingMs = 0; t.endAt = null; t.alarmUntil = now + ALARM_MAX_MS; fired.timer = true; mutated = true;
+        announce('\u23F2 Timer finished', t.note || 'Your countdown has reached zero.', 'toolbox-timer-' + t.id, 'timer');
+      }
+    });
+    state.alarms.forEach(a => {
+      if (a.status === 'armed' && a.targetMs !== null && now >= a.targetMs) {
+        a.status = 'firing'; a.alarmUntil = now + ALARM_MAX_MS; fired.alarm = true; mutated = true;
+        announce('\u23F0 Alarm' + (a.timeStr ? ' ' + a.timeStr : ''), a.note || 'Your alarm is ringing.', 'toolbox-alarm-' + a.id, 'alarm');
+      }
+    });
+    state.loops.forEach(l => {
+      if (l.status === 'running' && l.endAt !== null && now >= l.endAt && l.intervals.length) {
+        l.alarmUntil = now + ALARM_MAX_MS; fired.loop = true;
+        l.currentIndex = (l.currentIndex + 1) % l.intervals.length;
+        const iv = l.intervals[l.currentIndex], ms = ivMs(iv);
+        l.remainingMs = ms; l.endAt = now + ms; mutated = true;
+        announce('\uD83D\uDD01 Next interval', (l.note ? l.note + ' \u2013 ' : '') + (iv.label ? iv.label : ivName(iv) + ' starts now.'), 'toolbox-loop-' + l.id, 'loop');
+      }
+    });
+    Object.keys(fired).forEach(fireAlarmSound);
     if (mutated) saveState(state);
     return state;
+  }
+  // The sound for each kind plays only while at least one item of that kind is still ringing.
+  function settleSound(state) {
+    [['timer', state.timers], ['alarm', state.alarms], ['loop', state.loops]].forEach(p => { if (ringing[p[0]] && !p[1].some(isRinging)) stopAlarmSound(p[0]); });
   }
 
   // ── Floating widget (skipped entirely on the Timers page itself) ──
@@ -321,26 +333,28 @@
   }
   function renderWidget(state) {
     if (ON_TIMERS_PAGE || !document.body) return;
-    const d = computeDerived(state);
-    const items = [];
+    const d = computeDerived(state), items = [];
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const short = (n) => n ? ' ' + (n.length > 18 ? n.slice(0, 17) + '\u2026' : n) : '';
     if (state.stopwatch.status === 'running' || state.stopwatch.status === 'paused') {
       items.push({ tab: 'stopwatch', icon: '\u23F1', text: `Stopwatch ${formatStopwatch(d.swElapsed)}${state.stopwatch.status === 'paused' ? ' (paused)' : ''}` });
     }
-    if (state.timer.status === 'running' || state.timer.status === 'paused') {
-      items.push({ tab: 'timer', icon: '\u23F2', text: `Timer ${formatCountdown(d.timerRemaining)}${state.timer.status === 'paused' ? ' (paused)' : ''}` });
-    } else if (state.timer.status === 'finished') {
-      items.push({ tab: 'timer', icon: '\u23F2', text: 'Timer done!', alert: true });
-    }
-    if (state.alarm.status === 'armed') items.push({ tab: 'alarm', icon: '\u23F0', text: `Alarm ${state.alarm.timeStr}` });
-    else if (state.alarm.status === 'firing') items.push({ tab: 'alarm', icon: '\u23F0', text: 'Alarm!', alert: true });
-    if (state.loop.status === 'running' || state.loop.status === 'paused') {
-      const iv = state.loop.intervals[state.loop.currentIndex];
-      const label = iv ? (iv.label || `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''}`) : '';
-      items.push({ tab: 'loop', icon: '\uD83D\uDD01', text: `Loop ${label ? label + ' \u2013 ' : ''}${formatCountdown(d.loopRemaining)}${state.loop.status === 'paused' ? ' (paused)' : ''}` });
-    }
+    state.timers.forEach(t => {
+      if (t.status === 'finished') items.push({ tab: 'timer', icon: '\u23F2', text: 'Timer done!' + short(t.note), alert: true });
+      else items.push({ tab: 'timer', icon: '\u23F2', text: `Timer${short(t.note)} ${formatCountdown(left(t))}${t.status === 'paused' ? ' (paused)' : ''}` });
+    });
+    state.alarms.forEach(a => {
+      if (a.status === 'firing') items.push({ tab: 'alarm', icon: '\u23F0', text: 'Alarm!' + short(a.note), alert: true });
+      else items.push({ tab: 'alarm', icon: '\u23F0', text: `Alarm ${a.timeStr}${short(a.note)}` });
+    });
+    state.loops.forEach(l => {
+      const iv = l.intervals[l.currentIndex];
+      items.push({ tab: 'loop', icon: '\uD83D\uDD01', text: `Loop${short(l.note)}${iv && iv.label ? ' \u2013 ' + iv.label : ''} ${formatCountdown(left(l))}${l.status === 'paused' ? ' (paused)' : ''}` });
+    });
     const container = ensureWidgetContainer();
     if (items.length === 0) { container.innerHTML = ''; return; }
-    container.innerHTML = items.map(item => `
+    const MAX = 6, shown = items.slice(0, MAX), extra = items.length - shown.length;
+    container.innerHTML = shown.map(item => `
       <a href="${TIMERS_LINK}?tab=${item.tab}" style="
         display:flex;align-items:center;gap:0.5rem;
         background:${item.alert ? 'rgba(127,29,29,0.85)' : 'rgba(15,23,42,0.92)'};
@@ -349,15 +363,15 @@
         padding:0.5rem 0.9rem;border-radius:9999px;font-size:0.8rem;font-weight:500;
         text-decoration:none;box-shadow:0 4px 16px rgba(0,0,0,0.4);backdrop-filter:blur(6px);
         font-family:ui-sans-serif,system-ui,sans-serif;white-space:nowrap;">
-        <span>${item.icon}</span><span>${item.text}</span>
-      </a>
-    `).join('');
+        <span>${item.icon}</span><span>${esc(item.text)}</span>
+      </a>`).join('') + (extra > 0 ? `<a href="${TIMERS_LINK}" style="color:#94a3b8;font:500 0.75rem ui-sans-serif,system-ui,sans-serif;text-decoration:none;padding-right:0.4rem;">+${extra} more</a>` : '');
   }
 
   // ── Subscriptions + refresh loop ──────────────────────────────
   let subscribers = [];
   function refresh() {
     const state = processTick();
+    settleSound(state);
     renderWidget(state);
     subscribers.forEach(fn => { try { fn(state); } catch (e) { console.error(e); } });
     try { checkHabitReminders(); } catch (e) {}
@@ -383,10 +397,10 @@
     } catch (e) {}
     fallback();
   }
-  startTicker();
+  try { startTicker(); } catch (e) { console.error(e); }
   window.addEventListener('storage', (e) => { if (e.key === STORAGE_KEY) refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  if (document.body) refresh(); else document.addEventListener('DOMContentLoaded', refresh);
+  if (document.body) { try { refresh(); } catch (e) { console.error(e); } } else document.addEventListener('DOMContentLoaded', refresh);
   if (notifyState('timers') === 'on' || notifyState('habits') === 'on') ensureSW();
 
   // ── Public API ─────────────────────────────────────────────────
@@ -423,61 +437,62 @@
       s.stopwatch.laps.push({ total: d.swElapsed, split: d.swElapsed - prevTotal });
     }); },
 
-    timerStart(totalMs) { mutate(s => {
-      if (totalMs === undefined && s.timer.status === 'paused' && s.timer.remainingMs > 0) {
-        s.timer.endAt = Date.now() + s.timer.remainingMs;
-      } else if (totalMs > 0) {
-        s.timer.totalMs = totalMs; s.timer.remainingMs = totalMs; s.timer.endAt = Date.now() + totalMs;
-      } else { return; }
-      s.timer.status = 'running';
-    }); },
-    timerPause() { mutate(s => { if (s.timer.status === 'running') { s.timer.remainingMs = Math.max(0, s.timer.endAt - Date.now()); s.timer.endAt = null; s.timer.status = 'paused'; } }); },
-    timerReset() { stopAlarmSound('timer'); mutate(s => { s.timer = { status: 'idle', remainingMs: 0, endAt: null, totalMs: 0, alarmUntil: null }; }); },
-    timerStopAlarm() { stopAlarmSound('timer'); mutate(s => { s.timer.alarmUntil = null; }); },
+    left,
+    // Timers, alarms and loops are each a list. Every one has an optional reminder note (setNote) that you can edit or clear.
+    setNote(kind, id, note) { mutate(s => { const it = arr(s[kind + 's']).find(x => x.id === id); if (it) it.note = cleanNote(note); }); },
 
-    alarmArm(timeStr, repeatDaily) { mutate(s => {
-      const [hh, mm] = timeStr.split(':').map(Number);
-      const now = new Date();
-      const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
-      if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
-      s.alarm = { status: 'armed', targetMs: target.getTime(), timeStr, repeatDaily: !!repeatDaily, alarmUntil: null };
-    }); },
-    alarmCancel() { stopAlarmSound('alarm'); mutate(s => { s.alarm = { status: 'idle', targetMs: null, timeStr: '', repeatDaily: false, alarmUntil: null }; }); },
-    alarmStopAlarm() { stopAlarmSound('alarm'); mutate(s => {
-      if (s.alarm.repeatDaily) { s.alarm.status = 'armed'; s.alarm.targetMs = (s.alarm.targetMs || Date.now()) + 24 * 3600 * 1000; }
-      else { s.alarm.status = 'idle'; s.alarm.targetMs = null; }
-      s.alarm.alarmUntil = null;
-    }); },
+    timerAdd(totalMs, note) {
+      let id = null; if (!(totalMs > 0)) return null;
+      mutate(s => { if (s.timers.length >= MAX_ITEMS) return; id = s.nextId++; s.timers.push({ id, note: cleanNote(note), status: 'running', totalMs, remainingMs: totalMs, endAt: Date.now() + totalMs, alarmUntil: null }); });
+      return id;
+    },
+    timerPause(id) { mutate(s => { const t = s.timers.find(x => x.id === id); if (t && t.status === 'running') { t.remainingMs = Math.max(0, t.endAt - Date.now()); t.endAt = null; t.status = 'paused'; } }); },
+    timerResume(id) { mutate(s => { const t = s.timers.find(x => x.id === id); if (t && t.status === 'paused' && t.remainingMs > 0) { t.endAt = Date.now() + t.remainingMs; t.status = 'running'; } }); },
+    timerSilence(id) { mutate(s => { const t = s.timers.find(x => x.id === id); if (t) t.alarmUntil = null; }); },
+    timerRemove(id) { mutate(s => { s.timers = s.timers.filter(x => x.id !== id); }); },
 
-    loopAddInterval() { mutate(s => { s.loop.intervals.push({ id: s.loop.nextIntervalId++, label: '', minutes: 10, seconds: 0 }); }); },
-    loopRemoveInterval(id) { mutate(s => {
-      s.loop.intervals = s.loop.intervals.filter(iv => iv.id !== id);
-      if (s.loop.currentIndex >= s.loop.intervals.length) s.loop.currentIndex = 0;
+    alarmAdd(timeStr, repeatDaily, note) {
+      let id = null; if (!/^\d{2}:\d{2}$/.test(timeStr || '')) return null;
+      mutate(s => {
+        if (s.alarms.length >= MAX_ITEMS) return;
+        const [hh, mm] = timeStr.split(':').map(Number), now = new Date();
+        const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+        if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
+        id = s.nextId++; s.alarms.push({ id, note: cleanNote(note), status: 'armed', timeStr, targetMs: target.getTime(), repeatDaily: !!repeatDaily, alarmUntil: null });
+      });
+      return id;
+    },
+    alarmSilence(id) { mutate(s => { const a = s.alarms.find(x => x.id === id); if (a) a.alarmUntil = null; }); },
+    alarmDismiss(id) { mutate(s => {                       // done with a ringing alarm: a daily one re-arms for tomorrow, any other goes away
+      const a = s.alarms.find(x => x.id === id); if (!a) return;
+      if (a.repeatDaily) { a.status = 'armed'; a.targetMs = (a.targetMs || Date.now()) + 24 * 3600 * 1000; a.alarmUntil = null; }
+      else s.alarms = s.alarms.filter(x => x.id !== id);
     }); },
-    loopUpdateInterval(id, patch) { mutate(s => { const iv = s.loop.intervals.find(i => i.id === id); if (iv) Object.assign(iv, patch); }); },
-    loopSwap(idxA, idxB) { mutate(s => { const list = s.loop.intervals; [list[idxA], list[idxB]] = [list[idxB], list[idxA]]; }); },
+    alarmRemove(id) { mutate(s => { s.alarms = s.alarms.filter(x => x.id !== id); }); },
+
+    // The interval list on the Timer Loop tab is a draft; loopAdd starts a new loop from a copy of it.
+    loopAddInterval() { mutate(s => { s.loopDraft.intervals.push({ id: s.loopDraft.nextIntervalId++, label: '', minutes: 10, seconds: 0 }); }); },
+    loopRemoveInterval(id) { mutate(s => { s.loopDraft.intervals = s.loopDraft.intervals.filter(iv => iv.id !== id); }); },
+    loopUpdateInterval(id, patch) { mutate(s => { const iv = s.loopDraft.intervals.find(i => i.id === id); if (iv) Object.assign(iv, patch); }); },
+    loopSwap(a, b) { mutate(s => { const list = s.loopDraft.intervals; [list[a], list[b]] = [list[b], list[a]]; }); },
     loopReorder(srcId, targetId) { mutate(s => {
-      const list = s.loop.intervals;
-      const srcIdx = list.findIndex(i => i.id === srcId);
-      const targetIdx = list.findIndex(i => i.id === targetId);
-      if (srcIdx === -1 || targetIdx === -1) return;
-      const [moved] = list.splice(srcIdx, 1);
-      list.splice(targetIdx, 0, moved);
+      const list = s.loopDraft.intervals, si = list.findIndex(i => i.id === srcId), ti = list.findIndex(i => i.id === targetId);
+      if (si === -1 || ti === -1) return;
+      const [moved] = list.splice(si, 1); list.splice(ti, 0, moved);
     }); },
-    loopStart() { mutate(s => {
-      if (s.loop.status === 'paused' && s.loop.remainingMs > 0) {
-        s.loop.endAt = Date.now() + s.loop.remainingMs;
-      } else if (s.loop.status !== 'running') {
-        if (!s.loop.intervals.length) return;
-        if (s.loop.currentIndex >= s.loop.intervals.length) s.loop.currentIndex = 0;
-        const iv = s.loop.intervals[s.loop.currentIndex];
-        const ms = (iv.minutes * 60 + iv.seconds) * 1000;
-        s.loop.remainingMs = ms; s.loop.endAt = Date.now() + ms;
-      }
-      s.loop.status = 'running';
-    }); },
-    loopPause() { mutate(s => { if (s.loop.status === 'running') { s.loop.remainingMs = Math.max(0, s.loop.endAt - Date.now()); s.loop.endAt = null; s.loop.status = 'paused'; } }); },
-    loopReset() { stopAlarmSound('loop'); mutate(s => { s.loop.status = 'idle'; s.loop.currentIndex = 0; s.loop.remainingMs = 0; s.loop.endAt = null; s.loop.alarmUntil = null; }); },
-    loopStopAlarm() { stopAlarmSound('loop'); mutate(s => { s.loop.alarmUntil = null; }); }
+    loopAdd(note) {
+      let id = null;
+      mutate(s => {
+        const ivs = s.loopDraft.intervals.filter(iv => ivMs(iv) > 0).map((iv, i) => ({ id: i + 1, label: iv.label || '', minutes: iv.minutes || 0, seconds: iv.seconds || 0 }));
+        if (!ivs.length || s.loops.length >= MAX_ITEMS) return;
+        id = s.nextId++; const ms = ivMs(ivs[0]);
+        s.loops.push({ id, note: cleanNote(note), status: 'running', intervals: ivs, currentIndex: 0, remainingMs: ms, endAt: Date.now() + ms, alarmUntil: null });
+      });
+      return id;
+    },
+    loopPause(id) { mutate(s => { const l = s.loops.find(x => x.id === id); if (l && l.status === 'running') { l.remainingMs = Math.max(0, l.endAt - Date.now()); l.endAt = null; l.status = 'paused'; } }); },
+    loopResume(id) { mutate(s => { const l = s.loops.find(x => x.id === id); if (l && l.status === 'paused') { l.endAt = Date.now() + (l.remainingMs || 0); l.status = 'running'; } }); },
+    loopSilence(id) { mutate(s => { const l = s.loops.find(x => x.id === id); if (l) l.alarmUntil = null; }); },
+    loopRemove(id) { mutate(s => { s.loops = s.loops.filter(x => x.id !== id); }); }
   };
 })();

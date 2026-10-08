@@ -39,6 +39,8 @@
   .wheels.disabled { opacity: 0.4; pointer-events: none; }
   .wheel-colon { font-size: 2.6rem; color: #64748b; padding-bottom: 66px; font-weight: 700; }
   .start-circle { width: 6.5rem; height: 6.5rem; border-radius: 9999px; background: rgba(59,130,246,0.22); border: 2px solid #3b82f6; color: #93c5fd; font-weight: 700; font-size: 1.1rem; transition: background 0.15s ease, transform 0.1s ease; }
+  .note-field { background: #0f131a; border: 1px solid rgba(255,255,255,0.1); }
+  .note-field:focus { outline: none; border-color: #3b82f6; }
   .start-circle:hover { background: rgba(59,130,246,0.36); } .start-circle:active { transform: scale(0.96); } .start-circle:disabled { opacity: 0.4; pointer-events: none; }
 </style>
 </head>
@@ -57,7 +59,7 @@
       <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Timers</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Stopwatch, countdown timer, alarm, and a repeating interval loop.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Stopwatch, plus as many timers, alarms and interval loops as you like, each with its own reminder.</p>
   </header>
 
   <div id="audioBanner" class="hidden mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200" role="alert">
@@ -85,8 +87,8 @@
   </div>
 
   <!-- ═══════════════ TIMER ═══════════════ -->
-  <div id="panelTimer" class="glass rounded-2xl p-6 hidden">
-    <div id="timerSetup">
+  <div id="panelTimer" class="hidden">
+    <div class="glass rounded-2xl p-6 mb-4">
       <div class="wheels flex items-end justify-center gap-1 sm:gap-3 mb-5" id="timerInputRow">
         <div class="wheel-col"><div class="wheel-label">Hours</div><div class="wheel" id="wheelH" tabindex="0" role="spinbutton" aria-label="Hours" aria-valuemin="0" aria-valuemax="99"></div></div>
         <span class="wheel-colon">:</span>
@@ -94,10 +96,8 @@
         <span class="wheel-colon">:</span>
         <div class="wheel-col"><div class="wheel-label">Seconds</div><div class="wheel" id="wheelS" tabindex="0" role="spinbutton" aria-label="Seconds" aria-valuemin="0" aria-valuemax="59"></div></div>
       </div>
-
       <p class="wheel-hint text-center text-xs text-slate-500 -mt-2 mb-4">Drag a column, scroll over it, or use &uarr; &darr; &mdash; or just click a number.</p>
-
-      <div class="flex flex-wrap justify-center gap-2 mb-6" id="timerPresets">
+      <div class="flex flex-wrap justify-center gap-2 mb-5" id="timerPresets">
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="15">15 sec</button>
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="30">30 sec</button>
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="45">45 sec</button>
@@ -107,72 +107,53 @@
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="900">15 min</button>
         <button type="button" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 hover:border-blue-500 hover:text-blue-400" data-preset="1800">30 min</button>
       </div>
+      <label class="block mb-5"><span class="text-xs text-slate-400">&#128221; Reminder (optional)</span>
+        <input type="text" id="timerNote" maxlength="120" placeholder="What is this timer for? e.g. Take the pizza out" class="note-field w-full mt-1 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500"></label>
+      <p class="text-center text-sm text-amber-300 mb-3 hidden" id="timerHint" role="status">Pick a time first (use the wheels or a preset).</p>
+      <div class="flex justify-center"><button type="button" id="timerStartBtn" class="start-circle">Start</button></div>
     </div>
-
-    <div class="text-center mb-6 rounded-xl py-4 hidden" id="timerDisplayWrap">
-      <p class="text-sm text-slate-500 mb-1" id="timerSetFor"></p>
-      <p class="big-display text-6xl sm:text-7xl font-bold text-white" id="timerDisplay">5:00</p>
-      <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden mt-5 mx-6"><div id="timerBar" class="h-full bg-blue-500" style="width:100%"></div></div>
-      <p class="text-sm text-red-400 font-medium mt-3 hidden" id="timerDoneNote">Time&rsquo;s up!</p>
-    </div>
-
-    <p class="text-center text-sm text-amber-300 mb-3 hidden" id="timerHint" role="status">Pick a time first (use the wheels or a preset).</p>
-    <div class="flex justify-center items-center gap-3">
-      <button type="button" id="timerStartBtn" class="start-circle">Start</button>
-      <button type="button" id="timerResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hidden">Reset</button>
-      <button type="button" id="timerStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
-    </div>
+    <div id="timerList" class="space-y-3"></div>
+    <p id="timerEmpty" class="text-center text-sm text-slate-500 py-3">No timers running. Start as many as you like.</p>
   </div>
 
   <!-- ═══════════════ ALARM ═══════════════ -->
-  <div id="panelAlarm" class="glass rounded-2xl p-6 hidden">
-    <p class="text-center text-sm text-slate-500 mb-1">Current time</p>
-    <p class="big-display text-2xl font-semibold text-slate-300 text-center mb-6" id="alarmClock">--:--:--</p>
-
-    <div class="flex flex-col items-center gap-4 mb-6">
-      <div class="wheels flex items-end justify-center gap-1 sm:gap-3" id="alarmWheels">
-        <div class="wheel-col"><div class="wheel-label">Hour</div><div class="wheel" id="wheelAH" tabindex="0" role="spinbutton" aria-label="Alarm hour" aria-valuemin="0" aria-valuemax="23"></div></div>
-        <span class="wheel-colon">:</span>
-        <div class="wheel-col"><div class="wheel-label">Minute</div><div class="wheel" id="wheelAM" tabindex="0" role="spinbutton" aria-label="Alarm minute" aria-valuemin="0" aria-valuemax="59"></div></div>
+  <div id="panelAlarm" class="hidden">
+    <div class="glass rounded-2xl p-6 mb-4">
+      <p class="text-center text-sm text-slate-500 mb-1">Current time</p>
+      <p class="big-display text-2xl font-semibold text-slate-300 text-center mb-6" id="alarmClock">--:--:--</p>
+      <div class="flex flex-col items-center gap-4 mb-5">
+        <div class="wheels flex items-end justify-center gap-1 sm:gap-3" id="alarmWheels">
+          <div class="wheel-col"><div class="wheel-label">Hour</div><div class="wheel" id="wheelAH" tabindex="0" role="spinbutton" aria-label="Alarm hour" aria-valuemin="0" aria-valuemax="23"></div></div>
+          <span class="wheel-colon">:</span>
+          <div class="wheel-col"><div class="wheel-label">Minute</div><div class="wheel" id="wheelAM" tabindex="0" role="spinbutton" aria-label="Alarm minute" aria-valuemin="0" aria-valuemax="59"></div></div>
+        </div>
+        <input type="time" id="alarmTimeInput" class="hidden">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" id="alarmRepeatDaily" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500"> Repeat daily
+        </label>
       </div>
-      <input type="time" id="alarmTimeInput" class="hidden">
-      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
-        <input type="checkbox" id="alarmRepeatDaily" class="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-blue-500">
-        Repeat daily
-      </label>
+      <label class="block mb-5"><span class="text-xs text-slate-400">&#128221; Reminder (optional)</span>
+        <input type="text" id="alarmNote" maxlength="120" placeholder="What is this alarm for? e.g. Call the dentist" class="note-field w-full mt-1 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500"></label>
+      <div class="flex justify-center"><button type="button" id="alarmSetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Add alarm</button></div>
     </div>
-
-    <p class="text-center text-sm text-slate-400 mb-6 hidden" id="alarmArmedNote"></p>
-    <p class="text-center text-lg font-semibold text-red-400 mb-6 hidden" id="alarmFiringNote">&#9200; Alarm!</p>
-
-    <div class="flex justify-center gap-3">
-      <button type="button" id="alarmSetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Set Alarm</button>
-      <button type="button" id="alarmCancelBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 hidden">Cancel Alarm</button>
-      <button type="button" id="alarmStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
-    </div>
+    <div id="alarmList" class="space-y-3"></div>
+    <p id="alarmEmpty" class="text-center text-sm text-slate-500 py-3">No alarms set.</p>
   </div>
 
   <!-- ═══════════════ TIMER LOOP ═══════════════ -->
-  <div id="panelLoop" class="glass rounded-2xl p-6 hidden">
-    <div class="flex flex-wrap gap-2 justify-center mb-6" id="loopPills"></div>
-
-    <div class="text-center mb-6 rounded-xl py-4" id="loopDisplayWrap">
-      <p class="text-sm text-slate-500 mb-1" id="loopCurrentLabel">Interval 1 of 2</p>
-      <p class="big-display text-5xl sm:text-6xl font-bold text-white" id="loopDisplay">1:30:00</p>
-    </div>
-
-    <div class="flex justify-center gap-3 mb-6">
-      <button type="button" id="loopStartBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Start</button>
-      <button type="button" id="loopResetBtn" class="text-sm px-5 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Reset</button>
-      <button type="button" id="loopStopAlarmBtn" class="text-sm px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold hidden">Stop Alarm</button>
-    </div>
-
-    <div class="border-t border-slate-700/60 pt-5">
+  <div id="panelLoop" class="hidden">
+    <div class="glass rounded-2xl p-6 mb-4">
       <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">Intervals</h2>
       <div class="space-y-2 mb-3" id="loopIntervalsList"></div>
       <button type="button" id="loopAddBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+ Add interval</button>
-      <p class="text-xs text-slate-500 mt-3">Stopping the alarm sound never skips or pauses the loop &mdash; it keeps counting down to the next interval regardless.</p>
+      <p class="text-xs text-slate-500 mt-3 mb-5">Starting a loop copies these intervals into its own timer below, so you can change this list and start another. Stopping the alarm sound never skips or pauses a loop.</p>
+      <label class="block mb-5"><span class="text-xs text-slate-400">&#128221; Reminder (optional)</span>
+        <input type="text" id="loopNote" maxlength="120" placeholder="What is this loop for? e.g. Study / break cycle" class="note-field w-full mt-1 rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-500"></label>
+      <p class="text-center text-sm text-amber-300 mb-3 hidden" id="loopHint" role="status">Add at least one interval with a time above zero.</p>
+      <div class="flex justify-center"><button type="button" id="loopStartBtn" class="text-sm px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Start loop</button></div>
     </div>
+    <div id="loopList" class="space-y-3"></div>
+    <p id="loopEmpty" class="text-center text-sm text-slate-500 py-3">No loops running.</p>
   </div>
 
   <div id="soundCard" class="glass rounded-2xl p-5 mt-4 hidden">
@@ -204,6 +185,14 @@
 <script>
 (function () {
   const T = window.ToolboxTimers;
+  const $ = (id) => document.getElementById(id);
+  if (!T) {      // timer-engine.js didn't load: say so instead of failing with a blank page
+    const msg = document.createElement('div');
+    msg.className = 'max-w-2xl mx-auto mt-4 px-4';
+    msg.innerHTML = '<div class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">The timer engine did not load, so the timers can\u2019t run. Make sure <b>timer-engine.js</b> is uploaded next to <b>index.html</b> (the Toolbox root, not inside the Timers folder), then hard refresh this page.</div>';
+    document.body.insertBefore(msg, document.body.firstChild);
+    return;
+  }
 
   // Only write to the page when the value changed. Rewriting a button's text 4x a second can swallow taps on phones.
   function setText(el, t) { if (el.textContent !== t) el.textContent = t; }
@@ -228,6 +217,11 @@
     refreshWheels();
   }
   tabs.forEach(btn => btn.addEventListener('click', () => activateTab(btn.getAttribute('data-tab'))));
+  const TAB_NAMES = { stopwatch: 'Stopwatch', timer: 'Timers', alarm: 'Alarms', loop: 'Timer Loops' };
+  function renderTabCounts(state) {
+    const n = { timer: state.timers.length, alarm: state.alarms.length, loop: state.loops.length };
+    tabs.forEach(b => { const k = b.getAttribute('data-tab'); setText(b, TAB_NAMES[k] + (n[k] ? ' (' + n[k] + ')' : '')); });
+  }
 
   // Deep-link from the floating widget (e.g. Timers/timers.html?tab=loop)
   const requestedTab = new URLSearchParams(window.location.search).get('tab');
@@ -341,171 +335,134 @@
     return api;
   }
 
-  // ═══════════════ TIMER ═══════════════
-  const TIMER_LAST_KEY = 'toolbox:timer-last';
-  const wheelH = makeWheel(document.getElementById('wheelH'), 100, onTimerWheel);
-  const wheelM = makeWheel(document.getElementById('wheelM'), 60, onTimerWheel);
-  const wheelS = makeWheel(document.getElementById('wheelS'), 60, onTimerWheel);
-  const timerSetup = document.getElementById('timerSetup');
-  const timerPresets = document.getElementById('timerPresets');
-  const timerDisplay = document.getElementById('timerDisplay');
-  const timerDisplayWrap = document.getElementById('timerDisplayWrap');
-  const timerDoneNote = document.getElementById('timerDoneNote');
-  const timerSetFor = document.getElementById('timerSetFor');
-  const timerBar = document.getElementById('timerBar');
-  const timerStartBtn = document.getElementById('timerStartBtn');
-  const timerResetBtn = document.getElementById('timerResetBtn');
-  const timerStopAlarmBtn = document.getElementById('timerStopAlarmBtn');
+  // ═══════════════ REMINDER CARDS (shared by timers, alarms and loops) ═══════════════
+  // Cards are built once per item and then updated in place, so typing in a reminder is never interrupted by the ticking clock.
+  const q = (el, sel) => el.querySelector(sel);
+  const BTN = 'text-sm px-4 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400';
+  const BTN_RED = 'text-sm px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold';
+  const NOTE_ROW = `<div class="flex items-center gap-2 mb-3"><span class="text-slate-500" aria-hidden="true">&#128221;</span>
+    <input type="text" maxlength="120" class="note-input flex-1 min-w-0 bg-transparent border-b border-slate-700 focus:border-blue-500 text-sm text-white placeholder:text-slate-500 focus:outline-none py-1" placeholder="Add a reminder (optional)" aria-label="Reminder">
+    <button type="button" data-act="clear" class="text-xs text-slate-500 hover:text-slate-300 hidden">Clear</button>
+    <button type="button" data-act="remove" class="text-slate-500 hover:text-red-400 text-xl leading-none px-1" aria-label="Remove">&times;</button></div>`;
+  const BUTTONS = (toggle, dismiss) => `<div class="flex flex-wrap gap-2 mt-3">${toggle ? `<button type="button" data-act="toggle" class="toggle ${BTN}"></button>` : ''}
+    <button type="button" data-act="silence" class="silence ${BTN_RED} hidden">&#128277; Silence</button>
+    ${dismiss ? `<button type="button" data-act="dismiss" class="dismiss ${BTN} hidden">Dismiss</button>` : ''}</div>`;
+  const REMINDER = '<p class="reminder text-base text-amber-300 font-semibold mt-2 hidden"></p>';
+  function makeCard(inner) { const d = document.createElement('div'); d.className = 'glass rounded-2xl p-4'; d.innerHTML = NOTE_ROW + inner; return d; }
+  function syncNote(el, it, showBanner) {
+    const inp = q(el, '.note-input'), note = it.note || '';
+    if (document.activeElement !== inp && inp.value !== note) inp.value = note;
+    q(el, '[data-act="clear"]').classList.toggle('hidden', !note);
+    const rb = q(el, '.reminder'); if (rb) { setText(rb, '\u{1F4DD} ' + note); rb.classList.toggle('hidden', !(showBanner && note)); }
+  }
+  function handle(kind, act, id) {
+    const it = (T.getState()[kind + 's'] || []).find(x => x.id === id); if (!it) return;
+    if (act === 'clear') T.setNote(kind, id, '');
+    else if (act === 'silence') T[kind + 'Silence'](id);
+    else if (act === 'remove') T[kind + 'Remove'](id);
+    else if (act === 'dismiss') { if (kind === 'alarm') T.alarmDismiss(id); else T[kind + 'Remove'](id); }
+    else if (act === 'toggle') { try { T.unlock(); } catch (e) {} if (it.status === 'running') T[kind + 'Pause'](id); else T[kind + 'Resume'](id); }
+  }
+  function makeList(kind, build, update) {
+    const container = $(kind + 'List'), empty = $(kind + 'Empty'), els = new Map();
+    container.addEventListener('input', (e) => { const inp = e.target.closest('.note-input'); if (inp) T.setNote(kind, +inp.closest('[data-id]').dataset.id, inp.value); });
+    container.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) handle(kind, b.dataset.act, +b.closest('[data-id]').dataset.id); });
+    return (items) => {
+      const ids = new Set(items.map(i => i.id));
+      els.forEach((el, id) => { if (!ids.has(id)) { el.remove(); els.delete(id); } });
+      items.forEach((it, idx) => {
+        let el = els.get(it.id);
+        if (!el) { el = build(it); el.dataset.id = it.id; els.set(it.id, el); }
+        if (container.children[idx] !== el) container.insertBefore(el, container.children[idx] || null);
+        update(el, it);
+      });
+      empty.classList.toggle('hidden', items.length > 0);
+    };
+  }
+  const ringingNow = (it) => !!it.alarmUntil && Date.now() < it.alarmUntil;
 
+  // ═══════════════ TIMERS ═══════════════
+  const TIMER_LAST_KEY = 'toolbox:timer-last';
+  const wheelH = makeWheel($('wheelH'), 100, onTimerWheel);
+  const wheelM = makeWheel($('wheelM'), 60, onTimerWheel);
+  const wheelS = makeWheel($('wheelS'), 60, onTimerWheel);
+  const timerPresets = $('timerPresets'), timerNote = $('timerNote');
   const readTimerInputs = () => (wheelH.get() * 3600 + wheelM.get() * 60 + wheelS.get()) * 1000;
   function saveLastTimer() { try { localStorage.setItem(TIMER_LAST_KEY, String(readTimerInputs() / 1000)); } catch (e) {} }
-  function setTimerFromSeconds(total) {
-    wheelH.set(Math.floor(total / 3600)); wheelM.set(Math.floor((total % 3600) / 60)); wheelS.set(total % 60);
-    saveLastTimer(); renderTimer(T.getState());
-  }
-  function onTimerWheel() { saveLastTimer(); renderTimer(T.getState()); }
-  function renderTimer(state) {
-    const d = T.getDerived(state);
-    const st = state.timer.status;
-    const isActive = st === 'running' || st === 'paused';
-    const wasHidden = timerSetup.classList.contains('hidden');
-    timerSetup.classList.toggle('hidden', st !== 'idle');                 // wheels + presets only while setting a time
-    if (wasHidden && st === 'idle') refreshWheels();                      // put the wheels back where the chosen time says
-    timerDisplayWrap.classList.toggle('hidden', st === 'idle');
-    setText(timerDisplay, T.formatCountdown(isActive ? d.timerRemaining : 0));
-    setText(timerSetFor, state.timer.totalMs ? `Timer for ${T.formatCountdown(state.timer.totalMs)}` : '');
-    const barW = (isActive && state.timer.totalMs ? Math.max(0, Math.min(100, d.timerRemaining / state.timer.totalMs * 100)) : 0) + '%';
-    if (timerBar.style.width !== barW) timerBar.style.width = barW;
-    setText(timerStartBtn, st === 'running' ? 'Pause' : (st === 'paused' ? 'Resume' : 'Start'));
-    timerStartBtn.classList.toggle('hidden', st === 'finished');
-    timerResetBtn.classList.toggle('hidden', st === 'idle');
-    timerDoneNote.classList.toggle('hidden', st !== 'finished');
-    timerDisplayWrap.classList.toggle('flash', st === 'finished');
-  }
-
+  function onTimerWheel() { saveLastTimer(); }
+  function setTimerFromSeconds(total) { wheelH.set(Math.floor(total / 3600)); wheelM.set(Math.floor((total % 3600) / 60)); wheelS.set(total % 60); saveLastTimer(); }
   let hintTimer = null;
-  timerStartBtn.addEventListener('click', () => {
+  function flashHint(id) { const h = $(id); h.classList.remove('hidden'); clearTimeout(hintTimer); hintTimer = setTimeout(() => h.classList.add('hidden'), 3000); }
+  $('timerStartBtn').addEventListener('click', () => {
     try { T.unlock(); } catch (e) {}               // this tap is what lets the alarm make sound later; it can never stop the timer starting
-    const s = T.getState();
-    if (s.timer.status === 'running') { T.timerPause(); return; }
-    if (s.timer.status === 'paused') { T.timerStart(); return; }
     const ms = readTimerInputs();
-    if (ms <= 0) {                                 // no dead button: say what's missing
-      const h = document.getElementById('timerHint'); h.classList.remove('hidden');
-      clearTimeout(hintTimer); hintTimer = setTimeout(() => h.classList.add('hidden'), 3000);
-      return;
-    }
-    document.getElementById('timerHint').classList.add('hidden');
-    T.timerStart(ms);
+    if (ms <= 0) { flashHint('timerHint'); return; }
+    $('timerHint').classList.add('hidden');
+    T.timerAdd(ms, timerNote.value.trim()); timerNote.value = '';
   });
-  timerResetBtn.addEventListener('click', () => T.timerReset());
-  timerStopAlarmBtn.addEventListener('click', () => { T.timerStopAlarm(); T.timerReset(); });
-  timerPresets.querySelectorAll('[data-preset]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const st = T.getState().timer.status;
-      if (st !== 'idle' && st !== 'finished') return;
-      setTimerFromSeconds(parseInt(btn.getAttribute('data-preset'), 10));
-    });
-  });
+  timerPresets.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => setTimerFromSeconds(parseInt(btn.getAttribute('data-preset'), 10))));
   (function initTimerWheels() {
     let last = 300; try { const v = parseInt(localStorage.getItem(TIMER_LAST_KEY), 10); if (v > 0 && v < 100 * 3600) last = v; } catch (e) {}
     wheelH.set(Math.floor(last / 3600)); wheelM.set(Math.floor((last % 3600) / 60)); wheelS.set(last % 60);
   })();
+  const renderTimers = makeList('timer',
+    () => makeCard(`<div class="flex items-center gap-4"><p class="time big-display text-4xl font-bold text-white"></p>
+        <div class="flex-1 min-w-0"><p class="setfor text-xs text-slate-500 mb-1"></p><div class="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div class="bar h-full bg-blue-500" style="width:100%"></div></div></div></div>
+      <p class="done text-sm text-red-400 font-medium mt-2 hidden">Time&rsquo;s up!</p>${REMINDER}${BUTTONS(true, true)}`),
+    (el, t) => {
+      const fin = t.status === 'finished', ms = fin ? 0 : T.left(t);
+      setText(q(el, '.time'), T.formatCountdown(ms));
+      setText(q(el, '.setfor'), 'Timer for ' + T.formatCountdown(t.totalMs));
+      const w = (t.totalMs ? Math.max(0, Math.min(100, ms / t.totalMs * 100)) : 0) + '%', bar = q(el, '.bar'); if (bar.style.width !== w) bar.style.width = w;
+      setText(q(el, '.toggle'), t.status === 'paused' ? 'Resume' : 'Pause');
+      q(el, '.toggle').classList.toggle('hidden', fin);
+      q(el, '.silence').classList.toggle('hidden', !ringingNow(t));
+      q(el, '.dismiss').classList.toggle('hidden', !fin);
+      q(el, '.done').classList.toggle('hidden', !fin);
+      el.classList.toggle('flash', fin);
+      syncNote(el, t, fin);
+    });
 
-  // ═══════════════ ALARM ═══════════════
-  const alarmClock = document.getElementById('alarmClock');
-  const alarmTimeInput = document.getElementById('alarmTimeInput');
-  const alarmRepeatDaily = document.getElementById('alarmRepeatDaily');
-  const alarmArmedNote = document.getElementById('alarmArmedNote');
-  const alarmFiringNote = document.getElementById('alarmFiringNote');
-  const alarmSetBtn = document.getElementById('alarmSetBtn');
-  const alarmCancelBtn = document.getElementById('alarmCancelBtn');
-  const alarmStopAlarmBtn = document.getElementById('alarmStopAlarmBtn');
-
+  // ═══════════════ ALARMS ═══════════════
+  const alarmClock = $('alarmClock'), alarmTimeInput = $('alarmTimeInput'), alarmRepeatDaily = $('alarmRepeatDaily'), alarmNote = $('alarmNote');
   function pad2(n) { return n.toString().padStart(2, '0'); }
-  function updateClock() {
-    const now = new Date();
-    setText(alarmClock, `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`);
-  }
-  function renderAlarm(state) {
-    const armed = state.alarm.status === 'armed';
-    const firing = state.alarm.status === 'firing';
-    alarmSetBtn.classList.toggle('hidden', armed || firing);
-    alarmCancelBtn.classList.toggle('hidden', !armed);
-    alarmTimeInput.disabled = armed || firing;
-    document.getElementById('alarmWheels').classList.toggle('disabled', armed || firing);
-    alarmFiringNote.classList.toggle('hidden', !firing);
-    alarmStopAlarmBtn.classList.toggle('hidden', !firing);
-
-    if (armed) {
-      const diffMs = state.alarm.targetMs - Date.now();
-      const mins = Math.max(0, Math.round(diffMs / 60000));
-      const h = Math.floor(mins / 60), m = mins % 60;
-      const inText = h > 0 ? `${h}h ${m}m` : `${m}m`;
-      setText(alarmArmedNote, `Alarm set for ${state.alarm.timeStr} \u2014 in about ${inText}${state.alarm.repeatDaily ? ' (repeats daily)' : ''}`);
-      alarmArmedNote.classList.remove('hidden');
-    } else {
-      alarmArmedNote.classList.add('hidden');
-    }
-  }
-
-  alarmSetBtn.addEventListener('click', () => {
-    onAlarmWheel();
-    T.unlock();                                    // this tap is what lets the alarm make sound later
-    T.alarmArm(alarmTimeInput.value, alarmRepeatDaily.checked);
-  });
-  alarmCancelBtn.addEventListener('click', () => T.alarmCancel());
-  alarmStopAlarmBtn.addEventListener('click', () => T.alarmStopAlarm());
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  const wheelAH = makeWheel(document.getElementById('wheelAH'), 24, onAlarmWheel);
-  const wheelAM = makeWheel(document.getElementById('wheelAM'), 60, onAlarmWheel);
+  function updateClock() { const now = new Date(); setText(alarmClock, `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`); }
+  setInterval(updateClock, 1000); updateClock();
+  const wheelAH = makeWheel($('wheelAH'), 24, onAlarmWheel);
+  const wheelAM = makeWheel($('wheelAM'), 60, onAlarmWheel);
   function onAlarmWheel() {
     alarmTimeInput.value = pad2(wheelAH.get()) + ':' + pad2(wheelAM.get());
     try { localStorage.setItem('toolbox:alarm-last', alarmTimeInput.value); } catch (e) {}
   }
   (function initAlarmWheels() {
-    const st = T.getState().alarm;
-    let v = (st.status !== 'idle' && st.timeStr) ? st.timeStr : null;
-    if (!v) { try { v = localStorage.getItem('toolbox:alarm-last'); } catch (e) {} }
+    let v = null; try { v = localStorage.getItem('toolbox:alarm-last'); } catch (e) {}
     if (!/^\d{2}:\d{2}$/.test(v || '')) v = '07:00';
     wheelAH.set(parseInt(v.slice(0, 2), 10)); wheelAM.set(parseInt(v.slice(3, 5), 10)); alarmTimeInput.value = v;
   })();
+  $('alarmSetBtn').addEventListener('click', () => {
+    onAlarmWheel();
+    T.unlock();                                    // this tap is what lets the alarm make sound later
+    T.alarmAdd(alarmTimeInput.value, alarmRepeatDaily.checked, alarmNote.value.trim()); alarmNote.value = '';
+  });
+  const renderAlarms = makeList('alarm',
+    () => makeCard(`<div class="flex items-center gap-3"><p class="time big-display text-4xl font-bold text-white"></p>
+        <div class="min-w-0"><p class="sub text-sm text-slate-400"></p><p class="rep text-xs text-slate-500 hidden">repeats daily</p></div></div>${REMINDER}${BUTTONS(false, true)}`),
+    (el, a) => {
+      const firing = a.status === 'firing';
+      setText(q(el, '.time'), a.timeStr);
+      if (firing) setText(q(el, '.sub'), '\u23F0 Alarm! It\u2019s time.');
+      else { const mins = Math.max(0, Math.round((a.targetMs - Date.now()) / 60000)), h = Math.floor(mins / 60), m = mins % 60; setText(q(el, '.sub'), 'in about ' + (h > 0 ? `${h}h ${m}m` : `${m}m`)); }
+      q(el, '.rep').classList.toggle('hidden', !a.repeatDaily);
+      q(el, '.silence').classList.toggle('hidden', !ringingNow(a));
+      q(el, '.dismiss').classList.toggle('hidden', !firing);
+      el.classList.toggle('flash', firing);
+      syncNote(el, a, firing);
+    });
 
-  // ═══════════════ TIMER LOOP ═══════════════
-  const loopPills = document.getElementById('loopPills');
-  const loopCurrentLabel = document.getElementById('loopCurrentLabel');
-  const loopDisplay = document.getElementById('loopDisplay');
-  const loopStartBtn = document.getElementById('loopStartBtn');
-  const loopResetBtn = document.getElementById('loopResetBtn');
-  const loopStopAlarmBtn = document.getElementById('loopStopAlarmBtn');
-  const loopIntervalsList = document.getElementById('loopIntervalsList');
-  const loopAddBtn = document.getElementById('loopAddBtn');
-
-  function loopLabelFor(iv) { return iv.label ? iv.label : `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''}`; }
-
-  function renderPills(state) {
-    const intervals = state.loop.intervals;
-    setHTML(loopPills, intervals.map((iv, idx) => `
-      <span class="interval-pill text-xs px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/50 ${idx === state.loop.currentIndex ? 'active' : ''}">${loopLabelFor(iv)}</span>
-    `).join(''));
-  }
-
-  function renderLoopHeader(state) {
-    const d = T.getDerived(state);
-    const intervals = state.loop.intervals;
-    const isActive = state.loop.status === 'running' || state.loop.status === 'paused';
-    if (!intervals.length) {
-      setText(loopCurrentLabel, 'No intervals');
-      setText(loopDisplay, '0:00');
-      return;
-    }
-    setText(loopCurrentLabel, `Interval ${state.loop.currentIndex + 1} of ${intervals.length} \u2014 ${loopLabelFor(intervals[state.loop.currentIndex])}`);
-    const ms = isActive ? d.loopRemaining : (intervals[state.loop.currentIndex] ? (intervals[state.loop.currentIndex].minutes * 60 + intervals[state.loop.currentIndex].seconds) * 1000 : 0);
-    setText(loopDisplay, T.formatCountdown(ms));
-    setText(loopStartBtn, state.loop.status === 'running' ? 'Pause' : (state.loop.status === 'paused' ? 'Resume' : 'Start'));
-  }
+  // ═══════════════ TIMER LOOPS ═══════════════
+  const loopIntervalsList = $('loopIntervalsList'), loopAddBtn = $('loopAddBtn'), loopNote = $('loopNote');
+  const loopLabelFor = (iv) => iv.label ? iv.label : `${iv.minutes}m${iv.seconds ? ' ' + iv.seconds + 's' : ''}`;
+  const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   // Slides rows to their new position whenever the list is rebuilt, so a
   // swap/move/removal is always visibly a swap/move/removal.
@@ -532,8 +489,8 @@
   let dragSrcId = null;
 
   function renderIntervalsList(state) {
-    const intervals = state.loop.intervals;
-    const running = state.loop.status === 'running';
+    const intervals = state.loopDraft.intervals;
+    const running = false;
     loopIntervalsList.innerHTML = intervals.map((iv, idx) => `
       <div class="flex items-center gap-2 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2" data-id="${iv.id}" draggable="${running ? 'false' : 'true'}">
         <span class="drag-handle text-slate-600 ${running ? '' : 'cursor-grab'} select-none" title="Drag to reorder">&#8942;&#8942;</span>
@@ -572,7 +529,7 @@
 
     loopIntervalsList.querySelectorAll('[data-id]').forEach(row => {
       row.addEventListener('dragstart', (e) => {
-        if (T.getState().loop.status === 'running') { e.preventDefault(); return; }
+        if (false) { e.preventDefault(); return; }
         dragSrcId = row.dataset.id;
         row.classList.add('opacity-40');
         e.dataTransfer.effectAllowed = 'move';
@@ -583,7 +540,7 @@
         dragSrcId = null;
       });
       row.addEventListener('dragover', (e) => {
-        if (T.getState().loop.status === 'running' || dragSrcId === null) return;
+        if (false || dragSrcId === null) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (row.dataset.id !== dragSrcId) row.classList.add('border-blue-500');
@@ -592,7 +549,7 @@
       row.addEventListener('drop', (e) => {
         e.preventDefault();
         row.classList.remove('border-blue-500');
-        if (T.getState().loop.status === 'running' || dragSrcId === null || row.dataset.id === dragSrcId) return;
+        if (false || dragSrcId === null || row.dataset.id === dragSrcId) return;
         const srcId = parseInt(dragSrcId, 10);
         const targetId = parseInt(row.dataset.id, 10);
         animatedRebuild(() => T.loopReorder(srcId, targetId));
@@ -600,20 +557,24 @@
     });
   }
 
-  loopStartBtn.addEventListener('click', () => {
+  $('loopStartBtn').addEventListener('click', () => {
     try { T.unlock(); } catch (e) {}
-    const s = T.getState();
-    if (s.loop.status === 'running') T.loopPause(); else T.loopStart();
+    if (T.loopAdd(loopNote.value.trim()) === null) { flashHint('loopHint'); return; }
+    $('loopHint').classList.add('hidden'); loopNote.value = '';
   });
-  loopResetBtn.addEventListener('click', () => {
-    T.loopReset();
-    renderIntervalsList(T.getState());
-  });
-  loopStopAlarmBtn.addEventListener('click', () => T.loopStopAlarm());
-  loopAddBtn.addEventListener('click', () => {
-    if (T.getState().loop.status === 'running') return;
-    animatedRebuild(() => T.loopAddInterval());
-  });
+  loopAddBtn.addEventListener('click', () => animatedRebuild(() => T.loopAddInterval()));
+  const renderLoops = makeList('loop',
+    () => makeCard(`<p class="stage text-sm text-slate-500 mb-1"></p><p class="time big-display text-4xl font-bold text-white"></p>
+      <div class="pills flex flex-wrap gap-1.5 mt-3"></div>${BUTTONS(true, false)}`),
+    (el, l) => {
+      const iv = l.intervals[l.currentIndex] || l.intervals[0];
+      setText(q(el, '.stage'), `Interval ${l.currentIndex + 1} of ${l.intervals.length} \u2014 ${iv ? loopLabelFor(iv) : ''}`);
+      setText(q(el, '.time'), T.formatCountdown(T.left(l)));
+      setHTML(q(el, '.pills'), l.intervals.map((x, i) => `<span class="interval-pill text-xs px-3 py-1 rounded-full border border-slate-700 bg-slate-900/50 ${i === l.currentIndex ? 'active' : ''}">${escHtml(loopLabelFor(x))}</span>`).join(''));
+      setText(q(el, '.toggle'), l.status === 'paused' ? 'Resume' : 'Pause');
+      q(el, '.silence').classList.toggle('hidden', !ringingNow(l));
+      syncNote(el, l, false);
+    });
 
   // ═══════════════ SOUND, ALERTS, SCREEN ═══════════════
   const audioChip = document.getElementById('audioChip');
@@ -681,7 +642,7 @@
   try { keepAwake.checked = localStorage.getItem('toolbox:keep-awake') !== 'off'; } catch (e) { keepAwake.checked = true; }
   keepAwake.addEventListener('change', () => { try { localStorage.setItem('toolbox:keep-awake', keepAwake.checked ? 'on' : 'off'); } catch (e) {} syncWake(T.getState()); });
   function syncWake(state) {
-    const need = keepAwake.checked && !document.hidden && (state.timer.status === 'running' || state.loop.status === 'running');
+    const need = keepAwake.checked && !document.hidden && (state.timers.some(t => t.status === 'running') || state.loops.some(l => l.status === 'running'));
     if (need && !wake && Date.now() >= wakeRetryAt && navigator.wakeLock && navigator.wakeLock.request) {
       wake = 'pending';
       navigator.wakeLock.request('screen').then(l => { wake = l; if (l.addEventListener) l.addEventListener('release', () => { if (wake === l) wake = null; }); }).catch(() => { wake = null; wakeRetryAt = Date.now() + 30000; });
@@ -693,14 +654,11 @@
   // (add/remove/reorder), never from this loop, so typing in a label or
   // duration field never gets its focus yanked out from under it. ──
   function renderAll(state) {
-    const now = Date.now();
     renderStopwatch(state);
-    renderTimer(state);
-    timerStopAlarmBtn.classList.toggle('hidden', !(state.timer.alarmUntil && now < state.timer.alarmUntil));
-    renderAlarm(state);
-    renderLoopHeader(state);
-    renderPills(state);
-    loopStopAlarmBtn.classList.toggle('hidden', !(state.loop.alarmUntil && now < state.loop.alarmUntil));
+    renderTimers(state.timers);
+    renderAlarms(state.alarms);
+    renderLoops(state.loops);
+    renderTabCounts(state);
     syncWake(state);
   }
 

@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
 <head>
+    <link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Link Tool — Toolbox</title>
     <!-- Core layout stylesheet link -->
     <link rel="stylesheet" href="../style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="../firebase-config.js"></script>
+    <script src="../toolbox-sync.js"></script>
 <script src="../timer-engine.js"></script>
     <style>
         body {
@@ -141,17 +146,65 @@
             height: 1px;
             background: linear-gradient(90deg, rgba(249, 115, 22, 0.25) 0%, rgba(249, 115, 22, 0) 100%);
         }
+
+        /* ── My links: filter, add form, sync note ── */
+        .filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1.25rem; }
+        .filter-row .link-counter { margin: 0 0 0 auto; }
+        .tab-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; padding: 0.4rem 0.9rem; border-radius: 9999px; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
+        .add-card { border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+        .add-card h2 { margin: 0 0 0.9rem 0; font-size: 1.05rem; color: #fff; }
+        .add-grid { display: grid; grid-template-columns: 1fr 1.4fr 1.4fr auto; gap: 0.75rem; align-items: end; }
+        @media (max-width: 800px) { .add-grid { grid-template-columns: 1fr; } }
+        .add-grid label { display: block; font-size: 0.8rem; color: #94a3b8; }
+        .add-grid input { width: 100%; box-sizing: border-box; margin-top: 0.3rem; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: #0f131a; color: #f1f5f9; font-size: 0.95rem; font-family: inherit; }
+        .add-grid input:focus { outline: none; border-color: #f97316; }
+        .add-btn { padding: 0.58rem 1.2rem; border-radius: 8px; border: 0; background: #f97316; color: #1a0d06; font-weight: 700; cursor: pointer; font-size: 0.95rem; font-family: inherit; }
+        .add-btn:hover { background: #fb923c; }
+        .add-msg { font-size: 0.85rem; min-height: 1.1rem; margin: 0.6rem 0 0 0; }
+        .add-msg.err { color: #fb7185; } .add-msg.ok { color: #34d399; }
+        .sync-note { font-size: 0.8rem; color: #94a3b8; margin: 0.2rem 0 0 0; }
+        .sync-note.ok { color: #34d399; } .sync-note.warn { color: #fbbf24; }
+        .sync-note a { color: #fbbf24; }
+        .del-btn { background: none; border: 0; color: #64748b; cursor: pointer; font-size: 0.85rem; margin-right: 1rem; font-family: inherit; }
+        .del-btn:hover, .del-btn.armed { color: #fb7185; }
+        .empty-note { color: #94a3b8; text-align: center; padding: 1.5rem 1rem; margin: 0; }
+
+        /* ── header row: back link left, sync badge + favourite star right ── */
+        .top-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 2rem; }
+        .top-row .back-link { margin-bottom: 0; }
+        .top-actions { display: flex; align-items: center; gap: 0.5rem; }
+        #toolbox-sync-badge { position: static !important; display: inline-block; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <a href="../index.html" class="back-link">← Toolbox</a>
+        <div class="top-row">
+            <a href="../index.html" class="back-link">← Toolbox</a>
+            <div class="top-actions"><span id="syncSlot"></span><button type="button" id="favToggle" style="background:none;border:0;font-size:1.3rem;cursor:pointer;color:#475569" aria-label="Add to favorites" aria-pressed="false">&#9734;</button></div>
+        </div>
         
         <h1>Link Tool</h1>
         <p class="subtitle">A simple place for useful links, references, and websites.</p>
         
-        <div id="counter-badge" class="link-counter">0 links</div>
+        <div class="glass add-card">
+            <h2>Add your own link</h2>
+            <div class="add-grid">
+                <label>Link name<input id="lName" maxlength="80" placeholder="e.g. My portfolio"></label>
+                <label>Link<input id="lUrl" maxlength="2000" placeholder="https://example.com"></label>
+                <label>Description (optional)<input id="lDesc" maxlength="200" placeholder="What is it?"></label>
+                <button type="button" id="addBtn" class="add-btn">Add link</button>
+            </div>
+            <p id="addMsg" class="add-msg" role="status"></p>
+            <p id="syncNote" class="sync-note"></p>
+        </div>
+
+        <div class="filter-row">
+            <button type="button" class="tab-btn active" data-filter="all">All</button>
+            <button type="button" class="tab-btn" data-filter="preset">Preset</button>
+            <button type="button" class="tab-btn" data-filter="mine">My links</button>
+            <div id="counter-badge" class="link-counter">0 links</div>
+        </div>
 
         <!-- Master Glass Box container -->
         <div class="glass-card glass" id="linkSections">
@@ -249,6 +302,12 @@
                 category: 'Audio',
                 name: 'zapsplat',
                 url: 'https://www.zapsplat.com/',
+                description: 'Free sound effects and music'
+            },
+            {
+                category: 'Audio',
+                name: 'Freesound',
+                url: 'https://freesound.org/',
                 description: 'Free sound effects and music'
             },
 
@@ -356,43 +415,190 @@
             return [...predefined, ...extra];
         }
 
-        function renderLinks() {
-            const container = document.getElementById('linkSections');
-            const validLinks = LINKS.filter(link => isSafeUrl(link.url));
-            const categories = buildCategoryOrder(validLinks);
+        // ==========================================================
+        // RENDERING + "MY LINKS" (private, synced to the signed-in account)
+        // ==========================================================
+        const MY_KEY = 'toolbox:mylinks', OWNER_KEY = 'toolbox:mylinks-owner', DAY = 86400000;
+        const $ = (id) => document.getElementById(id);
+        let filter = 'all', delArm = null, mine = loadMine();
+        let db = null, user = null, unsub = null, pushT = null, busy = false;
 
-            let html = '';
-            categories.forEach(category => {
-                const rows = validLinks.filter(link => link.category === category);
-                if (rows.length === 0) return;
+        // Each saved link: { id, name, url, description, c: created, t: last changed, del?: true }.
+        // Deleted links stay briefly as "tombstones" so a delete on one device isn't undone by another.
+        function validEntry(x) { return x && typeof x.id === 'string' && typeof x.name === 'string' && typeof x.url === 'string'; }
+        function cleanList(list) {
+            return (Array.isArray(list) ? list : []).filter(validEntry).map(x => ({
+                id: x.id, name: x.name.slice(0, 80), url: x.url.slice(0, 2000), description: String(x.description || '').slice(0, 200),
+                c: Number(x.c) || 0, t: Number(x.t) || 0, del: x.del ? true : undefined
+            })).filter(x => !x.del || Date.now() - x.t < 60 * DAY);
+        }
+        function loadMine() { try { return cleanList(JSON.parse(localStorage.getItem(MY_KEY))); } catch (e) { return []; } }
+        function saveMine() { try { localStorage.setItem(MY_KEY, JSON.stringify(mine)); } catch (e) {} }
+        function mergeLists(a, b) {
+            const m = new Map();
+            a.concat(b).forEach(x => { const y = m.get(x.id); if (!y || x.t > y.t) m.set(x.id, x); });
+            return cleanList([...m.values()]);
+        }
+        const fingerprint = (list) => JSON.stringify(list.slice().sort((p, q) => (p.id < q.id ? -1 : 1)));
 
-                html += `
-                    <div class="category-header-container">
-                        <span class="category-title">${escapeHtml(category)}</span>
-                        <div class="category-line"></div>
-                    </div>
-                    <div class="table-scroll">
-                        <table class="links-table">
-                            <tbody>
-                                ${rows.map(link => `
-                                    <tr>
-                                        <td><span class="link-name">${escapeHtml(link.name)}</span></td>
-                                        <td><a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="link-url">${escapeHtml(displayUrl(link.url))}</a></td>
-                                        <td><span class="link-desc">${escapeHtml(link.description)}</span></td>
-                                        <td style="text-align: right;"><a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="open-btn">Open</a></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-            document.getElementById('counter-badge').textContent = `${validLinks.length} ${validLinks.length === 1 ? 'link' : 'links'}`;
+        function setSync(state) {
+            const n = $('syncNote');
+            if (state === 'signedout') { n.innerHTML = 'Saved on this device only. <a href="#" id="syncSignIn">Sign in</a> to keep them on all your devices.'; n.className = 'sync-note warn'; const a = $('syncSignIn'); if (a) a.onclick = (e) => { e.preventDefault(); if (window.ToolboxAuth) window.ToolboxAuth.open(); else location.href = '../HabitTracker/habit-tracker.html#sync'; }; }
+            else if (state === 'syncing') { n.textContent = '\u2601 Syncing\u2026'; n.className = 'sync-note'; }
+            else if (state === 'synced') { n.textContent = '\u2601 Synced. Only you can see your links.'; n.className = 'sync-note ok'; }
+            else { n.textContent = '\u2601 Sync problem. Your links are safe on this device and will sync when it works again.'; n.className = 'sync-note warn'; }
         }
 
+        function listen() {
+            setSync('syncing');
+            unsub = db.doc('users/' + user.uid + '/toolbox/links').onSnapshot((snap) => {
+                let remote = [];
+                if (snap.exists) { try { remote = cleanList(JSON.parse(snap.data().json)); } catch (e) {} }
+                mine = mergeLists(mine, remote); saveMine(); renderLinks();
+                if (fingerprint(mine) !== fingerprint(remote)) push(); else setSync('synced');
+            }, () => setSync('error'));
+        }
+        async function push() {
+            if (!user || busy) return; busy = true; setSync('syncing');
+            const ref = db.doc('users/' + user.uid + '/toolbox/links');
+            try {
+                const merged = await db.runTransaction(async (tx) => {
+                    const s = await tx.get(ref); let remote = [];
+                    if (s.exists) { try { remote = cleanList(JSON.parse(s.data().json)); } catch (e) {} }
+                    const m = mergeLists(mine, remote);
+                    tx.set(ref, { json: JSON.stringify(m), updated: firebase.firestore.FieldValue.serverTimestamp() });
+                    return m;
+                });
+                mine = merged; saveMine(); renderLinks(); setSync('synced');
+            } catch (e) { setSync('error'); }
+            busy = false;
+        }
+        function schedulePush() { if (!user) return; clearTimeout(pushT); pushT = setTimeout(push, 400); }
+
+        function initCloud() {
+            try {
+                if (!window.firebase || !window.TOOLBOX_FIREBASE) { setSync('signedout'); return; }
+                if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+                db = firebase.firestore();
+                firebase.auth().onAuthStateChanged((u) => {
+                    if (unsub) { unsub(); unsub = null; }
+                    user = u;
+                    if (!u) { setSync('signedout'); return; }
+                    // A different account on a shared device must not inherit the previous person's links.
+                    const owner = localStorage.getItem(OWNER_KEY);
+                    if (owner && owner !== u.uid) { mine = []; saveMine(); renderLinks(); }
+                    try { localStorage.setItem(OWNER_KEY, u.uid); } catch (e) {}
+                    listen();
+                });
+            } catch (e) { setSync('error'); }
+        }
+
+        // ── adding / deleting ──
+        function addLink() {
+            const name = $('lName').value.trim(); let url = $('lUrl').value.trim(); const description = $('lDesc').value.trim();
+            const msg = $('addMsg'); msg.className = 'add-msg err';
+            if (!name || !url) { msg.textContent = 'Please enter a link name and a link.'; return; }
+            if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+            if (!isSafeUrl(url)) { msg.textContent = 'That doesn\u2019t look like a valid web link.'; return; }
+            const now = Date.now();
+            mine.push({ id: now.toString(36) + Math.random().toString(36).slice(2, 7), name: name.slice(0, 80), url: url.slice(0, 2000), description: description.slice(0, 200), c: now, t: now });
+            saveMine(); schedulePush();
+            ['lName', 'lUrl', 'lDesc'].forEach(i => $(i).value = '');
+            msg.className = 'add-msg ok'; msg.textContent = 'Added to My links.';
+            if (filter === 'preset') filter = 'all';
+            renderLinks();
+        }
+        function deleteLink(id) {
+            if (delArm !== id) { delArm = id; renderLinks(); setTimeout(() => { if (delArm === id) { delArm = null; renderLinks(); } }, 3000); return; }
+            delArm = null; const now = Date.now();
+            mine = mine.map(x => x.id === id ? { id: x.id, name: x.name, url: x.url, description: '', c: x.c, t: now, del: true } : x);
+            saveMine(); schedulePush(); renderLinks();
+        }
+
+        // ── drawing ──
+        function sectionHTML(title, rowsHTML) {
+            return `
+                <div class="category-header-container">
+                    <span class="category-title">${escapeHtml(title)}</span>
+                    <div class="category-line"></div>
+                </div>
+                <div class="table-scroll">
+                    <table class="links-table"><tbody>${rowsHTML}</tbody></table>
+                </div>`;
+        }
+        function rowHTML(link, isMine) {
+            const u = escapeHtml(link.url);
+            const extra = isMine ? `<button type="button" class="del-btn ${delArm === link.id ? 'armed' : ''}" data-del="${escapeHtml(link.id)}">${delArm === link.id ? 'Click again to delete' : 'Delete'}</button>` : '';
+            return `
+                <tr>
+                    <td><span class="link-name">${escapeHtml(link.name)}</span></td>
+                    <td><a href="${u}" target="_blank" rel="noopener noreferrer" class="link-url">${escapeHtml(displayUrl(link.url))}</a></td>
+                    <td><span class="link-desc">${escapeHtml(link.description || '')}</span></td>
+                    <td style="text-align: right; white-space: nowrap;">${extra}<a href="${u}" target="_blank" rel="noopener noreferrer" class="open-btn">Open</a></td>
+                </tr>`;
+        }
+
+        function renderLinks() {
+            const preset = LINKS.filter(link => isSafeUrl(link.url));
+            const myList = mine.filter(x => !x.del && isSafeUrl(x.url)).sort((a, b) => b.c - a.c);
+            let html = '', shown = 0;
+
+            if (filter !== 'preset') {
+                if (myList.length) { html += sectionHTML('My links', myList.map(l => rowHTML(l, true)).join('')); shown += myList.length; }
+                else if (filter === 'mine') html += '<p class="empty-note">You haven\u2019t added any links yet. Use the form above to add your first one.</p>';
+            }
+            if (filter !== 'mine') {
+                buildCategoryOrder(preset).forEach(category => {
+                    const rows = preset.filter(link => link.category === category);
+                    if (rows.length) { html += sectionHTML(category, rows.map(l => rowHTML(l, false)).join('')); shown += rows.length; }
+                });
+            }
+            $('linkSections').innerHTML = html;
+            $('counter-badge').textContent = `${shown} ${shown === 1 ? 'link' : 'links'}`;
+            document.querySelectorAll('[data-filter]').forEach(b => {
+                const k = b.dataset.filter, n = k === 'all' ? preset.length + myList.length : k === 'preset' ? preset.length : myList.length;
+                b.textContent = `${{ all: 'All', preset: 'Preset', mine: 'My links' }[k]} (${n})`;
+                b.classList.toggle('active', k === filter);
+            });
+        }
+
+        $('linkSections').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (b) deleteLink(b.dataset.del); });
+        document.querySelectorAll('[data-filter]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; renderLinks(); }));
+        $('addBtn').addEventListener('click', addLink);
+        ['lName', 'lUrl', 'lDesc'].forEach(i => $(i).addEventListener('keydown', (e) => { if (e.key === 'Enter') addLink(); }));
+
+        // Favourite star (same behaviour as the other tools)
+        (function () {
+            const TOOL_ID = 'link-tool', KEY = 'toolbox:favorites', btn = $('favToggle');
+            const get = () => { try { const v = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+            function draw() {
+                const f = get().includes(TOOL_ID);
+                btn.innerHTML = f ? '&#9733;' : '&#9734;'; btn.style.color = f ? '#fbbf24' : '#475569';
+                btn.setAttribute('aria-pressed', f); btn.setAttribute('aria-label', f ? 'Remove from favorites' : 'Add to favorites');
+            }
+            btn.addEventListener('click', () => {
+                const favs = get(), i = favs.indexOf(TOOL_ID);
+                if (i === -1) favs.push(TOOL_ID); else favs.splice(i, 1);
+                try { localStorage.setItem(KEY, JSON.stringify(favs)); } catch (e) {}
+                draw();
+            });
+            window.addEventListener('toolbox:synced', draw);   // favourites arriving from another device
+            draw();
+        })();
+
+        // Move the "Sign in to sync" badge into the header row (it is created by toolbox-sync.js after the page loads)
+        (function () {
+            function dock() {
+                const b = $('toolbox-sync-badge'), slot = $('syncSlot');
+                if (!b || !slot) return false;
+                if (b.parentNode !== slot) slot.appendChild(b);
+                return true;
+            }
+            if (!dock()) new MutationObserver((m, o) => { if (dock()) o.disconnect(); }).observe(document.body, { childList: true });
+        })();
+
         renderLinks();
+        initCloud();
     </script>
 </body>
 </html>

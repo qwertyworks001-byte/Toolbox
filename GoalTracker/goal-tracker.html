@@ -7,6 +7,11 @@
 <link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="../style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../toolbox-sync.js"></script>
 <script src="../timer-engine.js"></script>
 <style>
   .goal-row { transition: background .15s ease, border-color .15s ease; }
@@ -20,6 +25,7 @@
   .chip.active { background: rgba(139,92,246,.18); border-color: #8b5cf6; color: #ddd6fe; }
   .bar { height: 5px; border-radius: 999px; background: #1e293b; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8b5cf6, #ec4899); transition: width .25s ease; }
+  #toolbox-sync-badge { position: static !important; display: inline-block; }
 </style>
 </head>
 <body class="text-slate-200 font-sans antialiased">
@@ -32,10 +38,10 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         Toolbox
       </a>
-      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+      <div class="flex items-center gap-2"><span id="syncSlot"></span><button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button></div>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Goal Tracker</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Write down as many goals as you like, from today to a whole lifetime. Everything saves on this device as you type.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Write down as many goals as you like, from today to a whole lifetime. Everything saves as you type, and syncs across your devices when you&rsquo;re signed in.</p>
   </header>
 
   <!-- Add a goal -->
@@ -68,7 +74,7 @@
       <input type="file" id="importFile" accept=".json,application/json" class="hidden">
     </div>
     <p class="text-xs mt-3 min-h-[1rem]" id="backupMsg" role="status" aria-live="polite"></p>
-    <p class="text-xs text-slate-500 mt-1 leading-relaxed">Goals are stored in this browser on this device, so clearing your browser&rsquo;s site data would erase them. Download a backup now and then to be safe.</p>
+    <p class="text-xs text-slate-500 mt-1 leading-relaxed">Goals are saved in this browser and, when you&rsquo;re signed in, synced to your own account (only you can see them). Download a backup now and then to be safe.</p>
   </section>
 
 </div>
@@ -127,19 +133,128 @@
   let view = HIDS.includes(readStore(VIEW_KEY)) ? readStore(VIEW_KEY) : 'all';
   let editingId = null, confirmId = null, confirmClear = null;
 
+  // ── sync state ──
+  let syncState = 'local', lastWhen = null, pendingRender = false;
   function drawSaveState(ok, when) {
+    if (when !== undefined) lastWhen = when;
     const el = $('saveState');
     if (!storageOK || ok === false) { el.textContent = '\u26A0 Not saving: this browser is blocking storage'; el.className = 'text-xs px-3 py-1.5 rounded-full border border-amber-500/50 text-amber-300'; return; }
-    el.textContent = '\u2713 Saved on this device' + (when ? ' at ' + when : '');
-    el.className = 'text-xs px-3 py-1.5 rounded-full border border-emerald-500/50 text-emerald-300';
+    const tail = { local: ' \u00B7 sign in to sync', syncing: ' \u00B7 \u2601 syncing\u2026', synced: ' \u00B7 \u2601 synced', error: ' \u00B7 \u2601 sync problem' }[syncState];
+    el.textContent = '\u2713 Saved on this device' + (lastWhen ? ' at ' + lastWhen : '') + tail;
+    el.className = 'text-xs px-3 py-1.5 rounded-full border ' + (syncState === 'error' ? 'border-amber-500/50 text-amber-300' : 'border-emerald-500/50 text-emerald-300');
   }
-  function save() {
+  function setSync(s) { syncState = s; drawSaveState(storageOK); }
+
+  // Writes the goals to this device (keeping the version before as a safety net).
+  function persist() {
     const json = JSON.stringify(data);
     const prev = readStore(KEY);
     const ok = writeStore(KEY, json);
-    if (ok && prev) writeStore(KEY + '-backup', prev);          // keep the version before this change as a safety net
-    const d = new Date();
-    drawSaveState(ok, d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    if (ok && prev) writeStore(KEY + '-backup', prev);
+    drawSaveState(ok, new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+  }
+  function save() { stampMeta(Date.now(), false); saveMeta(); persist(); schedulePush(); }
+
+  // ── sync bookkeeping ──
+  // meta = { goalId: { g: goal, s: snapshot of its editable fields, t: when it last changed, del?: true } }
+  // The newest change per goal wins, so goals added on two devices combine, and a delete is remembered (as a
+  // "tombstone" for 60 days) so another device doesn't bring the goal back.
+  const META_KEY = 'toolbox:goals-sync-meta', OWNER_KEY = 'toolbox:goals-sync-owner', DAY = 86400000;
+  const snapOf = (g) => JSON.stringify([g.text, g.h, !!g.done, g.doneAt || null]);
+  function cleanMeta(raw) {
+    const out = {};
+    if (!raw || typeof raw !== 'object') return out;
+    Object.keys(raw).forEach(id => {
+      const e = raw[id]; if (!e || typeof e !== 'object' || !e.g) return;
+      const c = cleanData({ goals: [Object.assign({}, e.g, { id })] }).goals[0]; if (!c) return;
+      const t = Number(e.t) || 0;
+      if (e.del && Date.now() - t > 60 * DAY) return;
+      out[id] = { g: c, s: snapOf(c), t, del: e.del ? true : undefined };
+    });
+    return out;
+  }
+  function loadMeta() { try { return cleanMeta(JSON.parse(readStore(META_KEY))); } catch (e) { return {}; } }
+  let meta = loadMeta();
+  function saveMeta() { writeStore(META_KEY, JSON.stringify(meta)); }
+  function stampMeta(now, startup) {      // note what changed on this device since last time, with the time we noticed
+    let changed = false; const have = new Set();
+    data.goals.forEach(g => {
+      have.add(g.id); const e = meta[g.id], s = snapOf(g);
+      if (!e || e.del || e.s !== s) { meta[g.id] = { g: Object.assign({}, g), s, t: (!e && startup) ? Math.max(g.created, g.doneAt || 0) : now }; changed = true; }
+    });
+    Object.keys(meta).forEach(id => { const e = meta[id]; if (!e.del && !have.has(id)) { meta[id] = { g: e.g, s: e.s, t: now, del: true }; changed = true; } });
+    return changed;
+  }
+  function mergeMeta(a, b) {
+    const out = {};
+    new Set(Object.keys(a).concat(Object.keys(b))).forEach(id => { const x = a[id], y = b[id]; out[id] = !y ? x : !x ? y : (y.t > x.t ? y : x); });
+    return out;
+  }
+  const sigOf = (m) => JSON.stringify(Object.keys(m).sort().map(id => [id, m[id].t, !!m[id].del, m[id].s]));
+  function goalsFrom(m) {
+    return cleanData({ goals: Object.keys(m).filter(id => !m[id].del).map(id => m[id].g) }).goals.sort((p, q) => p.created - q.created || (p.id < q.id ? -1 : 1));
+  }
+  function applyMeta(m) {                 // make this device match the merged goals, and redraw if anything changed
+    meta = m; saveMeta();
+    const goals = goalsFrom(m), same = (list) => list.map(g => g.id + snapOf(g)).sort().join('|');
+    if (same(goals) === same(data.goals)) return;
+    data = { v: 1, goals }; persist();
+    if (editingId) pendingRender = true; else { confirmId = confirmClear = null; render(); }
+  }
+
+  // ── cloud (your own account only: users/<you>/toolbox/goals) ──
+  let db = null, user = null, unsub = null, pushT = null, busy = false;
+  const cloudRef = () => db.doc('users/' + user.uid + '/toolbox/goals');
+  function listen() {
+    setSync('syncing');
+    unsub = cloudRef().onSnapshot((snap) => {
+      let remote = {};
+      if (snap.exists) { try { remote = cleanMeta(JSON.parse(snap.data().json)); } catch (e) {} }
+      const merged = mergeMeta(meta, remote); applyMeta(merged);
+      if (sigOf(merged) !== sigOf(remote)) push(); else setSync('synced');
+    }, () => setSync('error'));
+  }
+  async function push() {
+    if (!user || busy) return; busy = true; setSync('syncing');
+    try {
+      const merged = await db.runTransaction(async (tx) => {
+        const s = await tx.get(cloudRef()); let remote = {};
+        if (s.exists) { try { remote = cleanMeta(JSON.parse(s.data().json)); } catch (e) {} }
+        const m = mergeMeta(meta, remote);
+        tx.set(cloudRef(), { json: JSON.stringify(m), updated: firebase.firestore.FieldValue.serverTimestamp() });
+        return m;
+      });
+      applyMeta(merged); setSync('synced');
+    } catch (e) { setSync('error'); }
+    busy = false;
+  }
+  function schedulePush() { if (!user) return; clearTimeout(pushT); pushT = setTimeout(push, 500); }
+  function initCloud() {
+    try {
+      if (!window.firebase || !window.TOOLBOX_FIREBASE) return;
+      if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+      db = firebase.firestore();
+      firebase.auth().onAuthStateChanged((u) => {
+        if (unsub) { unsub(); unsub = null; }
+        user = u;
+        if (!u) { setSync('local'); return; }
+        // A different account on a shared device must not inherit (or upload) the previous person's goals.
+        const owner = readStore(OWNER_KEY);
+        if (owner && owner !== u.uid) {
+          try { localStorage.removeItem(KEY); localStorage.removeItem(KEY + '-backup'); localStorage.removeItem(META_KEY); } catch (e) {}
+          data = { v: 1, goals: [] }; meta = {}; editingId = confirmId = confirmClear = null; render();
+        }
+        writeStore(OWNER_KEY, u.uid);
+        listen();
+      });
+    } catch (e) { setSync('error'); }
+  }
+  // Put the "Sign in to sync" badge (created by toolbox-sync.js) in the header row, next to the star
+  function dockBadge() {
+    const b = document.getElementById('toolbox-sync-badge'), slot = $('syncSlot');
+    if (!b || !slot) return false;
+    if (b.parentNode !== slot) slot.appendChild(b);
+    return true;
   }
 
   // ── helpers ──
@@ -249,6 +364,7 @@
     if (saveIt) {
       const row = document.querySelector('.goal-row[data-id="' + editingId + '"]');
       const g = data.goals.find(x => x.id === editingId);
+      if (!g || !row) { editingId = null; render(); return; }
       const t = row.querySelector('.edit-text').value.trim();
       if (!t) { row.querySelector('.edit-text').focus(); return; }
       g.text = t.slice(0, 300); g.h = row.querySelector('.edit-h').value;
@@ -309,15 +425,18 @@
   });
 
   // another tab changed the goals
-  window.addEventListener('storage', (e) => { if (e.key === KEY) { data = load(); editingId = confirmId = null; render(); } });
+  window.addEventListener('storage', (e) => { if (e.key === KEY || e.key === META_KEY) { data = load(); meta = loadMeta(); editingId = confirmId = null; render(); } });
 
   // ── start ──
   $('newHorizon').innerHTML = HORIZONS.map(h => `<option value="${h.id}">${h.label}</option>`).join('');
   $('newHorizon').value = view !== 'all' ? view : (HIDS.includes(readStore(DRAFT_KEY + '-h')) ? readStore(DRAFT_KEY + '-h') : 'daily');
   $('newText').value = readStore(DRAFT_KEY) || '';
   if (!readStore(KEY) && data.goals.length === 0) { /* first visit: nothing saved yet */ }
+  if (stampMeta(Date.now(), true)) saveMeta();     // register goals that existed before syncing was added
   drawSaveState(storageOK);
   render();
+  if (!dockBadge()) new MutationObserver((m, o) => { if (dockBadge()) o.disconnect(); }).observe(document.body, { childList: true });
+  initCloud();
 })();
 </script>
 
