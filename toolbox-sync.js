@@ -80,6 +80,7 @@
     if (!badgeEl) {
       badgeEl = document.createElement('a'); badgeEl.id = 'toolbox-sync-badge';
       badgeEl.style.cssText = 'position:fixed;top:0.6rem;right:0.6rem;z-index:9999;font:500 0.72rem ui-sans-serif,system-ui,sans-serif;padding:0.3rem 0.7rem;border-radius:999px;text-decoration:none;background:rgba(15,23,42,0.92);border:1px solid #475569;color:#cbd5e1;';
+      badgeEl.addEventListener('click', (e) => { e.preventDefault(); openAuth(); });
       document.body.appendChild(badgeEl);
     }
     const t = { signedout: ['\u2601 Sign in to sync', '#f59e0b'], syncing: ['\u2601 Syncing\u2026', '#475569'], synced: ['\u2601 Synced', '#10b981'], error: ['\u2601 Sync problem', '#f59e0b'] }[status];
@@ -117,6 +118,54 @@
     } catch (e) { busy = false; setStatus('error'); }
   }
   function schedulePush() { if (!user) return; clearTimeout(pushTimer); pushTimer = setTimeout(push, 600); }
+
+  // ── in-page sign-in window (so nobody gets sent to another page to sign in) ──
+  function openAuth() {
+    if (!window.firebase || !firebase.apps || !firebase.apps.length) { location.href = SIGNIN; return; }
+    if (document.getElementById('toolbox-auth')) return;
+    const auth = firebase.auth(), u = auth.currentUser;
+    const ov = document.createElement('div'); ov.id = 'toolbox-auth';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:1rem;font-family:ui-sans-serif,system-ui,sans-serif;font-size:0.9rem;color:#e2e8f0;';
+    const inp = 'width:100%;box-sizing:border-box;padding:0.55rem 0.7rem;margin-top:0.5rem;border-radius:8px;border:1px solid #475569;background:#0f131a;color:#f1f5f9;font-size:0.9rem;';
+    const btn = (bg, fg) => 'width:100%;padding:0.55rem;margin-top:0.6rem;border-radius:8px;border:0;cursor:pointer;font-weight:600;font-size:0.9rem;background:' + bg + ';color:' + fg + ';';
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    ov.innerHTML = '<div style="width:100%;max-width:340px;background:#14171c;border:1px solid #334155;border-radius:14px;padding:1.2rem;">' +
+      '<div style="font-weight:700;font-size:1.05rem;margin-bottom:0.2rem;">\u2601 ' + (u ? 'Signed in' : 'Sign in to Toolbox') + '</div>' +
+      (u
+        ? '<div style="color:#94a3b8;margin-bottom:0.4rem;">' + esc(u.email || u.displayName || 'your account') + '</div><button id="tba-out" style="' + btn('#334155', '#f1f5f9') + '">Sign out</button>'
+        : '<div style="color:#94a3b8;margin-bottom:0.6rem;">Syncs your favourites and lets you post and react in the Recommendation Tool.</div>' +
+          '<button id="tba-g" style="' + btn('#f8fafc', '#0f172a') + '">Continue with Google</button>' +
+          '<div style="text-align:center;color:#64748b;margin:0.7rem 0 0.1rem;">or use email</div>' +
+          '<input id="tba-e" type="email" placeholder="Email" autocomplete="email" style="' + inp + '">' +
+          '<input id="tba-p" type="password" placeholder="Password" autocomplete="current-password" style="' + inp + '">' +
+          '<div style="display:flex;gap:0.5rem;"><button id="tba-in" style="' + btn('#3b82f6', '#fff') + '">Sign in</button><button id="tba-up" style="' + btn('#334155', '#f1f5f9') + '">Create account</button></div>') +
+      '<div id="tba-m" style="color:#fb7185;min-height:1.1rem;margin-top:0.5rem;font-size:0.8rem;"></div>' +
+      '<button id="tba-x" style="' + btn('transparent', '#94a3b8') + 'margin-top:0.2rem;">Close</button></div>';
+    document.body.appendChild(ov);
+    const $ = (id) => ov.querySelector('#' + id), m = $('tba-m');
+    const close = () => ov.remove();
+    const fail = (e) => {
+      const c = (e && e.code) || '';
+      m.textContent = (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') ? ''
+        : (c === 'auth/wrong-password' || c === 'auth/invalid-credential' || c === 'auth/user-not-found') ? 'Wrong email or password.'
+        : c === 'auth/email-already-in-use' ? 'That email already has an account, so use Sign in.'
+        : c === 'auth/weak-password' ? 'Password needs at least 6 characters.'
+        : c === 'auth/invalid-email' ? 'That email address doesn\u2019t look right.'
+        : c === 'auth/operation-not-allowed' ? 'That sign-in method isn\u2019t turned on in Firebase yet.'
+        : c === 'auth/unauthorized-domain' ? 'This site\u2019s address isn\u2019t in Firebase\u2019s Authorized domains.'
+        : 'Sign-in failed (' + (c || 'unknown') + ').';
+    };
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    $('tba-x').onclick = close;
+    if (u) { $('tba-out').onclick = () => auth.signOut().then(close, fail); return; }
+    const creds = () => [$('tba-e').value.trim(), $('tba-p').value];
+    $('tba-g').onclick = () => { m.textContent = ''; auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).then(close, (e) => { if (e && e.code === 'auth/popup-blocked') auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); else fail(e); }); };
+    $('tba-in').onclick = () => { m.textContent = ''; const c = creds(); auth.signInWithEmailAndPassword(c[0], c[1]).then(close, fail); };
+    $('tba-up').onclick = () => { m.textContent = ''; const c = creds(); auth.createUserWithEmailAndPassword(c[0], c[1]).then(close, fail); };
+    $('tba-p').onkeydown = (e) => { if (e.key === 'Enter') $('tba-in').click(); };
+  }
+  window.ToolboxAuth = { open: openAuth };
+
   window.addEventListener('online', () => { if (user) push(); });
   init();
 })();

@@ -101,7 +101,8 @@
     const n = $('authNote');
     if (user) { n.classList.add('hidden'); return; }
     n.classList.remove('hidden');
-    n.innerHTML = `You can read everything, but you need to be signed in to post or react. <a class="underline font-semibold" href="${SIGNIN}">Sign in</a>`;
+    n.innerHTML = `You can read everything, but you need to be signed in to post or react. <a class="underline font-semibold" href="${SIGNIN}" id="signInLink">Sign in</a>`;
+    $('signInLink').onclick = (e) => { if (window.ToolboxAuth) { e.preventDefault(); window.ToolboxAuth.open(); } };
   }
 
   function render() {
@@ -144,7 +145,7 @@
     const b = e.target.closest('[data-act]'); if (!b || !db) return;
     const id = b.dataset.id, act = b.dataset.act;
     if (act === 'react') {
-      if (!user) { toast('Sign in to react'); return; }
+      if (!user) { toast('Sign in to react'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
       const it = items.find(i => i.id === id), cur = ((it.reacts || {})[user.uid]) || [];
       const next = cur.includes(b.dataset.e) ? cur.filter(x => x !== b.dataset.e) : cur.concat(b.dataset.e);
       db.collection('requests').doc(id).update({ ['reacts.' + user.uid]: next }).catch(() => toast("Couldn't save that reaction"));
@@ -161,7 +162,7 @@
 
   $('postBtn').addEventListener('click', async () => {
     if (!db) { formMsg('Still connecting — try again in a moment.'); return; }
-    if (!user) { formMsg('Please sign in first.'); return; }
+    if (!user) { formMsg('Please sign in first.'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
     const name = $('fName').value.trim(), description = $('fDesc').value.trim(), why = $('fWhy').value.trim();
     if (!name || !description || !why) { formMsg('Tool name, what it does, and why are all required.'); return; }
     const who = $('fAnon').checked ? 'Anonymous' : ((user.displayName || (user.email || '').split('@')[0] || 'Toolbox user').split(' ')[0]);
