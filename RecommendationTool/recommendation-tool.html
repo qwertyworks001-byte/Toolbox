@@ -86,7 +86,9 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const cats = window.TOOLBOX_CATEGORIES || [];
-  let db = null, user = null, isAdmin = false, items = [], loaded = false, loadError = false, delArm = null;
+  let db = null, user = null, isAdmin = false, items = [], loaded = false, loadError = false, delArm = null, repArm = null;
+  const HIDE_AT = 3;                                   // reports before a post is hidden from the public (admins and the author still see it)
+  const nReports = (it) => Object.keys(it.reports || {}).length;
 
   // Post limit: 20 per rolling-from-your-first-post hour. The real enforcement is in the Firestore rules (a counter document per
   // person that every post must bump); this just reads it so the page can show how many posts are left.
@@ -136,13 +138,16 @@
 
   function render() {
     const sort = $('sortSel').value, st = $('statusSel').value;
-    let rows = items.filter(i => st === 'all' || (i.status || 'open') === st);
+    let rows = items.filter(i => (st === 'all' || (i.status || 'open') === st) && (st !== 'reported' || nReports(i) > 0));
+    const hiddenCount = rows.filter(i => nReports(i) >= HIDE_AT && !isAdmin && !(user && i.authorUid === user.uid)).length;
+    rows = rows.filter(i => nReports(i) < HIDE_AT || isAdmin || (user && i.authorUid === user.uid));
     rows.sort(sort === 'new' ? (a, b) => ms(b) - ms(a) : (a, b) => total(b) - total(a) || ms(b) - ms(a));
     $('count').textContent = loaded ? `(${rows.length})` : '';
+    const rs = $('statusSel'); if (isAdmin && !rs.querySelector('[value=reported]')) rs.insertAdjacentHTML('beforeend', '<option value="reported">\u2691 Reported</option>');
     const empty = $('emptyMsg');
     if (loadError) { empty.textContent = "Couldn't load requests. If this is the first run, publish the Firestore rules from firestore-rules.txt, then refresh."; empty.classList.remove('hidden'); }
     else if (!loaded) { empty.textContent = 'Loading…'; empty.classList.remove('hidden'); }
-    else if (!rows.length) { empty.textContent = items.length ? 'No requests with that status.' : 'No requests yet — be the first!'; empty.classList.remove('hidden'); }
+    else if (!rows.length) { empty.textContent = hiddenCount ? 'Some posts are hidden while they\u2019re reviewed.' : items.length ? 'No requests with that status.' : 'No requests yet \u2014 be the first!'; empty.classList.remove('hidden'); }
     else empty.classList.add('hidden');
 
     $('list').innerHTML = rows.map(it => {
@@ -155,6 +160,10 @@
       const canDel = isAdmin || (user && it.authorUid === user.uid);
       const admin = isAdmin ? `<select data-act="status" data-id="${it.id}" class="field rounded-md px-2 py-1 text-xs text-white">${Object.keys(STATUS).map(k => `<option value="${k}" ${k === (it.status || 'open') ? 'selected' : ''}>${STATUS[k][0]}</option>`).join('')}</select>` : '';
       const del = canDel ? `<button type="button" data-act="del" data-id="${it.id}" class="text-xs ${delArm === it.id ? 'text-rose-400 font-semibold' : 'text-slate-500 hover:text-rose-400'}">${delArm === it.id ? 'Click again to delete' : 'Delete'}</button>` : '';
+      const nr = nReports(it), iReported = !!(user && (it.reports || {})[user.uid]);
+      const canReport = !!user && it.authorUid !== user.uid && !isAdmin;
+      const report = canReport ? (iReported ? '<span class="text-xs text-slate-500">\u2691 Reported</span>' : `<button type="button" data-act="report" data-id="${it.id}" class="text-xs ${repArm === it.id ? 'text-amber-300 font-semibold' : 'text-slate-500 hover:text-amber-300'}">${repArm === it.id ? 'Click again to report' : '\u2691 Report'}</button>`) : '';
+      const flag = (isAdmin && nr) ? `<span class="text-[11px] px-2 py-0.5 rounded-full border border-amber-500/60 text-amber-300">\u2691 ${nr} report${nr === 1 ? '' : 's'}${nr >= HIDE_AT ? ' \u00B7 hidden from public' : ''}</span><button type="button" data-act="clearreports" data-id="${it.id}" class="text-xs text-slate-400 hover:text-white underline">Dismiss reports</button>` : (nr >= HIDE_AT && user && it.authorUid === user.uid ? '<span class="text-[11px] text-amber-300">Hidden from others while it\u2019s reviewed</span>' : '');
       return `<article class="glass rounded-xl p-5 border-l-[3px]" style="border-left-color:${s[1]}">
         <div class="flex flex-wrap items-center gap-2 mb-1">
           <h3 class="font-display text-lg font-semibold text-white mr-1">${esc(it.name)}</h3>
@@ -165,7 +174,7 @@
         <p class="text-sm text-slate-300 whitespace-pre-line"><span class="text-slate-500">What it does:</span> ${esc(it.description)}</p>
         <p class="text-sm text-slate-300 whitespace-pre-line mt-2"><span class="text-slate-500">Why:</span> ${esc(it.why)}</p>
         ${it.example ? `<p class="text-sm text-slate-300 whitespace-pre-line mt-2"><span class="text-slate-500">Example:</span> ${esc(it.example)}</p>` : ''}
-        <div class="flex flex-wrap items-center gap-2 mt-4">${react}<span class="ml-auto flex items-center gap-3">${admin}${del}</span></div>
+        <div class="flex flex-wrap items-center gap-2 mt-4">${react}<span class="ml-auto flex items-center gap-3">${flag}${admin}${report}${del}</span></div>
       </article>`;
     }).join('');
   }
@@ -178,6 +187,13 @@
       const it = items.find(i => i.id === id), cur = ((it.reacts || {})[user.uid]) || [];
       const next = cur.includes(b.dataset.e) ? cur.filter(x => x !== b.dataset.e) : cur.concat(b.dataset.e);
       db.collection('requests').doc(id).update({ ['reacts.' + user.uid]: next }).catch(() => toast("Couldn't save that reaction"));
+    } else if (act === 'report') {
+      if (!canPost()) { toast(user ? 'Verify your email to report' : 'Sign in to report'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
+      if (repArm !== id) { repArm = id; render(); setTimeout(() => { if (repArm === id) { repArm = null; render(); } }, 3000); return; }
+      repArm = null;
+      db.collection('requests').doc(id).update({ ['reports.' + user.uid]: true }).then(() => toast('Thanks, we\u2019ll take a look.')).catch(() => toast("Couldn't send that report"));
+    } else if (act === 'clearreports') {
+      db.collection('requests').doc(id).update({ reports: {} }).catch(() => toast("Couldn't clear the reports"));
     } else if (act === 'del') {
       if (delArm !== id) { delArm = id; render(); setTimeout(() => { if (delArm === id) { delArm = null; render(); } }, 3000); return; }
       delArm = null; db.collection('requests').doc(id).delete().catch(() => toast("Couldn't delete that"));
