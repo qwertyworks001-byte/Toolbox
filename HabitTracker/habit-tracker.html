@@ -442,8 +442,9 @@
     async function init() {
       if (!configured || window.__noFirebase) return;
       try {
-        await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js');
+        await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-app-check-compat.js').catch(() => {}); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js');
         if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(cfg);
+        if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
         auth = firebase.auth(); db = firebase.firestore();
         auth.onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (u) { status = 'syncing'; err = ''; listen(); } else status = 'signedout'; renderPill(); renderDialog(); });
       } catch (e) { status = 'offline'; renderPill(); }

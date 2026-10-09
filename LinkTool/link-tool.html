@@ -8,6 +8,7 @@
     <!-- Core layout stylesheet link -->
     <link rel="stylesheet" href="../style.css">
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="../firebase-config.js"></script>
@@ -478,7 +479,7 @@
         function initCloud() {
             try {
                 if (!window.firebase || !window.TOOLBOX_FIREBASE) { setSync('signedout'); return; }
-                if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+                if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE); if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
                 db = firebase.firestore();
                 firebase.auth().onAuthStateChanged((u) => {
                     if (unsub) { unsub(); unsub = null; }

@@ -105,8 +105,9 @@
     if (!configured || window.__noFirebase) return;
     document.addEventListener('DOMContentLoaded', drawBadge); if (document.body) drawBadge();
     try {
-      if (!window.firebase) { await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js'); }
+      if (!window.firebase) { await load(SDK + 'firebase-app-compat.js'); await load(SDK + 'firebase-app-check-compat.js').catch(() => {}); await load(SDK + 'firebase-auth-compat.js'); await load(SDK + 'firebase-firestore-compat.js'); }
       if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(cfg);
+      if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
       db = firebase.firestore();
       firebase.auth().onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (u) { setStatus('syncing'); listen(); } else setStatus('signedout'); });
     } catch (e) { setStatus('error'); }

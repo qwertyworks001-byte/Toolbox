@@ -8,6 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../tools-data.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="../firebase-config.js"></script>
@@ -73,6 +74,8 @@
     </div>
     <div id="list" class="space-y-4"></div>
     <p id="emptyMsg" class="text-sm text-slate-500 text-center py-8 hidden" role="status"></p>
+    <div class="text-center mt-6 hidden" id="moreWrap"><button type="button" id="moreBtn" class="text-sm px-5 py-2 rounded-lg border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Load more</button>
+      <p class="text-xs text-slate-500 mt-2">Showing the newest posts. Sorting and filters apply to what's loaded.</p></div>
   </section>
 </div>
 
@@ -237,15 +240,25 @@
   });
 
   try {
-    if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+    if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE); if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
     db = firebase.firestore();
     firebase.auth().onAuthStateChanged(async (u) => {
       user = u; isAdmin = false; rate = null; drawAuth(); render(); loadRate();
       if (u) { try { isAdmin = (await db.doc('admins/' + u.uid).get()).exists; } catch (e) {} render(); }
     });
-    db.collection('requests').orderBy('createdAt', 'desc').limit(200).onSnapshot(
-      (snap) => { items = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); loaded = true; loadError = false; render(); },
-      () => { loadError = true; render(); });
+    // Only the newest PAGE posts are loaded at first (each post read counts towards the free daily quota); "Load more" adds PAGE more.
+    const PAGE = 20; let limitN = PAGE, unsubPosts = null;
+    function watchPosts() {
+      if (unsubPosts) unsubPosts();
+      unsubPosts = db.collection('requests').orderBy('createdAt', 'desc').limit(limitN).onSnapshot(
+        (snap) => {
+          items = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); loaded = true; loadError = false;
+          $('moreWrap').classList.toggle('hidden', snap.size < limitN); $('moreBtn').disabled = false; render();
+        },
+        () => { loadError = true; render(); });
+    }
+    $('moreBtn').addEventListener('click', () => { $('moreBtn').disabled = true; limitN += PAGE; watchPosts(); });
+    watchPosts();
   } catch (e) { loadError = true; }
   window.addEventListener('toolbox:auth', () => { user = firebase.auth().currentUser; drawAuth(); render(); loadRate(); });   // e.g. just verified their email
   drawAuth(); render();
