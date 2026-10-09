@@ -60,6 +60,7 @@
       </div>
       <p id="formMsg" class="text-sm hidden" role="status"></p>
       <p id="rateNote" class="text-xs text-slate-500 hidden"></p>
+      <p class="text-xs text-slate-500">Posts and reactions are public. They show your first name (or "Anonymous" if you tick the box), never your email.</p>
     </div>
   </section>
 
@@ -122,11 +123,14 @@
   }
   const total = (it) => Object.values(it.reacts || {}).reduce((n, a) => n + (Array.isArray(a) ? a.length : 0), 0);
 
+  const canPost = () => !!user && user.emailVerified === true;
   function drawAuth() {
     const n = $('authNote');
-    if (user) { n.classList.add('hidden'); return; }
+    if (canPost()) { n.classList.add('hidden'); return; }
     n.classList.remove('hidden');
-    n.innerHTML = `You can read everything, but you need to be signed in to post or react. <a class="underline font-semibold" href="${SIGNIN}" id="signInLink">Sign in</a>`;
+    n.innerHTML = user
+      ? 'Please verify your email to post and react. <a class="underline font-semibold" href="#" id="signInLink">Open the verify window</a>'
+      : 'You can read everything, but you need to be signed in to post or react. <a class="underline font-semibold" href="' + SIGNIN + '" id="signInLink">Sign in</a>';
     $('signInLink').onclick = (e) => { if (window.ToolboxAuth) { e.preventDefault(); window.ToolboxAuth.open(); } };
   }
 
@@ -170,7 +174,7 @@
     const b = e.target.closest('[data-act]'); if (!b || !db) return;
     const id = b.dataset.id, act = b.dataset.act;
     if (act === 'react') {
-      if (!user) { toast('Sign in to react'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
+      if (!canPost()) { toast(user ? 'Verify your email to react' : 'Sign in to react'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
       const it = items.find(i => i.id === id), cur = ((it.reacts || {})[user.uid]) || [];
       const next = cur.includes(b.dataset.e) ? cur.filter(x => x !== b.dataset.e) : cur.concat(b.dataset.e);
       db.collection('requests').doc(id).update({ ['reacts.' + user.uid]: next }).catch(() => toast("Couldn't save that reaction"));
@@ -187,10 +191,10 @@
 
   $('postBtn').addEventListener('click', async () => {
     if (!db) { formMsg('Still connecting — try again in a moment.'); return; }
-    if (!user) { formMsg('Please sign in first.'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
+    if (!canPost()) { formMsg(user ? 'Please verify your email first.' : 'Please sign in first.'); if (window.ToolboxAuth) window.ToolboxAuth.open(); return; }
     const name = $('fName').value.trim(), description = $('fDesc').value.trim(), why = $('fWhy').value.trim();
     if (!name || !description || !why) { formMsg('Tool name, what it does, and why are all required.'); return; }
-    const who = $('fAnon').checked ? 'Anonymous' : ((user.displayName || (user.email || '').split('@')[0] || 'Toolbox user').split(' ')[0]);
+    const who = $('fAnon').checked ? 'Anonymous' : ((user.displayName || 'Toolbox user').split(' ')[0].slice(0, 30));
     $('postBtn').disabled = true;
     try {
       await loadRate();
@@ -227,6 +231,7 @@
       (snap) => { items = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); loaded = true; loadError = false; render(); },
       () => { loadError = true; render(); });
   } catch (e) { loadError = true; }
+  window.addEventListener('toolbox:auth', () => { user = firebase.auth().currentUser; drawAuth(); render(); loadRate(); });   // e.g. just verified their email
   drawAuth(); render();
   setInterval(render, 60000);
 })();
