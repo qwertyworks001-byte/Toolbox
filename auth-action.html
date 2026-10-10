@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toolbox account</title>
+<meta name="theme-color" content="#0b0f19">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="Assets/Favicon/Favicon.png">
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #e2e8f0;
+    background: radial-gradient(1200px 600px at 50% -10%, #1e293b 0%, #0b0f19 60%); }
+  .card { width: 100%; max-width: 26rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 1.1rem; padding: 1.6rem 1.4rem; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
+  .brand { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 0.9rem; }
+  h1 { font-size: 1.35rem; margin: 0 0 0.5rem; color: #fff; }
+  p { margin: 0.4rem 0; line-height: 1.5; color: #cbd5e1; font-size: 0.95rem; }
+  .email { color: #fff; font-weight: 600; word-break: break-all; }
+  label { display: block; font-size: 0.8rem; color: #94a3b8; margin: 0.9rem 0 0.3rem; }
+  input[type=password], input[type=text] { width: 100%; padding: 0.65rem 0.75rem; border-radius: 0.6rem; font-size: 1rem;
+    background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.15); outline: none; }
+  input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.25); }
+  .show { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #94a3b8; margin-top: 0.6rem; cursor: pointer; }
+  .btn { display: inline-block; width: 100%; margin-top: 1.1rem; padding: 0.7rem 1rem; border: 0; border-radius: 0.7rem; cursor: pointer;
+    font-size: 1rem; font-weight: 600; color: #0b0f19; background: #60a5fa; text-align: center; text-decoration: none; }
+  .btn:hover { background: #93c5fd; } .btn:disabled { opacity: 0.55; cursor: default; }
+  .btn.ghost { background: transparent; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.18); }
+  .msg { margin-top: 0.8rem; font-size: 0.9rem; min-height: 1.2em; }
+  .msg.err { color: #fca5a5; } .msg.ok { color: #86efac; }
+  .icon { font-size: 2rem; margin-bottom: 0.3rem; }
+  .spin { width: 1.6rem; height: 1.6rem; border: 3px solid rgba(255,255,255,0.15); border-top-color: #60a5fa; border-radius: 50%; animation: s 0.8s linear infinite; margin: 0.4rem 0; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main class="card" id="card" aria-live="polite">
+  <div class="brand">Toolbox</div>
+  <div id="view"><div class="spin" role="status" aria-label="Loading"></div><p>One moment…</p></div>
+</main>
+
+<script>
+(function () {
+  var view = document.getElementById('view');
+  var params = new URLSearchParams(location.search);
+  var mode = params.get('mode'), code = params.get('oobCode');
+  var home = 'index.html';
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function show(icon, title, body, extra) {
+    view.innerHTML = '<div class="icon">' + icon + '</div><h1>' + esc(title) + '</h1>' + (body || '') + (extra || '') +
+      '<a class="btn' + (extra ? ' ghost' : '') + '" href="' + home + '">Back to Toolbox</a>';
+  }
+  function friendly(e) {
+    var c = (e && e.code) || '';
+    if (c === 'auth/expired-action-code') return 'This link has expired. Go back, ask for a new one, and open it straight away.';
+    if (c === 'auth/invalid-action-code') return 'This link is not valid any more. It may already have been used, or a newer email replaced it. Ask for a new one.';
+    if (c === 'auth/user-disabled') return 'This account has been disabled.';
+    if (c === 'auth/user-not-found') return 'No account matches this link any more.';
+    if (c === 'auth/weak-password') return 'That password is too weak. Use at least 6 characters.';
+    if (c === 'auth/network-request-failed') return 'Could not reach the server. Check your connection and try again.';
+    if (c === 'auth/requests-from-referer-' || /referer/.test(c)) return 'This site is not allowed to use the sign-in service (' + c + ').';
+    return 'Something went wrong' + (c ? ' (' + c + ')' : '') + '. Please try again.';
+  }
+
+  if (!window.firebase || !firebase.auth) { show('⚠️', 'Could not load', '<p>The sign-in service did not load. Check your connection and refresh the page.</p>'); return; }
+  if (!mode || !code) { show('🔗', 'Nothing to do here', '<p>This page opens from the links in Toolbox emails (password reset and email verification).</p>'); return; }
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(window.TOOLBOX_FIREBASE);
+    if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
+  } catch (e) { show('⚠️', 'Could not start', '<p>' + esc(friendly(e)) + '</p>'); return; }
+  var auth = firebase.auth();
+
+  function resetPassword() {
+    auth.verifyPasswordResetCode(code).then(function (email) {
+      view.innerHTML = '<h1>Choose a new password</h1><p>for <span class="email">' + esc(email) + '</span></p>' +
+        '<form id="f" autocomplete="off">' +
+        '<label for="p1">New password</label><input id="p1" type="password" autocomplete="new-password" minlength="6" required>' +
+        '<label for="p2">Repeat it</label><input id="p2" type="password" autocomplete="new-password" minlength="6" required>' +
+        '<label class="show"><input type="checkbox" id="sh"> Show passwords</label>' +
+        '<div class="msg" id="m" role="alert"></div>' +
+        '<button class="btn" id="go" type="submit">Save new password</button></form>';
+      var p1 = document.getElementById('p1'), p2 = document.getElementById('p2'), m = document.getElementById('m'), go = document.getElementById('go');
+      p1.focus();
+      document.getElementById('sh').addEventListener('change', function (ev) { p1.type = p2.type = ev.target.checked ? 'text' : 'password'; });
+      document.getElementById('f').addEventListener('submit', function (ev) {
+        ev.preventDefault(); m.className = 'msg'; m.textContent = '';
+        if (p1.value.length < 6) { m.className = 'msg err'; m.textContent = 'Use at least 6 characters.'; return; }
+        if (p1.value !== p2.value) { m.className = 'msg err'; m.textContent = 'The two passwords do not match.'; return; }
+        go.disabled = true; go.textContent = 'Saving…';
+        auth.confirmPasswordReset(code, p1.value).then(function () {
+          show('✅', 'Password updated', '<p>You can now sign in to <span class="email">' + esc(email) + '</span> with your new password.</p>');
+        }).catch(function (e) { go.disabled = false; go.textContent = 'Save new password'; m.className = 'msg err'; m.textContent = friendly(e); });
+      });
+    }).catch(function (e) { show('⚠️', 'Link problem', '<p>' + esc(friendly(e)) + '</p>'); });
+  }
+
+  function verifyEmail() {
+    auth.applyActionCode(code).then(function () {
+      show('✅', 'Email verified', '<p>Thanks! Go back to Toolbox and tap “I’ve verified it” in the sign-in window (or just refresh the page).</p>');
+    }).catch(function (e) { show('⚠️', 'Link problem', '<p>' + esc(friendly(e)) + '</p><p>If you already verified, you are all set.</p>'); });
+  }
+
+  function recoverEmail() {
+    auth.checkActionCode(code).then(function (info) {
+      var restored = info && info.data && info.data.email;
+      return auth.applyActionCode(code).then(function () {
+        show('✅', 'Email restored', '<p>Your sign-in email was changed back' + (restored ? ' to <span class="email">' + esc(restored) + '</span>' : '') + '. If you did not ask for the change, reset your password too.</p>');
+      });
+    }).catch(function (e) { show('⚠️', 'Link problem', '<p>' + esc(friendly(e)) + '</p>'); });
+  }
+
+  if (mode === 'resetPassword') resetPassword();
+  else if (mode === 'verifyEmail') verifyEmail();
+  else if (mode === 'recoverEmail') recoverEmail();
+  else show('🔗', 'Nothing to do here', '<p>This link is not one this page knows how to handle.</p>');
+})();
+</script>
+</body>
+</html>
