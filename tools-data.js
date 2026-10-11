@@ -225,6 +225,24 @@ window.TOOLBOX_TOOLS = [
     color: '#fbbf24'
   },
   {
+    id: 'word-count',
+    name: 'Word Count Tool',
+    description: 'Count the words, letters, characters, numbers and special characters in any text.',
+    tags: ['word count', 'word counter', 'character count', 'letters', 'numbers', 'digits', 'special characters', 'symbols', 'text', 'length', 'essay', 'sentences', 'reading time'],
+    categories: ['utilities'],
+    path: 'WordCount/word-count.html',
+    color: '#38bdf8'
+  },
+  {
+    id: 'ambience-player',
+    name: 'Ambience Player',
+    description: 'Layer rain, wind, fire, waves and more, with a volume slider for each sound.',
+    tags: ['ambience', 'ambient', 'sounds', 'white noise', 'rain', 'focus', 'sleep', 'relax', 'background noise', 'mixer', 'nature sounds', 'brown noise', 'study', 'meditation'],
+    categories: ['utilities', 'health'],
+    path: 'AmbiencePlayer/ambience-player.html',
+    color: '#38bdf8'
+  },
+  {
     id: 'regex-tester',
     name: 'Regex Tester',
     description: 'Test regular expressions against text with live match highlighting.',
@@ -346,6 +364,26 @@ window.TOOLBOX_TOOLS = [
     categories: ['utilities'],
     path: 'RecommendationTool/recommendation-tool.html',
     color: '#38bdf8',
+    popular: false
+  },
+  {
+    id: 'emoji-picker',
+    name: 'Emoji Picker',
+    description: 'Every emoji in one searchable grid. Click one to copy it, collect several at once, and pick skin tones, with no keyboard shortcut needed.',
+    tags: ['emoji', 'emojis', 'emoticon', 'smiley', 'copy paste', 'unicode', 'symbols', 'flags', 'reactions', 'keyboard', 'windows period', 'icons'],
+    categories: ['utilities', 'random'],
+    path: 'EmojiPicker/emoji-picker.html',
+    color: '#f9a8d4',
+    popular: true
+  },
+  {
+    id: 'typing-test',
+    name: 'Typing Test',
+    description: 'A clean, Monkeytype-style typing test. Time, words or quote modes, punctuation and numbers, live WPM, a results graph and personal bests.',
+    tags: ['typing', 'typing test', 'wpm', 'words per minute', 'typing speed', 'keyboard', 'monkeytype', 'accuracy', 'practice', 'typer', 'cpm', 'speed test'],
+    categories: ['utilities', 'random'],
+    path: 'TypingTest/typing-test.html',
+    color: '#60a5fa',
     popular: false
   },
 ];

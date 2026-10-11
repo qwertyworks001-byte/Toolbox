@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="../style.css">
 <script src="../firebase-config.js"></script>
 <script src="../timer-engine.js"></script>
+<script src="../emoji-data.js" defer></script>
+<script src="../emoji-picker.js" defer></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #e2e8f0; margin: 0; padding-bottom: env(safe-area-inset-bottom); }
@@ -59,6 +61,8 @@
   .err { color: #fca5a5; font-size: 0.8rem; margin-top: 0.5rem; } .hide { display: none !important; } .note { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
   .rem { color: #94a3b8; } .rem.due { color: #fbbf24; font-weight: 600; } .btn.fill { background: #dc2626; border-color: #dc2626; color: #fff; } .btn.fill:hover { background: #ef4444; color: #fff; }
   pre { background: #020617; padding: 0.7rem; border-radius: 0.6rem; font-size: 0.72rem; overflow: auto; }
+  #emojiDlg { width: min(34rem, 96vw); }
+  #hEmojiPick { padding: 0.3rem 0.6rem; font-size: 1.1rem; line-height: 1; flex: none; }
 </style>
 </head>
 <body>
@@ -97,7 +101,7 @@
   <h2 id="habitTitle">New habit</h2>
   <div id="presetWrap"><label class="f" style="margin-top:0">Start from a preset</label><div class="chips" id="presets"></div></div>
   <label class="f" for="hName">Name</label><input type="text" id="hName" maxlength="40" placeholder="e.g. Workout">
-  <div class="row"><div style="width:5rem"><label class="f" for="hEmoji">Emoji</label><input type="text" id="hEmoji" maxlength="4" placeholder="&#127947;"></div><div style="flex:1"><label class="f">Colour</label><div class="sw" id="hColors"></div></div></div>
+  <div class="row"><div style="width:9.5rem"><label class="f" for="hEmoji">Emoji</label><div style="display:flex;gap:0.35rem"><input type="text" id="hEmoji" maxlength="16" placeholder="&#127947;" style="flex:1;min-width:0;width:auto"><button type="button" class="btn" id="hEmojiPick" aria-label="Pick an emoji from the list" title="Pick an emoji from the list">&#128512;</button></div></div><div style="flex:1;min-width:9rem"><label class="f">Colour</label><div class="sw" id="hColors"></div></div></div>
   <label class="f">How often?</label>
   <div class="seg" id="hMode"><button type="button" data-m="daily">Every day</button><button type="button" data-m="days">Set days</button><button type="button" data-m="weekly">Times a week</button></div>
   <div id="daysWrap" class="hide" style="margin-top:0.6rem"><div class="dayp" id="hDays"></div></div>
@@ -112,6 +116,8 @@
   <div id="hConfirm" class="hide" style="margin-top:1.2rem"><p style="margin:0 0 0.6rem;color:#fca5a5">Delete this habit? It will disappear from your check-ins and calendar.</p><div class="row" style="justify-content:flex-end"><button class="btn" id="hKeep" type="button">Keep it</button><button class="btn fill" id="hYes" type="button">Yes, delete</button></div></div>
 </dialog>
 
+<dialog id="emojiDlg" aria-label="Pick an emoji"><div class="row" style="justify-content:space-between;margin-bottom:0.6rem"><h2 style="margin:0">Pick an emoji</h2><button class="btn small" id="emojiClose" type="button">Close</button></div><div id="emojiHost"></div></dialog>
+
 <dialog id="syncDlg"><h2>Sync across devices</h2><div id="syncBody"></div><div class="row" style="margin-top:1rem;justify-content:flex-end"><button class="btn" id="syncClose" type="button">Close</button></div></dialog>
 
 <script>
@@ -125,13 +131,25 @@
   const dow = (k) => (fromKey(k).getDay() + 6) % 7;                 // Monday = 0 ... Sunday = 6
   const weekStart = (k) => addDays(k, -dow(k));
 
+  // Keeps up to 2 whole emoji and never cuts one in half, so family / profession / skin-tone emoji (which are several characters long) survive.
+  const clipEmoji = (s) => {
+    s = String(s == null ? '' : s);
+    try {
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        let out = '', n = 0;
+        for (const g of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)) { if (++n > 2 || (out + g.segment).length > 16) break; out += g.segment; }
+        return out;
+      }
+    } catch (e) {}
+    return s.slice(0, 4);
+  };
   const emptyData = () => ({ v: 1, habits: {}, log: {} });
   function normalize(d) {
     const out = emptyData();
     if (!d || typeof d !== 'object') return out;
     Object.keys(d.habits || {}).forEach(id => {
       const h = d.habits[id]; if (!h || typeof h !== 'object') return;
-      out.habits[id] = { id, name: String(h.name || 'Habit').slice(0, 40), emoji: String(h.emoji || '').slice(0, 4), color: /^#[0-9a-f]{6}$/i.test(h.color) ? h.color : '#3b82f6',
+      out.habits[id] = { id, name: String(h.name || 'Habit').slice(0, 40), emoji: clipEmoji(h.emoji), color: /^#[0-9a-f]{6}$/i.test(h.color) ? h.color : '#3b82f6',
         target: Math.min(99, Math.max(1, parseInt(h.target, 10) || 1)), mode: ['daily', 'days', 'weekly'].includes(h.mode) ? h.mode : 'daily',
         days: Array.isArray(h.days) ? h.days.filter(x => Number.isInteger(x) && x >= 0 && x <= 6) : [], weekly: Math.min(7, Math.max(1, parseInt(h.weekly, 10) || 3)),
         remind: /^([01]\d|2[0-3]):[0-5]\d$/.test(h.remind) ? h.remind : '',
@@ -378,6 +396,16 @@
   $('hMode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { readForm(); form.mode = b.getAttribute('data-m'); drawForm(); } });
   $('hDays').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (!b) return; readForm(); const i = +b.getAttribute('data-d'); form.days = form.days.includes(i) ? form.days.filter(x => x !== i) : form.days.concat(i); drawForm(); });
   $('hCancel').addEventListener('click', () => closeDlg($('habitDlg')));
+  // Emoji picker: browse every emoji instead of pasting one in (the same list as the Emoji Picker tool).
+  let emojiPicker = null;
+  document.addEventListener('DOMContentLoaded', () => { if (!window.ToolboxEmoji) $('hEmojiPick').classList.add('hide'); });   // emoji files missing or not cached offline: just hide the button
+  $('hEmojiPick').addEventListener('click', () => {
+    if (!window.ToolboxEmoji) return;
+    if (!emojiPicker) emojiPicker = ToolboxEmoji.create({ root: $('emojiHost'), mode: 'pick', height: 'min(22rem, 50vh)', onPick: (ch) => { readForm(); form.emoji = ch; $('hEmoji').value = ch; closeDlg($('emojiDlg')); } });
+    emojiPicker.reset(); openDlg($('emojiDlg'));
+    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) emojiPicker.focusSearch();      // on a phone, don't pop the keyboard up unasked
+  });
+  $('emojiClose').addEventListener('click', () => closeDlg($('emojiDlg')));
   const formError = () => (!form.name.trim() ? 'Give it a name.' : (form.mode === 'days' && !form.days.length ? 'Pick at least one day.' : ''));
   $('hSave').addEventListener('click', () => {
     readForm();

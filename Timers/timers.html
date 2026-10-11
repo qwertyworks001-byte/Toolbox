@@ -122,10 +122,16 @@
       <p class="text-center text-sm text-slate-500 mb-1">Current time</p>
       <p class="big-display text-2xl font-semibold text-slate-300 text-center mb-6" id="alarmClock">--:--:--</p>
       <div class="flex flex-col items-center gap-4 mb-5">
+        <div class="flex gap-2" role="group" aria-label="Clock format">
+          <button type="button" id="fmt12" class="fmt-btn text-sm px-4 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50">12-hour (AM/PM)</button>
+          <button type="button" id="fmt24" class="fmt-btn text-sm px-4 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50">24-hour</button>
+        </div>
         <div class="wheels flex items-end justify-center gap-1 sm:gap-3" id="alarmWheels">
-          <div class="wheel-col"><div class="wheel-label">Hour</div><div class="wheel" id="wheelAH" tabindex="0" role="spinbutton" aria-label="Alarm hour" aria-valuemin="0" aria-valuemax="23"></div></div>
+          <div class="wheel-col" id="colAH"><div class="wheel-label">Hour</div><div class="wheel" id="wheelAH" tabindex="0" role="spinbutton" aria-label="Alarm hour" aria-valuemin="0" aria-valuemax="23"></div></div>
+          <div class="wheel-col" id="colAH12"><div class="wheel-label">Hour</div><div class="wheel" id="wheelAH12" tabindex="0" role="spinbutton" aria-label="Alarm hour" aria-valuemin="0" aria-valuemax="11"></div></div>
           <span class="wheel-colon">:</span>
           <div class="wheel-col"><div class="wheel-label">Minute</div><div class="wheel" id="wheelAM" tabindex="0" role="spinbutton" aria-label="Alarm minute" aria-valuemin="0" aria-valuemax="59"></div></div>
+          <div class="wheel-col" id="colAP"><div class="wheel-label">AM / PM</div><div class="wheel" id="wheelAP" tabindex="0" role="spinbutton" aria-label="AM or PM" aria-valuemin="0" aria-valuemax="1"></div></div>
         </div>
         <input type="time" id="alarmTimeInput" class="hidden">
         <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
@@ -262,10 +268,10 @@
 
   // ═══════════════ WHEEL PICKER ═══════════════
   const ITEM = 64;
-  function makeWheel(el, count, onChange) {
+  function makeWheel(el, count, onChange, label) {
     // `value` is the truth. The scroll position only follows it (and is read back when you scroll, drag or tap).
     let value = 0, settle = null, target = null, drag = null, snapTimer = null, acc = 0, accT = 0;
-    el.innerHTML = '<div class="wpad"></div>' + Array.from({ length: count }, (_, i) => `<div class="wi" data-v="${i}">${String(i).padStart(2, '0')}</div>`).join('') + '<div class="wpad"></div>';
+    el.innerHTML = '<div class="wpad"></div>' + Array.from({ length: count }, (_, i) => `<div class="wi" data-v="${i}">${label ? label(i) : String(i).padStart(2, '0')}</div>`).join('') + '<div class="wpad"></div>';
     const items = Array.from(el.querySelectorAll('.wi'));
     const clamp = (v) => Math.max(0, Math.min(count - 1, v));
     const laidOut = () => el.clientHeight > 0;                  // a hidden wheel has no layout and reports scrollTop 0
@@ -426,18 +432,56 @@
   // ═══════════════ ALARMS ═══════════════
   const alarmClock = $('alarmClock'), alarmTimeInput = $('alarmTimeInput'), alarmRepeatDaily = $('alarmRepeatDaily'), alarmNote = $('alarmNote');
   function pad2(n) { return n.toString().padStart(2, '0'); }
-  function updateClock() { const now = new Date(); setText(alarmClock, `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`); }
+  // 12-hour (AM/PM) is the default; the choice is remembered. Alarms are always stored as 24-hour "HH:MM" underneath.
+  const ALARM_FMT_KEY = 'toolbox:alarm-12h';
+  let alarm12 = true; try { alarm12 = localStorage.getItem(ALARM_FMT_KEY) !== 'off'; } catch (e) {}
+  function fmtTime(hhmm, withSeconds) {
+    const h = parseInt(hhmm.slice(0, 2), 10), rest = hhmm.slice(2);
+    if (!alarm12) return hhmm;
+    return ((h % 12) || 12) + rest + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
+  function updateClock() {
+    const now = new Date(), t = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+    setText(alarmClock, fmtTime(t));
+  }
   setInterval(updateClock, 1000); updateClock();
   const wheelAH = makeWheel($('wheelAH'), 24, onAlarmWheel);
+  const wheelAH12 = makeWheel($('wheelAH12'), 12, onAlarmWheel, (i) => String(i + 1));
+  const wheelAP = makeWheel($('wheelAP'), 2, onAlarmWheel, (i) => (i ? 'PM' : 'AM'));
   const wheelAM = makeWheel($('wheelAM'), 60, onAlarmWheel);
+  function currentAlarmTime() {
+    const h = alarm12 ? ((wheelAH12.get() + 1) % 12) + wheelAP.get() * 12 : wheelAH.get();
+    return pad2(h) + ':' + pad2(wheelAM.get());
+  }
+  function setAlarmWheels(v) {
+    const h = parseInt(v.slice(0, 2), 10);
+    wheelAH.set(h); wheelAH12.set((h % 12 || 12) - 1); wheelAP.set(h >= 12 ? 1 : 0); wheelAM.set(parseInt(v.slice(3, 5), 10));
+  }
   function onAlarmWheel() {
-    alarmTimeInput.value = pad2(wheelAH.get()) + ':' + pad2(wheelAM.get());
+    alarmTimeInput.value = currentAlarmTime();
     try { localStorage.setItem('toolbox:alarm-last', alarmTimeInput.value); } catch (e) {}
   }
+  function applyAlarmFormat(keepValue) {
+    $('colAH').classList.toggle('hidden', alarm12);
+    $('colAH12').classList.toggle('hidden', !alarm12);
+    $('colAP').classList.toggle('hidden', !alarm12);
+    $('fmt12').classList.toggle('active', alarm12); $('fmt24').classList.toggle('active', !alarm12);
+    $('fmt12').setAttribute('aria-pressed', alarm12); $('fmt24').setAttribute('aria-pressed', !alarm12);
+    if (keepValue) setAlarmWheels(keepValue);
+    refreshWheels(); updateClock();
+  }
+  function setAlarmFormat(is12) {
+    const keep = alarmTimeInput.value || '07:00';
+    alarm12 = is12;
+    try { localStorage.setItem(ALARM_FMT_KEY, is12 ? 'on' : 'off'); } catch (e) {}
+    applyAlarmFormat(keep);
+  }
+  $('fmt12').addEventListener('click', () => setAlarmFormat(true));
+  $('fmt24').addEventListener('click', () => setAlarmFormat(false));
   (function initAlarmWheels() {
     let v = null; try { v = localStorage.getItem('toolbox:alarm-last'); } catch (e) {}
     if (!/^\d{2}:\d{2}$/.test(v || '')) v = '07:00';
-    wheelAH.set(parseInt(v.slice(0, 2), 10)); wheelAM.set(parseInt(v.slice(3, 5), 10)); alarmTimeInput.value = v;
+    alarmTimeInput.value = v; applyAlarmFormat(v);
   })();
   $('alarmSetBtn').addEventListener('click', () => {
     onAlarmWheel();
@@ -449,7 +493,7 @@
         <div class="min-w-0"><p class="sub text-sm text-slate-400"></p><p class="rep text-xs text-slate-500 hidden">repeats daily</p></div></div>${REMINDER}${BUTTONS(false, true)}`),
     (el, a) => {
       const firing = a.status === 'firing';
-      setText(q(el, '.time'), a.timeStr);
+      setText(q(el, '.time'), fmtTime(a.timeStr));
       if (firing) setText(q(el, '.sub'), '\u23F0 Alarm! It\u2019s time.');
       else { const mins = Math.max(0, Math.round((a.targetMs - Date.now()) / 60000)), h = Math.floor(mins / 60), m = mins % 60; setText(q(el, '.sub'), 'in about ' + (h > 0 ? `${h}h ${m}m` : `${m}m`)); }
       q(el, '.rep').classList.toggle('hidden', !a.repeatDaily);

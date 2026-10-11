@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Picker</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<script src="../emoji-data.js" defer></script>
+<script src="../emoji-picker.js" defer></script>
+<style>
+  .tray { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", ui-sans-serif, system-ui, sans-serif; font-size: 1.5rem; }
+  .toast { transition: opacity 0.2s ease, transform 0.2s ease; }
+  .toast.hide { opacity: 0; transform: translate(-50%, 0.5rem); pointer-events: none; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Emoji Picker</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Every emoji in one place. Search by name, click one to copy it, then paste it anywhere.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-4 sm:p-5 mb-4">
+    <label class="block text-xs text-slate-400 mb-1" for="tray">Your emoji <span class="text-slate-500">(each one you click is added here, so you can copy several at once)</span></label>
+    <div class="flex gap-2">
+      <input type="text" id="tray" class="tray note-field flex-1 min-w-0 rounded-lg px-3 py-1.5 text-white placeholder:text-slate-600" style="background:#0f131a;border:1px solid rgba(255,255,255,0.1)" placeholder="Click an emoji below&hellip;" autocomplete="off">
+      <button type="button" id="copyAll" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-40 disabled:pointer-events-none" disabled>Copy all</button>
+      <button type="button" id="clearTray" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400 disabled:opacity-40 disabled:pointer-events-none" disabled>Clear</button>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-4 sm:p-5">
+    <div id="picker"><p class="text-sm text-slate-500 py-10 text-center" id="pickerLoading">Loading emoji&hellip;</p></div>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-4 leading-relaxed">
+    Tip: use <b>&darr;</b> from the search box to move around the grid with the arrow keys, and <b>Enter</b> in the search box to copy the best match.
+    Skin tones apply to every emoji that has them, and your most recent picks are kept under the clock icon.
+    Some of the newest emoji can show up as empty boxes on older devices, but they still copy and paste fine.
+  </p>
+</div>
+
+<div id="toast" class="toast hide fixed left-1/2 bottom-6 -translate-x-1/2 z-50 rounded-full bg-slate-900/95 border border-slate-600 text-sm text-slate-100 px-4 py-2 shadow-lg max-w-[92vw] truncate" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const tray = $('tray'), copyAll = $('copyAll'), clearTray = $('clearTray'), toastEl = $('toast');
+  let toastTimer = null;
+  function toast(text) {
+    toastEl.textContent = text; toastEl.classList.remove('hide');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.add('hide'), 1800);
+  }
+  function syncButtons() { copyAll.disabled = clearTray.disabled = !tray.value; }
+  tray.addEventListener('input', syncButtons);
+
+  function start() {
+    if (!window.ToolboxEmoji) {      // the two emoji files didn't load: say so instead of showing nothing
+      $('picker').innerHTML = '<div class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">The emoji list did not load. Make sure <b>emoji-data.js</b> and <b>emoji-picker.js</b> are uploaded next to <b>index.html</b> (the Toolbox root, not inside the EmojiPicker folder), then hard refresh this page.</div>';
+      return;
+    }
+    $('picker').innerHTML = '';
+    const picker = ToolboxEmoji.create({
+      root: $('picker'), mode: 'copy', height: 'min(26rem, 55vh)',
+      onPick: (ch, it) => {
+        tray.value += ch; syncButtons();
+        ToolboxEmoji.copy(ch).then(ok => toast(ok ? 'Copied ' + ch + '  ' + it.name : 'Couldn’t copy automatically. Select it in the box above and press Ctrl+C.'));
+      }
+    });
+    if (window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches) picker.focusSearch();
+  }
+  copyAll.addEventListener('click', () => {
+    if (!tray.value) return;
+    ToolboxEmoji.copy(tray.value).then(ok => toast(ok ? 'Copied ' + tray.value : 'Couldn’t copy automatically. Select the box and press Ctrl+C.'));
+  });
+  clearTray.addEventListener('click', () => { tray.value = ''; syncButtons(); tray.focus(); });
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+
+<script>
+(function () {
+  const TOOL_ID = 'emoji-picker';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

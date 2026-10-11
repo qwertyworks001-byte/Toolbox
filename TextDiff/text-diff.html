@@ -9,14 +9,38 @@
 <link rel="stylesheet" href="../style.css">
 <script src="../timer-engine.js"></script>
 <style>
-  .diff-line { white-space: pre-wrap; word-break: break-word; }
-  .diff-add { background: rgba(16,185,129,0.15); color: #6ee7b7; }
-  .diff-remove { background: rgba(239,68,68,0.15); color: #fca5a5; }
-  </style>
+  textarea, #out { font-family: inherit; }
+  .mono textarea, .mono #out { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  #out { font-size: 0.9rem; line-height: 1.6; }
+  .ln, .hunk, .cell { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+  .ln { padding: 1px 0; }
+  .hunk { border-left: 3px solid #f59e0b; background: rgba(245,158,11,0.06); padding: 3px 8px; margin: 3px 0; border-radius: 0 6px 6px 0; }
+  del.tdel, ins.tins { border-radius: 3px; padding: 0 2px; }
+  del.tdel { background: rgba(239,68,68,0.22); color: #fca5a5; text-decoration: line-through; text-decoration-color: rgba(252,165,165,0.7); }
+  ins.tins { background: rgba(16,185,129,0.22); color: #6ee7b7; text-decoration: underline; text-decoration-color: rgba(110,231,183,0.7); text-underline-offset: 2px; }
+  .nl { opacity: .6; }
+  .fold { display: block; width: 100%; text-align: center; font-size: 0.75rem; color: #94a3b8; background: rgba(148,163,184,0.08); border: 1px dashed #475569; border-radius: 6px; padding: 3px 0; margin: 4px 0; }
+  .fold:hover { color: #60a5fa; border-color: #3b82f6; }
+  .sbs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #334155; }
+  .sbs-row > .cell { background: #0f172a; padding: 3px 8px; }
+  .sbs-row > .cell.chg { background: #1c1a12; }
+  .sbs-head { position: sticky; top: 0; z-index: 1; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+  .sbs-head > .cell { background: #1e293b; }
+  .muted { color: #64748b; }
+  .lnrow { display: flex; gap: 8px; white-space: pre-wrap; word-break: break-word; padding: 1px 6px; border-radius: 4px; }
+  .lnrow .gut { flex: none; width: 1ch; font-weight: 700; user-select: none; }
+  .lnrow.rm { background: rgba(239,68,68,0.08); } .lnrow.rm .gut { color: #f87171; }
+  .lnrow.ad { background: rgba(16,185,129,0.08); } .lnrow.ad .gut { color: #34d399; }
+  @media (max-width: 560px) {
+    .sbs-row { grid-template-columns: 1fr; }
+    .sbs-row > .cell::before { content: attr(data-side); display: block; font-size: .65rem; color: #64748b; text-transform: uppercase; }
+    .sbs-head { display: none; }
+  }
+</style>
 </head>
 <body class="text-slate-200 font-sans antialiased">
 
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="root">
 
   <header class="mb-8">
     <div class="flex items-center justify-between mb-3">
@@ -29,148 +53,327 @@
       <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Text Difference Tool</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Compare two pieces of text, line by line.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Paste two versions and see exactly which words changed.</p>
   </header>
 
   <div class="glass rounded-2xl p-6 mb-5">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
       <div>
-        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Version A</p>
+        <label for="textA" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Version A (original)</label>
         <textarea id="textA" rows="8" spellcheck="false" placeholder="Paste the original text..."
-          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
       </div>
       <div>
-        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2">Version B</p>
+        <label for="textB" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Version B (changed)</label>
         <textarea id="textB" rows="8" spellcheck="false" placeholder="Paste the changed text..."
-          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
       </div>
     </div>
-    <button type="button" id="compareBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Compare</button>
-    <p class="text-xs text-amber-400 mt-2 hidden" id="truncateNote"></p>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="compareBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Compare</button>
+        <button type="button" id="swapBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">&#8646; Swap</button>
+        <button type="button" id="clearBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Clear</button>
+        <button type="button" id="exampleBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Example</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400 sm:ml-auto">
+        <label class="inline-flex items-center gap-1.5">Compare by
+          <select id="optMode" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1 text-slate-200">
+            <option value="words">Words</option><option value="chars">Characters</option>
+          </select>
+        </label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="optCase" class="accent-blue-500"> Ignore case</label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="optSpace" class="accent-blue-500"> Ignore spacing</label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="optMono" class="accent-blue-500"> Monospace</label>
+      </div>
+    </div>
+    <p class="text-xs text-amber-400 mt-3 hidden" id="truncateNote"></p>
   </div>
 
   <div class="glass rounded-2xl p-6 hidden" id="resultsPanel">
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex gap-2">
-        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="unified">Unified</button>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div class="flex gap-2" role="tablist">
+        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="inline">Inline</button>
         <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="side">Side-by-Side</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-view="lines">Lines</button>
       </div>
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-slate-500" id="diffSummary"></span>
-        <button type="button" id="copyDiffBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Copy Diff</button>
-      </div>
+      <button type="button" id="copyDiffBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Copy Diff</button>
     </div>
-    <div id="unifiedView" class="text-xs font-mono bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-[420px] overflow-auto"></div>
-    <div id="sideView" class="hidden grid grid-cols-2 gap-px bg-slate-700 text-xs font-mono border border-slate-700 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
-      <div id="sideA" class="bg-slate-900/50 p-3"></div>
-      <div id="sideB" class="bg-slate-900/50 p-3"></div>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs">
+      <span class="text-slate-300" id="diffSummary" aria-live="polite"></span>
+      <span class="text-slate-500 sm:ml-auto"><del class="tdel">removed</del> <ins class="tins">added</ins></span>
     </div>
+    <div id="identical" class="hidden mb-3 text-sm rounded-lg border border-emerald-600/40 bg-emerald-500/10 text-emerald-300 px-3 py-2"></div>
+    <div id="out" class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-[70vh] overflow-auto"></div>
+    <p class="text-xs text-slate-500 mt-2 hidden" id="coarseNote">Some very large changes are shown as whole replacements to stay fast.</p>
   </div>
 
 </div>
 
 <script>
 (function () {
-  const textA = document.getElementById('textA');
-  const textB = document.getElementById('textB');
-  const compareBtn = document.getElementById('compareBtn');
-  const truncateNote = document.getElementById('truncateNote');
-  const resultsPanel = document.getElementById('resultsPanel');
-  const unifiedView = document.getElementById('unifiedView');
-  const sideView = document.getElementById('sideView');
-  const sideA = document.getElementById('sideA');
-  const sideB = document.getElementById('sideB');
-  const diffSummary = document.getElementById('diffSummary');
-  const copyDiffBtn = document.getElementById('copyDiffBtn');
-  const viewTabs = document.querySelectorAll('.tab-btn');
+  const $ = id => document.getElementById(id);
+  const textA = $('textA'), textB = $('textB'), out = $('out');
+  const MAX_LINES = 3000, CTX = 2;
+  const OPT_KEY = 'toolbox:text-diff:opts';
+  const WS = /^\s+$/;
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  const MAX_LINES = 1200; // keeps the O(n*m) LCS comfortably fast in-browser
+  let segmenter = null;
+  try { if (typeof Intl !== 'undefined' && Intl.Segmenter) segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' }); } catch (e) {}
 
-  function esc(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  /* ---------- options ---------- */
+  const opts = { mode: 'words', ci: false, sp: false, mono: false, view: 'inline' };
+  try { Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY)) || {}); } catch (e) {}
+  function saveOpts() { try { localStorage.setItem(OPT_KEY, JSON.stringify(opts)); } catch (e) {} }
+  function syncOptUI() {
+    $('optMode').value = opts.mode; $('optCase').checked = opts.ci; $('optSpace').checked = opts.sp; $('optMono').checked = opts.mono;
+    $('root').classList.toggle('mono', opts.mono);
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === opts.view));
   }
 
-  // Classic LCS-based line diff -> list of {type: 'equal'|'add'|'remove', line}
-  function diffLines(a, b) {
-    const n = a.length, m = b.length;
-    const dp = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
-    for (let i = n - 1; i >= 0; i--) {
-      for (let j = m - 1; j >= 0; j--) {
-        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  /* ---------- diff engine ---------- */
+  function tokenize(s, mode) {
+    if (mode === 'chars') return segmenter ? Array.from(segmenter.segment(s), x => x.segment) : Array.from(s);
+    return s.match(/\n|[^\S\n]+|[\p{L}\p{N}_]+(?:['’][\p{L}\p{N}_]+)*|\S/gu) || [];
+  }
+  function tokKey(t) { return WS.test(t) ? (opts.sp ? ' ' : t) : (opts.ci ? t.toLowerCase() : t); }
+  function lineKey(l) { let k = l; if (opts.sp) k = k.replace(/\s+/g, ' ').trim(); if (opts.ci) k = k.toLowerCase(); return k; }
+  function counted(t) { return opts.mode === 'chars' ? !WS.test(t) : /[\p{L}\p{N}]/u.test(t); }
+
+  // ops: [0 equal | 1 delete | 2 insert, indexInA, indexInB]
+  function diffSeq(ka, kb, maxCells) {
+    const n = ka.length, m = kb.length;
+    let s = 0; while (s < n && s < m && ka[s] === kb[s]) s++;
+    let e = 0; while (e < n - s && e < m - s && ka[n - 1 - e] === kb[m - 1 - e]) e++;
+    const ops = []; let coarse = false;
+    for (let i = 0; i < s; i++) ops.push([0, i, i]);
+    const N = n - s - e, M = m - s - e;
+    if (N === 0) { for (let j = 0; j < M; j++) ops.push([2, s, s + j]); }
+    else if (M === 0) { for (let i = 0; i < N; i++) ops.push([1, s + i, s]); }
+    else if (N * M > maxCells) {
+      coarse = true;
+      for (let i = 0; i < N; i++) ops.push([1, s + i, s]);
+      for (let j = 0; j < M; j++) ops.push([2, s + N, s + j]);
+    } else {
+      const W = M + 1, dp = new Uint16Array((N + 1) * W);
+      for (let i = N - 1; i >= 0; i--) for (let j = M - 1; j >= 0; j--) {
+        dp[i * W + j] = ka[s + i] === kb[s + j] ? dp[(i + 1) * W + j + 1] + 1
+          : Math.max(dp[(i + 1) * W + j], dp[i * W + j + 1]);
+      }
+      let i = 0, j = 0;
+      while (i < N && j < M) {
+        if (ka[s + i] === kb[s + j]) { ops.push([0, s + i, s + j]); i++; j++; }
+        else if (dp[(i + 1) * W + j] >= dp[i * W + j + 1]) { ops.push([1, s + i, s + j]); i++; }
+        else { ops.push([2, s + i, s + j]); j++; }
+      }
+      while (i < N) { ops.push([1, s + i, s + j]); i++; }
+      while (j < M) { ops.push([2, s + i, s + j]); j++; }
+    }
+    for (let k = 0; k < e; k++) ops.push([0, n - e + k, m - e + k]);
+    return { ops, coarse };
+  }
+
+  const nonWs = s => s.replace(/\s+/g, '').length;
+
+  // token-level diff of one changed hunk -> segments
+  function wordDiff(sa, sb, state) {
+    const ta = tokenize(sa, opts.mode), tb = tokenize(sb, opts.mode);
+    const r = diffSeq(ta.map(tokKey), tb.map(tokKey), 4e6);
+    if (r.coarse) state.coarse = true;
+    let segs = [], cur = null;
+    for (const [t, i, j] of r.ops) {
+      if (t === 0) {
+        if (!cur || cur.t !== 'eq') { cur = { t: 'eq', a: '', b: '' }; segs.push(cur); }
+        cur.a += ta[i]; cur.b += tb[j];
+      } else {
+        if (!cur || cur.t !== 'ch') { cur = { t: 'ch', del: '', ins: '', dn: 0, in: 0 }; segs.push(cur); }
+        if (t === 1) { cur.del += ta[i]; if (counted(ta[i])) cur.dn++; }
+        else { cur.ins += tb[j]; if (counted(tb[j])) cur.in++; }
       }
     }
-    const ops = [];
-    let i = 0, j = 0;
-    while (i < n && j < m) {
-      if (a[i] === b[j]) { ops.push({ type: 'equal', line: a[i] }); i++; j++; }
-      else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push({ type: 'remove', line: a[i] }); i++; }
-      else { ops.push({ type: 'add', line: b[j] }); j++; }
+    // two mostly different blocks: don't scatter on shared filler words
+    const la = nonWs(sa), lb = nonWs(sb);
+    if (Math.min(la, lb) >= 30) {
+      const eq = segs.reduce((n, s) => n + (s.t === 'eq' ? nonWs(s.b) : 0), 0);
+      if (eq * 2 / (la + lb) < 0.2) {
+        return [{ t: 'ch', del: sa, ins: sb, dn: ta.filter(counted).length, in: tb.filter(counted).length }];
+      }
     }
-    while (i < n) { ops.push({ type: 'remove', line: a[i] }); i++; }
-    while (j < m) { ops.push({ type: 'add', line: b[j] }); j++; }
-    return ops;
+    // absorb whitespace-only equal runs between two changes, so "5pm tomorrow" -> "6pm on Friday" is one change
+    const merged = [];
+    for (let k = 0; k < segs.length; k++) {
+      const s = segs[k], last = merged[merged.length - 1], nx = segs[k + 1];
+      if (s.t === 'eq' && last && last.t === 'ch' && nx && nx.t === 'ch' && WS.test(s.a) && WS.test(s.b)) {
+        last.del += s.a + nx.del; last.ins += s.b + nx.ins; last.dn += nx.dn; last.in += nx.in; k++;
+      } else merged.push(s);
+    }
+    return merged;
   }
 
-  function compare() {
-    let linesA = textA.value.split('\n');
-    let linesB = textB.value.split('\n');
+  let model = null, expanded = new Set();
 
-    truncateNote.classList.add('hidden');
-    if (linesA.length > MAX_LINES || linesB.length > MAX_LINES) {
-      linesA = linesA.slice(0, MAX_LINES);
-      linesB = linesB.slice(0, MAX_LINES);
-      truncateNote.textContent = `Only the first ${MAX_LINES} lines of each version are compared, to keep this responsive.`;
-      truncateNote.classList.remove('hidden');
+  function compute() {
+    let la = textA.value.replace(/\r\n?/g, '\n').split('\n');
+    let lb = textB.value.replace(/\r\n?/g, '\n').split('\n');
+    const note = $('truncateNote');
+    note.classList.add('hidden');
+    if (la.length > MAX_LINES || lb.length > MAX_LINES) {
+      la = la.slice(0, MAX_LINES); lb = lb.slice(0, MAX_LINES);
+      note.textContent = `Only the first ${MAX_LINES} lines of each version are compared, to keep this responsive.`;
+      note.classList.remove('hidden');
     }
+    const state = { coarse: false };
+    const r = diffSeq(la.map(lineKey), lb.map(lineKey), 9e6);
+    if (r.coarse) state.coarse = true;
+    const blocks = []; let cur = null;
+    for (const [t, i, j] of r.ops) {
+      const want = t === 0 ? 'eq' : 'ch';
+      if (!cur || cur.type !== want) { cur = { type: want, a: [], b: [] }; blocks.push(cur); }
+      if (t === 0) { cur.a.push(la[i]); cur.b.push(lb[j]); }
+      else if (t === 1) cur.a.push(la[i]); else cur.b.push(lb[j]);
+    }
+    let changes = 0, dn = 0, inn = 0, dc = 0, ic = 0;
+    blocks.forEach(b => {
+      if (b.type !== 'ch') return;
+      b.segs = wordDiff(b.a.join('\n'), b.b.join('\n'), state);
+      b.segs.forEach(s => { if (s.t === 'ch') { changes++; dn += s.dn; inn += s.in; dc += nonWs(s.del); ic += nonWs(s.ins); } });
+    });
+    const total = nonWs(la.join('')) + nonWs(lb.join(''));
+    model = { blocks, changes, dn, in: inn, sim: total ? Math.round((total - dc - ic) / total * 100) : 100, coarse: state.coarse };
+    expanded = new Set();
+  }
 
-    const ops = diffLines(linesA, linesB);
-    const added = ops.filter(o => o.type === 'add').length;
-    const removed = ops.filter(o => o.type === 'remove').length;
-    diffSummary.textContent = `+${added} / -${removed}`;
+  /* ---------- rendering ---------- */
+  const mark = s => esc(s).replace(/\n/g, '<span class="nl">↵</span>\n');
+  const delH = s => s ? `<del class="tdel">${mark(s)}</del>` : '';
+  const insH = s => s ? `<ins class="tins">${mark(s)}</ins>` : '';
 
-    unifiedView.innerHTML = ops.map(op => {
-      const prefix = op.type === 'add' ? '+ ' : op.type === 'remove' ? '- ' : '  ';
-      const cls = op.type === 'add' ? 'diff-add' : op.type === 'remove' ? 'diff-remove' : '';
-      return `<div class="diff-line ${cls}">${esc(prefix + op.line)}</div>`;
-    }).join('');
+  function eqItems(b, bi) {
+    const n = b.a.length, first = bi === 0, last = bi === model.blocks.length - 1;
+    const all = () => b.a.map((a, k) => ({ a, b: b.b[k] }));
+    if (model.changes === 0 || expanded.has(bi) || n <= CTX * 2 + 1) return all();
+    const head = first ? 0 : CTX, tail = last ? 0 : CTX, hidden = n - head - tail;
+    if (hidden <= 1) return all();
+    const items = [];
+    for (let k = 0; k < head; k++) items.push({ a: b.a[k], b: b.b[k] });
+    items.push({ fold: true, n: hidden, bi });
+    for (let k = n - tail; k < n; k++) items.push({ a: b.a[k], b: b.b[k] });
+    return items;
+  }
+  const foldBtn = it => `<button type="button" class="fold" data-fold="${it.bi}">⋯ ${it.n} unchanged lines — click to show</button>`;
+  const line = s => esc(s) || '&nbsp;';
 
-    const rowsA = [];
-    const rowsB = [];
-    ops.forEach(op => {
-      if (op.type === 'equal') {
-        rowsA.push(`<div class="diff-line">${esc(op.line)}</div>`);
-        rowsB.push(`<div class="diff-line">${esc(op.line)}</div>`);
-      } else if (op.type === 'remove') {
-        rowsA.push(`<div class="diff-line diff-remove">${esc(op.line)}</div>`);
-        rowsB.push(`<div class="diff-line">&nbsp;</div>`);
+  function renderInline() {
+    return model.blocks.map((b, bi) => b.type === 'eq'
+      ? eqItems(b, bi).map(it => it.fold ? foldBtn(it) : `<div class="ln">${line(it.b)}</div>`).join('')
+      : `<div class="hunk">${b.segs.map(s => s.t === 'eq' ? esc(s.b) : delH(s.del) + insH(s.ins)).join('') || '&nbsp;'}</div>`
+    ).join('');
+  }
+
+  function renderSide() {
+    const rows = [`<div class="sbs-row sbs-head"><div class="cell">Version A</div><div class="cell">Version B</div></div>`];
+    model.blocks.forEach((b, bi) => {
+      if (b.type === 'eq') {
+        eqItems(b, bi).forEach(it => rows.push(it.fold ? foldBtn(it)
+          : `<div class="sbs-row"><div class="cell" data-side="Version A">${line(it.a)}</div><div class="cell" data-side="Version B">${line(it.b)}</div></div>`));
       } else {
-        rowsA.push(`<div class="diff-line">&nbsp;</div>`);
-        rowsB.push(`<div class="diff-line diff-add">${esc(op.line)}</div>`);
+        const l = b.segs.map(s => s.t === 'eq' ? esc(s.a) : delH(s.del)).join('');
+        const r = b.segs.map(s => s.t === 'eq' ? esc(s.b) : insH(s.ins)).join('');
+        rows.push(`<div class="sbs-row"><div class="cell chg" data-side="Version A">${b.a.length ? l : '<span class="muted">—</span>'}</div><div class="cell chg" data-side="Version B">${b.b.length ? r : '<span class="muted">—</span>'}</div></div>`);
       }
     });
-    sideA.innerHTML = rowsA.join('');
-    sideB.innerHTML = rowsB.join('');
-
-    resultsPanel.classList.remove('hidden');
+    return rows.join('');
   }
 
-  function switchView(view) {
-    viewTabs.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-view') === view));
-    unifiedView.classList.toggle('hidden', view !== 'unified');
-    sideView.classList.toggle('hidden', view !== 'side');
+  // split a side of a hunk into per-line html
+  function sideLines(segs, side) {
+    const lines = ['']; 
+    segs.forEach(s => {
+      const text = s.t === 'eq' ? (side === 'a' ? s.a : s.b) : (side === 'a' ? s.del : s.ins);
+      const tag = s.t === 'eq' ? null : (side === 'a' ? 'del' : 'ins');
+      text.split('\n').forEach((p, k) => {
+        if (k > 0) lines.push('');
+        if (p) lines[lines.length - 1] += tag ? `<${tag} class="${side === 'a' ? 'tdel' : 'tins'}">${esc(p)}</${tag}>` : esc(p);
+      });
+    });
+    return lines;
   }
 
-  viewTabs.forEach(btn => btn.addEventListener('click', () => switchView(btn.getAttribute('data-view'))));
-  compareBtn.addEventListener('click', compare);
+  function renderLines() {
+    return model.blocks.map((b, bi) => {
+      if (b.type === 'eq') return eqItems(b, bi).map(it => it.fold ? foldBtn(it)
+        : `<div class="lnrow"><span class="gut"> </span><span>${line(it.b)}</span></div>`).join('');
+      const rm = b.a.length ? sideLines(b.segs, 'a').map(h => `<div class="lnrow rm"><span class="gut">−</span><span>${h || '&nbsp;'}</span></div>`).join('') : '';
+      const ad = b.b.length ? sideLines(b.segs, 'b').map(h => `<div class="lnrow ad"><span class="gut">+</span><span>${h || '&nbsp;'}</span></div>`).join('') : '';
+      return rm + ad;
+    }).join('');
+  }
 
-  copyDiffBtn.addEventListener('click', async () => {
+  function render() {
+    const panel = $('resultsPanel');
+    if (!textA.value && !textB.value) { panel.classList.add('hidden'); return; }
+    if (!model) compute();
+    panel.classList.remove('hidden');
+    const unit = opts.mode === 'chars' ? 'characters' : 'words';
+    const m = model, ident = $('identical');
+    $('diffSummary').textContent = m.changes === 0 ? '0 changes'
+      : `${m.changes} change${m.changes === 1 ? '' : 's'} · +${m.in} ${unit} added · −${m.dn} removed · ${m.sim}% similar`;
+    if (m.changes === 0) {
+      ident.classList.remove('hidden');
+      ident.textContent = textA.value === textB.value ? '✓ The two texts are identical.'
+        : '✓ No differences, apart from case or spacing that you chose to ignore.';
+    } else ident.classList.add('hidden');
+    $('coarseNote').classList.toggle('hidden', !m.coarse);
+    out.innerHTML = opts.view === 'side' ? renderSide() : opts.view === 'lines' ? renderLines() : renderInline();
+  }
+
+  function recompute() { model = null; render(); }
+
+  /* ---------- copy ---------- */
+  function diffText() {
+    if (!model || model.changes === 0) return 'No differences.';
+    return model.blocks.map(b => b.type === 'eq' ? b.b.join('\n')
+      : b.segs.map(s => s.t === 'eq' ? s.b : (s.del ? `[-${s.del}-]` : '') + (s.ins ? `{+${s.ins}+}` : '')).join('')
+    ).join('\n');
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
     try {
-      await navigator.clipboard.writeText(unifiedView.innerText);
-      const original = copyDiffBtn.textContent;
-      copyDiffBtn.textContent = '\u2713 Copied';
-      setTimeout(() => { copyDiffBtn.textContent = original; }, 1200);
-    } catch (e) {}
+      const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+
+  /* ---------- events ---------- */
+  let timer = null;
+  function schedule() { clearTimeout(timer); timer = setTimeout(recompute, 250); }
+  textA.addEventListener('input', schedule);
+  textB.addEventListener('input', schedule);
+  $('compareBtn').addEventListener('click', () => { clearTimeout(timer); recompute(); });
+  $('swapBtn').addEventListener('click', () => { const t = textA.value; textA.value = textB.value; textB.value = t; recompute(); });
+  $('clearBtn').addEventListener('click', () => { textA.value = ''; textB.value = ''; recompute(); textA.focus(); });
+  $('exampleBtn').addEventListener('click', () => {
+    textA.value = "Hey team, the meeting is at 5pm tomorrow in room 204.\nPlease bring your laptop and the Q3 report.\nWe will cover the roadmap, hiring, budget and the launch plan.\nAgenda items are listed in the shared doc.\nRemember to add your own topics before Friday.\nSnacks will be provided.\nIf you cannot make it, let me know.\nThanks, Sam";
+    textB.value = "Hey team, the meeting is at 6pm on Friday in room 310.\nPlease bring your laptop and the Q4 report.\nWe will cover the roadmap, hiring, budget and the launch plan.\nAgenda items are listed in the shared doc.\nRemember to add your own topics before Thursday.\nSnacks will be provided.\nIf you cannot make it, let me know.\nThanks, Sam";
+    recompute();
   });
+  $('optMode').addEventListener('change', e => { opts.mode = e.target.value; saveOpts(); recompute(); });
+  $('optCase').addEventListener('change', e => { opts.ci = e.target.checked; saveOpts(); recompute(); });
+  $('optSpace').addEventListener('change', e => { opts.sp = e.target.checked; saveOpts(); recompute(); });
+  $('optMono').addEventListener('change', e => { opts.mono = e.target.checked; saveOpts(); syncOptUI(); });
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { opts.view = b.dataset.view; saveOpts(); syncOptUI(); render(); }));
+  out.addEventListener('click', e => {
+    const f = e.target.closest('[data-fold]');
+    if (f) { expanded.add(+f.dataset.fold); render(); }
+  });
+  $('copyDiffBtn').addEventListener('click', async () => {
+    const btn = $('copyDiffBtn'), orig = 'Copy Diff';
+    btn.textContent = (await copyText(diffText())) ? '✓ Copied' : 'Copy failed';
+    setTimeout(() => { btn.textContent = orig; }, 1200);
+  });
+
+  syncOptUI();
 })();
 </script>
 <script>

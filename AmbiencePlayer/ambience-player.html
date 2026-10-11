@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ambience Player</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .snd { position: relative; border: 1px solid #334155; background: rgba(15,23,42,.55); border-radius: 14px; padding: 10px 12px 12px; transition: border-color .2s, background .2s, box-shadow .2s; }
+  .snd.on { border-color: #38bdf8; background: rgba(56,189,248,.08); box-shadow: 0 0 0 1px rgba(56,189,248,.25), 0 6px 24px -12px rgba(56,189,248,.5); }
+  .snd-btn { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; color: #cbd5e1; font-size: .875rem; font-weight: 600; background: none; border: 0; padding: 0 0 10px; cursor: pointer; border-radius: 8px; }
+  .snd.on .snd-btn { color: #fff; }
+  .snd-btn:focus-visible, .chip:focus-visible, .vol:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+  .ico { font-size: 1.6rem; line-height: 1; filter: grayscale(.7) opacity(.7); transition: filter .2s, transform .2s; }
+  .snd.on .ico { filter: none; transform: scale(1.08); }
+  .dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; }
+  .snd.on .dot { background: #38bdf8; animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .35; transform: scale(.8);} 50% { opacity: 1; transform: scale(1.15);} }
+  @media (prefers-reduced-motion: reduce) { .snd.on .dot { animation: none; } .snd.on .ico { transform: none; } }
+  input[type=range].vol { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px; outline: none; cursor: pointer;
+    background: linear-gradient(to right, var(--fill, #64748b) var(--p, 50%), #1e293b var(--p, 50%)); }
+  .snd.on input.vol { --fill: #38bdf8; }
+  input.vol.master { --fill: #a78bfa; height: 8px; }
+  input.vol::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #e2e8f0; border: 2px solid #0f172a; }
+  input.vol::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #e2e8f0; border: 2px solid #0f172a; }
+  .chip { font-size: .75rem; padding: 5px 12px; border-radius: 999px; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; cursor: pointer; }
+  .chip:hover { border-color: #3b82f6; color: #60a5fa; }
+  .chip.x { padding-right: 8px; }
+  .bar { position: sticky; top: 8px; z-index: 20; backdrop-filter: blur(10px); }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Ambience Player</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Layer as many sounds as you like and set each one's volume. Everything is generated live in your browser.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-4 sm:p-5 mb-5 bar">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+      <div class="flex items-center gap-2">
+        <button type="button" id="pauseBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold disabled:opacity-40 disabled:hover:bg-blue-600" disabled>Pause</button>
+        <button type="button" id="stopBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 disabled:opacity-40" disabled>Stop all</button>
+      </div>
+      <label class="flex items-center gap-3 flex-1 min-w-[200px]">
+        <span class="text-xs uppercase tracking-wider text-slate-500 whitespace-nowrap">Master</span>
+        <input type="range" id="master" class="vol master" min="0" max="100" value="80" aria-label="Master volume">
+      </label>
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <label for="sleep" class="whitespace-nowrap">Sleep timer</label>
+        <select id="sleep" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1.5 text-slate-200">
+          <option value="0">Off</option><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option>
+          <option value="60">1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option><option value="480">8 hours</option>
+        </select>
+        <span id="timerLeft" class="tabular-nums text-slate-300 min-w-[3.2rem]"></span>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500 mt-3" id="status" aria-live="polite">Pick a sound below to start.</p>
+  </div>
+
+  <div class="glass rounded-2xl p-5 mb-5">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 class="text-sm font-semibold text-white">Mixes</h2>
+      <button type="button" id="restoreBtn" class="chip hidden">&#8634; Restore last mix</button>
+    </div>
+    <div class="flex flex-wrap gap-2" id="presetList"></div>
+    <div class="flex flex-wrap items-center gap-2 mt-4">
+      <input id="presetName" type="text" maxlength="30" placeholder="Name this mix..." aria-label="Name for the current mix"
+        class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+      <button type="button" id="savePresetBtn" class="chip">Save current mix</button>
+      <span class="text-xs text-slate-500" id="presetMsg" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div id="groups" class="space-y-6"></div>
+
+  <p class="text-xs text-slate-500 mt-8">Every sound is synthesised in your browser with the Web Audio API, so there are no audio files to load and nothing to license. Headphones help.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const SR = 44100, AHEAD = 2.5;
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  /* ======================= ENGINE ======================= */
+  const buffers = {};
+  // 12 s of stereo noise at a fixed RMS, with a crossfaded tail so the loop has no seam
+  function getNoise(type) {
+    if (buffers[type]) return buffers[type];
+    const L = SR * 12, F = SR, N = L + F;
+    const buf = new AudioBuffer({ length: L, sampleRate: SR, numberOfChannels: 2 });
+    for (let c = 0; c < 2; c++) {
+      const x = new Float32Array(N);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
+      for (let i = 0; i < N; i++) {
+        const w = Math.random() * 2 - 1;
+        if (type === 'white') x[i] = w;
+        else if (type === 'pink') {
+          b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.969 * b2 + w * 0.153852;
+          b3 = 0.8665 * b3 + w * 0.3104856; b4 = 0.55 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.016898;
+          x[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362; b6 = w * 0.115926;
+        } else { last = (last + 0.02 * w) / 1.02; x[i] = last; }
+      }
+      const o = buf.getChannelData(c);
+      let sum = 0;
+      for (let i = 0; i < L; i++) {
+        if (i < F) { const p = i / F * Math.PI / 2; o[i] = x[i] * Math.sin(p) + x[L + i] * Math.cos(p); } else o[i] = x[i];
+        sum += o[i] * o[i];
+      }
+      const k = 0.2 / Math.sqrt(sum / L);
+      for (let i = 0; i < L; i++) o[i] *= k;
+    }
+    return (buffers[type] = buf);
+  }
+
+  function makeTrack(def, ctx, dest) {
+    const bus = ctx.createGain(); bus.gain.value = def.trim;
+    const vol = ctx.createGain(); vol.gain.value = 0;
+    bus.connect(vol); vol.connect(dest);
+    const srcs = [], events = [];
+    const h = {
+      ctx, bus,
+      gain: v => { const g = ctx.createGain(); g.gain.value = v; return g; },
+      filter: (type, f, q) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q != null) b.Q.value = q; return b; },
+      pan: p => { const n = ctx.createStereoPanner(); n.pan.value = p; return n; },
+      noise: type => { const s = ctx.createBufferSource(); s.buffer = getNoise(type); s.loop = true; s.start(0, Math.random() * s.buffer.duration); srcs.push(s); return s; },
+      osc: (type, f) => { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.start(); srcs.push(o); return o; },
+      mod: (s, depth, param) => { const g = ctx.createGain(); g.gain.value = depth; s.connect(g); g.connect(param); return g; },
+      chain: (...n) => { for (let i = 0; i < n.length - 1; i++) n[i].connect(n[i + 1]); return n[n.length - 1]; },
+      shot: (type, t, dur, to) => { const s = ctx.createBufferSource(); s.buffer = getNoise(type); s.start(t, Math.random() * (s.buffer.duration - dur - 0.1), dur); s.connect(to); return s; },
+      env: (t, peak, attack, dur) => { const e = ctx.createGain(); e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(peak, t + attack); e.gain.exponentialRampToValueAtTime(0.0001, t + dur); return e; },
+      event: (first, min, max, fn) => { events.push({ next: ctx.currentTime + first, min, max, fn }); },
+      // delay-line "room" for sparse tonal sounds: returns the node to feed
+      room: (time, fb, wet) => {
+        const send = ctx.createGain(), d = ctx.createDelay(1), f = ctx.createGain(), w = ctx.createGain();
+        d.delayTime.value = time; f.gain.value = fb; w.gain.value = wet;
+        send.connect(bus); send.connect(d); d.connect(f); f.connect(d); d.connect(w); w.connect(bus);
+        return send;
+      }
+    };
+    def.build(h);
+    return {
+      def, vol,
+      pump(limit) {
+        for (const ev of events) while (ev.next < limit) { ev.fn(Math.max(ev.next, ctx.currentTime)); ev.next += rand(ev.min, ev.max); }
+      },
+      setLevel(v, fade) {
+        const p = vol.gain, now = ctx.currentTime;
+        p.cancelScheduledValues(now); p.setValueAtTime(p.value, now);
+        if (fade) p.linearRampToValueAtTime(v * v, now + fade); else p.setTargetAtTime(v * v, now, 0.04);
+      },
+      stop(fade, done) {
+        const p = vol.gain, now = ctx.currentTime;
+        events.length = 0;
+        p.cancelScheduledValues(now); p.setValueAtTime(p.value, now); p.linearRampToValueAtTime(0, now + fade);
+        setTimeout(() => { srcs.forEach(s => { try { s.stop(); } catch (e) {} }); try { vol.disconnect(); } catch (e) {} if (done) done(); }, fade * 1000 + 80);
+      }
+    };
+  }
+
+  /* ---------- sound recipes ---------- */
+  function drop(h, t, fLo, fHi, g, dur, q) {
+    const f = h.filter('bandpass', rand(fLo, fHi), q || 5), e = h.env(t, g * rand(0.3, 1), 0.002, dur), p = h.pan(rand(-0.8, 0.8));
+    h.shot('white', t, dur + 0.02, f); h.chain(f, e, p, h.bus);
+  }
+  function pop(h, t, fLo, fHi, g, dur) {
+    const f = h.filter('highpass', rand(fLo, fHi)), e = h.env(t, g, 0.001, dur), p = h.pan(rand(-0.7, 0.7));
+    h.shot('white', t, dur + 0.01, f); h.chain(f, e, p, h.bus);
+  }
+  function note(h, t, f0, f1, dur, g, to) {
+    const o = h.ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const e = h.gain(0); e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(g, t + dur * 0.15); e.gain.linearRampToValueAtTime(0, t + dur);
+    o.connect(e); e.connect(to); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function bell(h, t, f, to, g) {
+    [[1, 1, 4], [2.76, 0.35, 2.2], [5.4, 0.12, 1.1]].forEach(([m, a, d]) => {
+      const o = h.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+      const e = h.env(t, g * a, 0.004, d); o.connect(e); e.connect(to); o.start(t); o.stop(t + d + 0.05);
+    });
+  }
+
+  const SOUNDS = [
+    { id: 'rain-light', name: 'Light rain', icon: '\u{1F326}️', group: 'Weather', trim: 0.56, build(h) {
+      h.chain(h.noise('white'), h.filter('bandpass', 3800, 0.5), h.gain(0.7), h.bus);
+      h.chain(h.noise('white'), h.filter('highpass', 7000), h.gain(0.12), h.bus);
+      h.chain(h.noise('pink'), h.filter('lowpass', 900), h.gain(0.15), h.bus);
+      h.event(0, 0.04, 0.16, t => drop(h, t, 1500, 6000, 0.5, 0.03));
+    } },
+    { id: 'rain-heavy', name: 'Heavy rain', icon: '\u{1F327}️', group: 'Weather', trim: 0.24, build(h) {
+      h.chain(h.noise('pink'), h.filter('lowpass', 9000), h.gain(0.9), h.bus);
+      h.chain(h.noise('white'), h.filter('bandpass', 2800, 0.3), h.gain(0.6), h.bus);
+      h.chain(h.noise('brown'), h.filter('lowpass', 250), h.gain(0.35), h.bus);
+      h.chain(h.noise('white'), h.filter('highpass', 6500), h.gain(0.12), h.bus);
+      h.event(0, 0.015, 0.07, t => drop(h, t, 1000, 5000, 0.35, 0.03));
+    } },
+    { id: 'rain-roof', name: 'Rain on a roof', icon: '\u{1F3E0}', group: 'Weather', trim: 1.0, build(h) {
+      h.chain(h.noise('white'), h.filter('bandpass', 2200, 0.6), h.gain(0.45), h.bus);
+      h.chain(h.noise('pink'), h.filter('lowpass', 1500), h.gain(0.15), h.bus);
+      h.event(0, 0.03, 0.12, t => drop(h, t, 700, 2400, 0.9, 0.05, 12));
+    } },
+    { id: 'thunder', name: 'Thunder', icon: '⛈️', group: 'Weather', trim: 0.62, build(h) {
+      h.event(rand(2, 6), 14, 40, t => {
+        const dur = rand(5, 9), a = rand(0.3, 1.0);
+        const lp = h.filter('lowpass', rand(180, 420), 0.7), e = h.gain(0), p = h.pan(rand(-0.5, 0.5));
+        lp.frequency.setValueAtTime(lp.frequency.value, t); lp.frequency.exponentialRampToValueAtTime(110, t + dur);
+        e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(1, t + a);
+        [[0.35, 0.18], [0.8, 0.3], [0.22, 0.5], [0.55, 0.65], [0, 1]].forEach(([lv, fr]) => e.gain.linearRampToValueAtTime(lv, t + a + (dur - a) * fr));
+        h.shot('brown', t, dur, lp); h.chain(lp, e, p, h.bus);
+        if (Math.random() < 0.45) pop(h, t, 900, 2000, 0.5, rand(0.15, 0.35));
+      });
+    } },
+    { id: 'wind', name: 'Wind', icon: '\u{1F32C}️', group: 'Weather', trim: 0.42, build(h) {
+      const bp = h.filter('bandpass', 500, 1.1), g = h.gain(0.55);
+      h.chain(h.noise('pink'), bp, g, h.bus);
+      h.mod(h.osc('sine', 0.07), 260, bp.frequency); h.mod(h.osc('sine', 0.113), 160, bp.frequency); h.mod(h.osc('sine', 0.045), 0.3, g.gain);
+      const lo = h.gain(0.5);
+      h.chain(h.noise('brown'), h.filter('lowpass', 280), lo, h.bus);
+      h.mod(h.osc('sine', 0.05), 0.25, lo.gain);
+    } },
+
+    { id: 'ocean', name: 'Ocean waves', icon: '\u{1F30A}', group: 'Water', trim: 0.45, build(h) {
+      const lg = h.gain(0.45), hi = h.filter('bandpass', 3200, 0.6), hg = h.gain(0.12);
+      h.chain(h.noise('brown'), h.filter('lowpass', 600), lg, h.bus);
+      h.chain(h.noise('white'), hi, hg, h.bus);
+      const w1 = h.osc('sine', 0.105), w2 = h.osc('sine', 0.037);
+      h.mod(w1, 0.4, lg.gain); h.mod(w2, 0.1, lg.gain); h.mod(w1, 0.12, hg.gain); h.mod(w2, 0.04, hg.gain); h.mod(w1, 1800, hi.frequency);
+    } },
+    { id: 'stream', name: 'Stream', icon: '\u{1F3DE}️', group: 'Water', trim: 2.2, build(h) {
+      for (let k = 0; k < 4; k++) {
+        const f = rand(500, 2800), bp = h.filter('bandpass', f, rand(2, 5)), g = h.gain(0.22);
+        h.chain(h.noise('pink'), bp, g, h.bus);
+        h.mod(h.osc('sine', rand(2.5, 7)), f * 0.25, bp.frequency); h.mod(h.osc('sine', rand(0.4, 1.4)), 0.1, g.gain);
+      }
+      h.chain(h.noise('white'), h.filter('highpass', 3500), h.gain(0.07), h.bus);
+    } },
+    { id: 'waterfall', name: 'Waterfall', icon: '\u{1F4A7}', group: 'Water', trim: 0.45, build(h) {
+      const g = h.gain(0.6);
+      h.chain(h.noise('white'), h.filter('lowpass', 7000), g, h.bus);
+      h.chain(h.noise('pink'), h.filter('bandpass', 800, 0.5), h.gain(0.5), h.bus);
+      h.chain(h.noise('brown'), h.filter('lowpass', 150), h.gain(0.3), h.bus);
+      h.mod(h.osc('sine', 0.2), 0.05, g.gain);
+    } },
+    { id: 'underwater', name: 'Underwater', icon: '\u{1FAE7}', group: 'Water', trim: 0.26, build(h) {
+      const lp = h.filter('lowpass', 350, 1);
+      h.chain(h.noise('brown'), lp, h.bus);
+      h.mod(h.osc('sine', 0.08), 80, lp.frequency);
+      h.event(1, 1, 5, t => {
+        const o = h.ctx.createOscillator(), f0 = rand(250, 700), e = h.env(t, 0.08, 0.01, 0.1), p = h.pan(rand(-0.6, 0.6));
+        o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * rand(1.6, 2.4), t + 0.09);
+        h.chain(o, e, p, h.bus); o.start(t); o.stop(t + 0.15);
+      });
+    } },
+
+    { id: 'fire', name: 'Campfire', icon: '\u{1F525}', group: 'Nature', trim: 0.5, build(h) {
+      const roar = h.gain(0.5);
+      h.chain(h.noise('brown'), h.filter('lowpass', 400), roar, h.bus);
+      h.mod(h.osc('sine', 0.3), 0.1, roar.gain);
+      h.chain(h.noise('pink'), h.filter('bandpass', 1500, 0.7), h.gain(0.08), h.bus);
+      h.event(0, 0.05, 0.5, t => {
+        const n = 1 + Math.floor(Math.random() * 4);
+        for (let i = 0; i < n; i++) pop(h, t + i * rand(0.02, 0.06), 800, 3000, rand(0.2, 1), rand(0.005, 0.025));
+        if (Math.random() < 0.1) {
+          const f = h.filter('bandpass', rand(500, 900), 1.5), e = h.env(t, 0.9, 0.002, 0.05);
+          h.shot('white', t, 0.06, f); h.chain(f, e, h.bus);
+        }
+      });
+    } },
+    { id: 'crickets', name: 'Crickets', icon: '\u{1F997}', group: 'Nature', trim: 0.37, build(h) {
+      h.chain(h.noise('pink'), h.filter('lowpass', 500), h.gain(0.05), h.bus);
+      for (let k = 0; k < 5; k++) {
+        const p = rand(4300, 5300), pan = h.pan(rand(-0.8, 0.8)); pan.connect(h.bus);
+        h.event(rand(0, 2), 1.1, 2.6, t => {
+          const o = h.ctx.createOscillator(), e = h.gain(0), n = 3 + Math.floor(Math.random() * 3);
+          o.frequency.value = p * rand(0.98, 1.02);
+          e.gain.setValueAtTime(0, t); let tt = t;
+          for (let i = 0; i < n; i++) { e.gain.linearRampToValueAtTime(0.5, tt + 0.012); e.gain.linearRampToValueAtTime(0, tt + 0.032); tt += 0.045; }
+          h.chain(o, e, pan); o.start(t); o.stop(tt + 0.05);
+        });
+      }
+    } },
+    { id: 'birds', name: 'Birds', icon: '\u{1F426}', group: 'Nature', trim: 0.54, build(h) {
+      const room = h.room(0.23, 0.28, 0.35);
+      h.event(0.5, 1.8, 6.5, t => {
+        const pan = h.pan(rand(-0.7, 0.7)); pan.connect(room);
+        const base = rand(2600, 4200), kind = Math.floor(Math.random() * 3);
+        if (kind === 0) { const n = Math.floor(rand(5, 10)); for (let i = 0; i < n; i++) note(h, t + i * 0.07, base * rand(0.95, 1.05), base * rand(1.25, 1.5), 0.05, 0.5, pan); }
+        else if (kind === 1) { const n = 2 + Math.floor(Math.random() * 2); for (let i = 0; i < n; i++) note(h, t + i * 0.22, base * 1.3, base * 0.85, 0.16, 0.5, pan); }
+        else for (let i = 0; i < 3; i++) note(h, t + i * 0.13, base * 0.9, base * 1.35, 0.09, 0.5, pan);
+      });
+    } },
+    { id: 'chimes', name: 'Wind chimes', icon: '\u{1F390}', group: 'Nature', trim: 0.3, build(h) {
+      const room = h.room(0.31, 0.3, 0.3), scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.5];
+      h.event(1, 1.5, 6.5, t => {
+        const n = 1 + Math.floor(Math.random() * 4), pan = h.pan(rand(-0.6, 0.6)); pan.connect(room);
+        for (let i = 0; i < n; i++) bell(h, t + i * rand(0.1, 0.45), scale[Math.floor(Math.random() * scale.length)], pan, 0.5);
+      });
+    } },
+
+    { id: 'white', name: 'White noise', icon: '\u{1F4FB}', group: 'Noise & hum', trim: 0.27, build(h) { h.chain(h.noise('white'), h.filter('lowpass', 14000), h.bus); } },
+    { id: 'pink', name: 'Pink noise', icon: '\u{1F338}', group: 'Noise & hum', trim: 0.25, build(h) { h.chain(h.noise('pink'), h.bus); } },
+    { id: 'brown', name: 'Brown noise', icon: '\u{1F7E4}', group: 'Noise & hum', trim: 0.25, build(h) { h.chain(h.noise('brown'), h.bus); } },
+    { id: 'fan', name: 'Fan', icon: '\u{1F300}', group: 'Noise & hum', trim: 0.41, build(h) {
+      h.chain(h.noise('brown'), h.filter('lowpass', 600), h.gain(0.6), h.bus);
+      h.chain(h.noise('pink'), h.filter('bandpass', 1200, 0.5), h.gain(0.25), h.bus);
+      h.chain(h.osc('sine', 110), h.gain(0.02), h.bus); h.chain(h.osc('sine', 220), h.gain(0.01), h.bus);
+    } },
+    { id: 'drone', name: 'Deep drone', icon: '\u{1F54A}️', group: 'Noise & hum', trim: 0.2, build(h) {
+      const lp = h.filter('lowpass', 800); lp.connect(h.bus);
+      [55, 55.3, 82.41, 110, 110.4, 164.81].forEach((f, i) => {
+        const g = h.gain(0.12); h.chain(h.osc('sine', f), g, lp);
+        h.mod(h.osc('sine', 0.05 + i * 0.017), 0.1, g.gain);
+      });
+    } },
+    { id: 'vinyl', name: 'Vinyl crackle', icon: '\u{1F4BF}', group: 'Noise & hum', trim: 0.8, build(h) {
+      h.chain(h.noise('pink'), h.filter('highpass', 4000), h.gain(0.03), h.bus);
+      h.event(0, 0.02, 0.4, t => pop(h, t, 1000, 4000, rand(0.1, Math.random() < 0.1 ? 0.9 : 0.4), rand(0.001, 0.004)));
+    } }
+  ];
+
+  async function renderOffline(id, sec) {
+    const def = SOUNDS.find(s => s.id === id), oc = new OfflineAudioContext(2, SR * sec, SR);
+    const t = makeTrack(def, oc, oc.destination); t.vol.gain.value = 1; t.pump(sec + 1);
+    const b = await oc.startRendering(); let sum = 0, peak = 0, n = 0;
+    for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) { sum += d[i] * d[i]; if (Math.abs(d[i]) > peak) peak = Math.abs(d[i]); n++; } }
+    return { rms: Math.sqrt(sum / n), peak };
+  }
+  window.AmbienceEngine = { SOUNDS, renderOffline };
+
+  /* ======================= STATE ======================= */
+  const KEY = 'toolbox:ambience', PKEY = 'toolbox:ambience:presets';
+  const store = {
+    get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const saved = store.get(KEY, {});
+  const state = { master: typeof saved.master === 'number' ? saved.master : 0.8, vols: saved.vols || {} };
+  const tracks = new Map();
+  let ctx = null, masterGain = null, timerId = null, sleepEnd = 0, sleepTick = null, fading = false;
+  const volOf = id => (typeof state.vols[id] === 'number' ? state.vols[id] : 0.5);
+  const byId = id => SOUNDS.find(s => s.id === id);
+
+  function ensureCtx() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.knee.value = 20; comp.ratio.value = 4; comp.attack.value = 0.01; comp.release.value = 0.3;
+      masterGain = ctx.createGain(); masterGain.gain.value = state.master * state.master;
+      masterGain.connect(comp); comp.connect(ctx.destination);
+      ctx.onstatechange = updateUI;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  // `on` keeps the last non-empty mix, so "Restore last mix" still works after Stop all
+  function persist() { store.set(KEY, { master: state.master, vols: state.vols, on: tracks.size ? [...tracks.keys()] : (store.get(KEY, {}).on || []) }); }
+
+  function startTrack(id) {
+    if (tracks.has(id)) return;
+    ensureCtx();
+    const tr = makeTrack(byId(id), ctx, masterGain);
+    tracks.set(id, tr); tr.setLevel(volOf(id), 0.8); tr.pump(ctx.currentTime + AHEAD);
+    if (!timerId) timerId = setInterval(() => { if (ctx.state === 'running') tracks.forEach(t => t.pump(ctx.currentTime + AHEAD)); }, 300);
+  }
+  function stopTrack(id, fade) {
+    const tr = tracks.get(id); if (!tr) return;
+    tracks.delete(id); tr.stopping = true;
+    tr.stop(fade == null ? 0.5 : fade, () => { if (!tracks.size && timerId) { clearInterval(timerId); timerId = null; } });
+  }
+  function stopAll(fade) { [...tracks.keys()].forEach(id => stopTrack(id, fade)); }
+
+  /* ======================= UI ======================= */
+  const GROUPS = ['Weather', 'Water', 'Nature', 'Noise & hum'];
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const setP = el => el.style.setProperty('--p', (el.value / el.max * 100) + '%');
+
+  $('groups').innerHTML = GROUPS.map(g => `
+    <section aria-label="${esc(g)}">
+      <h2 class="text-xs uppercase tracking-wider text-slate-500 mb-3">${esc(g)}</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        ${SOUNDS.filter(s => s.group === g).map(s => `
+          <div class="snd" data-id="${s.id}">
+            <button type="button" class="snd-btn" aria-pressed="false"><span class="ico" aria-hidden="true">${s.icon}</span><span>${esc(s.name)}</span><span class="dot" aria-hidden="true"></span></button>
+            <input type="range" class="vol" min="0" max="100" value="${Math.round(volOf(s.id) * 100)}" aria-label="${esc(s.name)} volume">
+          </div>`).join('')}
+      </div>
+    </section>`).join('');
+
+  const master = $('master'); master.value = Math.round(state.master * 100); setP(master);
+  document.querySelectorAll('.snd input').forEach(setP);
+
+  function updateUI() {
+    document.querySelectorAll('.snd').forEach(c => {
+      const on = tracks.has(c.dataset.id);
+      c.classList.toggle('on', on);
+      c.querySelector('.snd-btn').setAttribute('aria-pressed', on);
+    });
+    const n = tracks.size, running = ctx && ctx.state === 'running';
+    $('pauseBtn').disabled = !n; $('stopBtn').disabled = !n;
+    $('pauseBtn').textContent = n && !running ? 'Resume' : 'Pause';
+    $('status').textContent = !n ? 'Pick a sound below to start.'
+      : `${n} sound${n === 1 ? '' : 's'} ${running ? 'playing' : 'paused'}: ${[...tracks.keys()].map(id => byId(id).name).join(', ')}`;
+    const saved2 = store.get(KEY, {});
+    $('restoreBtn').classList.toggle('hidden', n > 0 || !(saved2.on && saved2.on.length));
+  }
+
+  function setVol(id, v) {
+    state.vols[id] = v;
+    const tr = tracks.get(id); if (tr) tr.setLevel(v);
+    persist();
+  }
+  document.querySelectorAll('.snd').forEach(card => {
+    const id = card.dataset.id, slider = card.querySelector('input');
+    card.querySelector('.snd-btn').addEventListener('click', () => {
+      if (tracks.has(id)) stopTrack(id); else startTrack(id);
+      persist(); updateUI();
+    });
+    slider.addEventListener('input', () => {
+      setP(slider); setVol(id, slider.value / 100);
+      if (!tracks.has(id) && slider.value > 0) { startTrack(id); persist(); updateUI(); }
+    });
+  });
+
+  master.addEventListener('input', () => {
+    setP(master); state.master = master.value / 100; persist();
+    if (masterGain && !fading) masterGain.gain.setTargetAtTime(state.master * state.master, ctx.currentTime, 0.04);
+  });
+  $('pauseBtn').addEventListener('click', () => { if (!ctx) return; if (ctx.state === 'running') ctx.suspend(); else ctx.resume(); });
+  $('stopBtn').addEventListener('click', () => { stopAll(); persist(); updateUI(); });
+
+  /* ---- sleep timer ---- */
+  function clearSleep() {
+    clearInterval(sleepTick); sleepTick = null; sleepEnd = 0; $('timerLeft').textContent = ''; $('sleep').value = '0';
+    if (fading && masterGain) { masterGain.gain.cancelScheduledValues(ctx.currentTime); masterGain.gain.setValueAtTime(state.master * state.master, ctx.currentTime); }
+    fading = false;
+  }
+  $('sleep').addEventListener('change', e => {
+    const m = +e.target.value; clearInterval(sleepTick);
+    if (fading) { clearSleep(); e.target.value = String(m); }
+    if (!m) { clearSleep(); return; }
+    sleepEnd = Date.now() + m * 60000;
+    const tick = () => {
+      const left = Math.max(0, Math.round((sleepEnd - Date.now()) / 1000));
+      $('timerLeft').textContent = Math.floor(left / 3600) ? `${Math.floor(left / 3600)}:${String(Math.floor(left % 3600 / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      if (left <= 10 && !fading && masterGain) {
+        fading = true; const p = masterGain.gain; p.cancelScheduledValues(ctx.currentTime); p.setValueAtTime(p.value, ctx.currentTime); p.linearRampToValueAtTime(0, ctx.currentTime + left);
+      }
+      if (left <= 0) { stopAll(0.05); setTimeout(() => { clearSleep(); persist(); updateUI(); }, 200); clearInterval(sleepTick); }
+    };
+    tick(); sleepTick = setInterval(tick, 1000);
+  });
+
+  /* ---- mixes ---- */
+  const BUILTIN = [
+    { name: 'Rainy night', mix: { 'rain-light': 0.6, thunder: 0.4, wind: 0.25, crickets: 0.15 } },
+    { name: 'Cosy storm', mix: { 'rain-heavy': 0.6, thunder: 0.6, fire: 0.5 } },
+    { name: 'Campfire', mix: { fire: 0.6, crickets: 0.4, wind: 0.2 } },
+    { name: 'Beach', mix: { ocean: 0.65, wind: 0.3, birds: 0.25 } },
+    { name: 'Forest', mix: { birds: 0.45, stream: 0.5, wind: 0.25 } },
+    { name: 'Deep focus', mix: { brown: 0.5, fan: 0.3, 'rain-roof': 0.25 } },
+    { name: 'Sleep', mix: { pink: 0.3, ocean: 0.4, drone: 0.3 } }
+  ];
+  let custom = store.get(PKEY, []);
+  function currentMix() { const m = {}; tracks.forEach((_, id) => { m[id] = volOf(id); }); return m; }
+  function loadMix(mix) {
+    [...tracks.keys()].forEach(id => { if (!(id in mix)) stopTrack(id); });
+    Object.entries(mix).forEach(([id, v]) => {
+      if (!byId(id)) return;
+      state.vols[id] = v;
+      const card = document.querySelector(`.snd[data-id="${id}"] input`); card.value = Math.round(v * 100); setP(card);
+      const tr = tracks.get(id); if (tr) tr.setLevel(v); else startTrack(id);
+    });
+    persist(); updateUI();
+  }
+  function renderPresets() {
+    $('presetList').innerHTML = BUILTIN.map((p, i) => `<button type="button" class="chip" data-b="${i}">${esc(p.name)}</button>`).join('')
+      + custom.map((p, i) => `<span class="inline-flex gap-1"><button type="button" class="chip x" data-c="${i}">&#9733; ${esc(p.name)}</button><button type="button" class="chip x" data-d="${i}" aria-label="Delete mix ${esc(p.name)}">&times;</button></span>`).join('');
+  }
+  $('presetList').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.b != null) loadMix(BUILTIN[+b.dataset.b].mix);
+    else if (b.dataset.c != null) loadMix(custom[+b.dataset.c].mix);
+    else if (b.dataset.d != null) { custom.splice(+b.dataset.d, 1); store.set(PKEY, custom); renderPresets(); }
+  });
+  $('savePresetBtn').addEventListener('click', () => {
+    const name = $('presetName').value.trim(), msg = $('presetMsg'), mix = currentMix();
+    if (!Object.keys(mix).length) { msg.textContent = 'Start some sounds first.'; return; }
+    if (!name) { msg.textContent = 'Give the mix a name.'; $('presetName').focus(); return; }
+    const i = custom.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+    if (i >= 0) custom[i] = { name, mix }; else if (custom.length >= 12) { msg.textContent = 'Up to 12 saved mixes. Delete one first.'; return; } else custom.push({ name, mix });
+    store.set(PKEY, custom); renderPresets(); $('presetName').value = ''; msg.textContent = `Saved "${name}".`;
+    setTimeout(() => { if (msg.textContent.startsWith('Saved')) msg.textContent = ''; }, 2500);
+  });
+  $('presetName').addEventListener('keydown', e => { if (e.key === 'Enter') $('savePresetBtn').click(); });
+  $('restoreBtn').addEventListener('click', () => {
+    const s = store.get(KEY, {}), m = {}; (s.on || []).forEach(id => { m[id] = volOf(id); }); loadMix(m);
+  });
+
+  renderPresets(); updateUI();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'ambience-player';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Count Tool</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .stat-num { font-variant-numeric: tabular-nums; }
+  .chip { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Word Count Tool</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Count the words, letters, characters, numbers and special characters in any text.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <label for="text" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Your text</label>
+    <textarea id="text" rows="9" spellcheck="false" placeholder="Type or paste your text here..."
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button type="button" id="pasteBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Paste</button>
+      <button type="button" id="clearBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Clear</button>
+      <button type="button" id="copyBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Copy results</button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5" id="mainStats" aria-live="polite">
+    <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Words</p><p class="stat-num text-3xl font-bold text-white mt-1" id="sWords">0</p></div>
+    <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Letters</p><p class="stat-num text-3xl font-bold text-white mt-1" id="sLetters">0</p></div>
+    <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Characters</p><p class="stat-num text-3xl font-bold text-white mt-1" id="sChars">0</p><p class="text-xs text-slate-500 mt-1"><span class="stat-num" id="sCharsNoSp">0</span> without spaces</p></div>
+    <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Numbers</p><p class="stat-num text-3xl font-bold text-white mt-1" id="sDigits">0</p><p class="text-xs text-slate-500 mt-1">digits &middot; <span class="stat-num" id="sNums">0</span> separate</p></div>
+    <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Special</p><p class="stat-num text-3xl font-bold text-white mt-1" id="sSpecial">0</p><p class="text-xs text-slate-500 mt-1">symbols, punctuation, emoji</p></div>
+  </div>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <h2 class="text-sm font-semibold text-white mb-3">More details</h2>
+    <dl class="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-sm">
+      <div><dt class="text-xs text-slate-500">Spaces &amp; breaks</dt><dd class="stat-num text-slate-200" id="dSpaces">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Sentences</dt><dd class="stat-num text-slate-200" id="dSent">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Paragraphs</dt><dd class="stat-num text-slate-200" id="dPara">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Lines</dt><dd class="stat-num text-slate-200" id="dLines">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Unique words</dt><dd class="stat-num text-slate-200" id="dUnique">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Average word length</dt><dd class="stat-num text-slate-200" id="dAvg">0</dd></div>
+      <div><dt class="text-xs text-slate-500">Reading time</dt><dd class="stat-num text-slate-200" id="dRead">0 sec</dd></div>
+      <div><dt class="text-xs text-slate-500">Speaking time</dt><dd class="stat-num text-slate-200" id="dSpeak">0 sec</dd></div>
+    </dl>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+    <div class="glass rounded-2xl p-6">
+      <h2 class="text-sm font-semibold text-white mb-3">Special characters used</h2>
+      <div id="specialList" class="flex flex-wrap gap-2 text-sm"></div>
+      <p id="specialEmpty" class="text-xs text-slate-500">None yet.</p>
+    </div>
+    <div class="glass rounded-2xl p-6">
+      <h2 class="text-sm font-semibold text-white mb-3">Most used words</h2>
+      <ol id="topList" class="text-sm space-y-1"></ol>
+      <p id="topEmpty" class="text-xs text-slate-500">None yet.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const text = $('text');
+  const nf = new Intl.NumberFormat();
+  let seg = null;
+  try { if (Intl.Segmenter) seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' }); } catch (e) {}
+
+  const RE_LETTER = /^\p{L}/u, RE_NUM = /^\p{N}/u, RE_WS = /^\s/u;
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function dur(words, wpm) {
+    const sec = Math.round(words / wpm * 60);
+    if (sec < 60) return sec + ' sec';
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ' min' + (s ? ' ' + s + ' sec' : '');
+  }
+
+  function analyze(t) {
+    const r = { chars: 0, letters: 0, digits: 0, special: 0, spaces: 0, specials: new Map() };
+    const graphemes = seg ? Array.from(seg.segment(t), x => x.segment) : Array.from(t);
+    for (const g of graphemes) {
+      r.chars++;
+      if (RE_LETTER.test(g)) r.letters++;
+      else if (RE_NUM.test(g)) r.digits++;
+      else if (RE_WS.test(g)) r.spaces++;
+      else { r.special++; r.specials.set(g, (r.specials.get(g) || 0) + 1); }
+    }
+    const words = (t.match(/\S+/gu) || []).filter(w => /[\p{L}\p{N}]/u.test(w));
+    r.words = words.length;
+    const freq = new Map(); let wl = 0;
+    words.forEach(w => {
+      const c = w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').toLowerCase();
+      wl += c.length;
+      freq.set(c, (freq.get(c) || 0) + 1);
+    });
+    r.unique = freq.size;
+    r.avg = r.words ? wl / r.words : 0;
+    r.freq = freq;
+    r.nums = (t.match(/\p{N}+(?:[.,]\p{N}+)*/gu) || []).length;
+    r.sentences = (t.match(/[^.!?…\n]+[.!?…]*/gu) || []).filter(s => /[\p{L}\p{N}]/u.test(s)).length;
+    r.paras = t.split(/\n\s*\n/).filter(p => /\S/.test(p)).length;
+    r.lines = t ? t.split(/\r\n|\r|\n/).length : 0;
+    return r;
+  }
+
+  let last = null;
+  function render() {
+    const r = last = analyze(text.value);
+    $('sWords').textContent = nf.format(r.words);
+    $('sLetters').textContent = nf.format(r.letters);
+    $('sChars').textContent = nf.format(r.chars);
+    $('sCharsNoSp').textContent = nf.format(r.chars - r.spaces);
+    $('sDigits').textContent = nf.format(r.digits);
+    $('sNums').textContent = nf.format(r.nums);
+    $('sSpecial').textContent = nf.format(r.special);
+    $('dSpaces').textContent = nf.format(r.spaces);
+    $('dSent').textContent = nf.format(r.sentences);
+    $('dPara').textContent = nf.format(r.paras);
+    $('dLines').textContent = nf.format(r.lines);
+    $('dUnique').textContent = nf.format(r.unique);
+    $('dAvg').textContent = r.avg ? r.avg.toFixed(1) + ' letters' : '0';
+    $('dRead').textContent = dur(r.words, 238);
+    $('dSpeak').textContent = dur(r.words, 150);
+
+    const sp = [...r.specials].sort((a, b) => b[1] - a[1]).slice(0, 40);
+    $('specialList').innerHTML = sp.map(([g, n]) =>
+      `<span class="chip inline-flex items-center gap-1.5 bg-slate-900/60 border border-slate-700 rounded-lg px-2 py-1"><span class="text-white">${esc(g)}</span><span class="text-xs text-slate-400">${nf.format(n)}</span></span>`).join('');
+    $('specialEmpty').classList.toggle('hidden', sp.length > 0);
+    if (r.specials.size > 40) $('specialList').insertAdjacentHTML('beforeend', `<span class="text-xs text-slate-500 self-center">+${r.specials.size - 40} more</span>`);
+
+    const top = [...r.freq].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 8);
+    $('topList').innerHTML = top.map(([w, n]) =>
+      `<li class="flex justify-between gap-3"><span class="text-slate-200 truncate">${esc(w)}</span><span class="stat-num text-slate-400">${nf.format(n)}</span></li>`).join('');
+    $('topEmpty').classList.toggle('hidden', top.length > 0);
+  }
+
+  let timer = null;
+  text.addEventListener('input', () => {
+    // run immediately for normal text; debounce only for very large pastes
+    if (text.value.length < 50000) render(); else { clearTimeout(timer); timer = setTimeout(render, 200); }
+  });
+  $('clearBtn').addEventListener('click', () => { text.value = ''; render(); text.focus(); });
+  $('pasteBtn').addEventListener('click', async () => {
+    try { text.value = await navigator.clipboard.readText(); render(); }
+    catch (e) { text.focus(); const b = $('pasteBtn'); b.textContent = 'Press Ctrl+V'; setTimeout(() => b.textContent = 'Paste', 1800); }
+  });
+  $('copyBtn').addEventListener('click', async () => {
+    const r = last || analyze(text.value);
+    const s = `Words: ${r.words}\nLetters: ${r.letters}\nCharacters: ${r.chars} (${r.chars - r.spaces} without spaces)\nNumbers: ${r.digits} digits (${r.nums} separate)\nSpecial characters: ${r.special}`;
+    let ok = false;
+    try { await navigator.clipboard.writeText(s); ok = true; } catch (e) {}
+    const b = $('copyBtn'); b.textContent = ok ? '✓ Copied' : 'Copy failed';
+    setTimeout(() => b.textContent = 'Copy results', 1200);
+  });
+  render();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'word-count';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

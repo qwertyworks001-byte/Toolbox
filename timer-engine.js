@@ -46,6 +46,12 @@
     const h = Math.floor(totalMinutes / 60);
     return (h > 0 ? `${h}:${pad(m)}:` : `${m}:`) + `${pad(s)}.${pad(cs)}`;
   }
+  // Alarm times are stored as 24-hour "HH:MM"; show them the way the Alarm tab is set (12-hour AM/PM by default).
+  function fmtAlarmTime(hhmm) {
+    if (!/^\d{2}:\d{2}$/.test(hhmm || '') || lsGet('toolbox:alarm-12h') === 'off') return hhmm || '';
+    const h = parseInt(hhmm.slice(0, 2), 10);
+    return ((h % 12) || 12) + hhmm.slice(2) + ' ' + (h >= 12 ? 'PM' : 'AM');
+  }
   function formatCountdown(ms) {
     const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
     const h = Math.floor(totalSeconds / 3600);
@@ -300,7 +306,7 @@
     state.alarms.forEach(a => {
       if (a.status === 'armed' && a.targetMs !== null && now >= a.targetMs) {
         a.status = 'firing'; a.alarmUntil = now + ALARM_MAX_MS; fired.alarm = true; mutated = true;
-        announce('\u23F0 Alarm' + (a.timeStr ? ' ' + a.timeStr : ''), a.note || 'Your alarm is ringing.', 'toolbox-alarm-' + a.id, 'alarm');
+        announce('\u23F0 Alarm' + (a.timeStr ? ' ' + fmtAlarmTime(a.timeStr) : ''), a.note || 'Your alarm is ringing.', 'toolbox-alarm-' + a.id, 'alarm');
       }
     });
     state.loops.forEach(l => {
@@ -345,7 +351,7 @@
     });
     state.alarms.forEach(a => {
       if (a.status === 'firing') items.push({ tab: 'alarm', icon: '\u23F0', text: 'Alarm!' + short(a.note), alert: true });
-      else items.push({ tab: 'alarm', icon: '\u23F0', text: `Alarm ${a.timeStr}${short(a.note)}` });
+      else items.push({ tab: 'alarm', icon: '\u23F0', text: `Alarm ${fmtAlarmTime(a.timeStr)}${short(a.note)}` });
     });
     state.loops.forEach(l => {
       const iv = l.intervals[l.currentIndex];
