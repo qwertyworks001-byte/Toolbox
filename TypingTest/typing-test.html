@@ -30,6 +30,15 @@
   .pill.on { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #93c5fd; }
   .pill.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: 600; }
   .pill.primary:hover { background: #60a5fa; border-color: #60a5fa; color: #fff; }
+  #testView { scroll-margin-top: 0.5rem; }
+  #chart { touch-action: pan-y; cursor: crosshair; }
+  .touch-only { display: none; }
+  /* Phones and tablets: bigger tap targets, and hide the keyboard-shortcut hint */
+  @media (pointer: coarse) {
+    .pill { padding: 0.55rem 0.9rem; font-size: 0.85rem; }
+    .kbd-hint { display: none; }
+    .touch-only { display: block; }
+  }
   .sep { width: 1px; height: 1.2rem; background: rgba(255, 255, 255, 0.12); }
 
   #live { height: 2.2rem; font-size: 1.5rem; color: var(--accent); display: flex; gap: 1.5rem; align-items: baseline; margin-bottom: 0.4rem; }
@@ -81,11 +90,11 @@
   </div>
 
   <!-- Test -->
-  <section id="testView" class="glass rounded-2xl p-6 mb-5">
+  <section id="testView" class="glass rounded-2xl p-4 sm:p-6 mb-5">
     <div id="live" class="mono stat-num" aria-live="off"><span id="liveMain">30</span><span id="liveWpm"></span></div>
     <div id="wrap" class="mono bg-slate-900/70 border border-slate-700 rounded-lg px-4 py-3">
       <div id="words" aria-label="Typing area"><div id="inner"><div id="caret"></div></div></div>
-      <div id="blurMsg">Click here or press any key to focus</div>
+      <div id="blurMsg">Click or tap here, or press any key, to start typing</div>
     </div>
     <p id="quoteSrc" class="mono text-xs text-slate-500 mt-2 h-4"></p>
 
@@ -101,7 +110,8 @@
         <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="liveToggle"> Show live WPM</label>
         <label class="flex items-center gap-2 cursor-pointer" title="Off: space only moves to the next word once the current word is fully typed"><input type="checkbox" id="skipToggle"> Space can skip words</label>
       </div>
-      <p class="text-xs text-slate-500 text-center"><kbd>Tab</kbd> new test &nbsp;&middot;&nbsp; <kbd>Esc</kbd> leave the test box (then Tab moves around the page) &nbsp;&middot;&nbsp; <kbd>Ctrl</kbd>+<kbd>Backspace</kbd> delete word</p>
+      <p class="touch-only text-xs text-slate-500 text-center">Tap the text to open the keyboard. Use New test to restart.</p>
+      <p class="kbd-hint text-xs text-slate-500 text-center"><kbd>Tab</kbd> new test &nbsp;&middot;&nbsp; <kbd>Esc</kbd> leave the test box (then Tab moves around the page) &nbsp;&middot;&nbsp; <kbd>Ctrl</kbd>+<kbd>Backspace</kbd> delete word</p>
     </div>
   </section>
 
@@ -112,16 +122,16 @@
       <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Accuracy</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rAcc">0%</p></div>
       <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Raw WPM</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rRaw">0</p></div>
       <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Consistency</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rCons">0%</p></div>
-      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Time</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rTime">0s</p></div>
+      <div class="glass rounded-2xl p-4 col-span-2 sm:col-span-1"><p class="text-xs uppercase tracking-wider text-slate-500">Time</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rTime">0s</p></div>
     </div>
 
-    <div class="glass rounded-2xl p-6 mb-5">
+    <div class="glass rounded-2xl p-4 sm:p-6 mb-5">
       <h2 class="text-sm font-semibold text-white mb-3">Speed over time</h2>
       <canvas id="chart" class="w-full" style="height:220px" aria-label="Words per minute over time"></canvas>
-      <p class="text-xs text-slate-500 mt-2"><span class="text-blue-400">&#9632;</span> WPM &nbsp; <span class="text-slate-500">&#9632;</span> raw &nbsp; <span class="text-red-400">&#10005;</span> mistakes</p>
+      <p class="text-xs text-slate-500 mt-2"><span class="text-blue-400">&#9632;</span> WPM &nbsp; <span class="text-slate-500">&#9632;</span> raw &nbsp; <span class="text-red-400">&#10005;</span> mistakes &nbsp;&middot;&nbsp; hover or touch the chart for details</p>
     </div>
 
-    <div class="glass rounded-2xl p-6 mb-5">
+    <div class="glass rounded-2xl p-4 sm:p-6 mb-5">
       <h2 class="text-sm font-semibold text-white mb-3">More details</h2>
       <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <div><dt class="text-xs text-slate-500">Test</dt><dd class="stat-num text-slate-200" id="rTest"></dd></div>
@@ -136,7 +146,7 @@
   </section>
 
   <!-- History -->
-  <section class="chrome glass rounded-2xl p-6" id="historySec">
+  <section class="chrome glass rounded-2xl p-4 sm:p-6" id="historySec">
     <div class="flex items-center justify-between mb-2">
       <h2 class="text-sm font-semibold text-white">Recent tests</h2>
       <button type="button" class="pill" id="clearHist" hidden>Clear history</button>
@@ -190,6 +200,8 @@
   // ── elements ──
   const wordsEl = $('words'), inner = $('inner'), caret = $('caret'), wrap = $('wrap'), hid = $('hid');
   const SENT = '\u200b';
+  const COARSE = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);   // phone / tablet
+  const small = () => window.innerWidth < 640;
 
   // ── state ──
   let words = [], typed = [], wordEls = [], cur = 0, quote = null, lastQuote = -1, startSentence = true;
@@ -252,7 +264,9 @@
   }
   const pitch = () => parseFloat(getComputedStyle(wordsEl).fontSize) * 1.9;
   function layout() {
-    wordsEl.style.setProperty('--fs', SIZES[S.size] + 'rem');
+    // The text grows once you start typing (a little less on phones, where space is tight).
+    const big = started && !finished ? (small() ? 1.12 : 1.3) : 1;
+    wordsEl.style.setProperty('--fs', (SIZES[S.size] * (small() ? 0.75 : 1) * big) + 'rem');
     wordsEl.style.height = (pitch() * 3) + 'px';
     scrollLines(); placeCaret();
   }
@@ -294,6 +308,7 @@
   function start() {
     started = true; startT = performance.now(); lastSec = 0; keysInt = 0; errInt = 0; samples = [];
     document.body.classList.add('typing');
+    layout();
     timerId = setInterval(tick, 100);
   }
   function tick() {
@@ -304,6 +319,8 @@
   }
   function typeChar(c) {
     if (finished) return;
+    // Phone keyboards swap straight quotes and dashes for curly ones; treat them as the plain characters.
+    c = c === '\u2019' || c === '\u2018' ? "'" : c === '\u201c' || c === '\u201d' ? '"' : c === '\u2013' || c === '\u2014' ? '-' : c;
     if (c === ' ' && !(typed[cur] || '').length) return;
     if (!started) start();
     document.body.classList.add('typing');
@@ -343,6 +360,7 @@
   function finish(dur) {
     if (finished) return;
     finished = true; clearInterval(timerId); document.body.classList.remove('typing');
+    if (COARSE) hid.blur();   // close the on-screen keyboard so the results are visible
     if (dur == null) dur = (performance.now() - startT) / 1000;
     dur = Math.max(dur, 0.1);
     if (dur - lastSec >= 0.2) {
@@ -380,10 +398,10 @@
     pbEl.style.color = pb === 'new' || pb === 'first' ? 'var(--accent)' : '#94a3b8';
 
     $('testView').hidden = true; $('results').hidden = false;
-    renderHistory(); updateBest(); drawChart();
+    hov = -1; renderHistory(); updateBest(); drawChart();
   }
 
-  function restart(fresh) {
+  function restart(fresh, focus) {
     clearInterval(timerId); started = false; finished = false; cur = 0;
     correctKeys = totalKeys = keysInt = errInt = 0; samples = []; lastSec = 0;
     if (fresh || !words.length) newWordSet();
@@ -393,12 +411,14 @@
     $('results').hidden = true; $('testView').hidden = false;
     document.body.classList.remove('typing');
     inner.style.transform = '';
-    updateLive(0); layout(); focusHid();
+    updateLive(0); layout();
+    if (!COARSE || focus) focusHid(); else wrap.classList.add('blurred');   // on a phone, only open the keyboard when asked
   }
 
   // ── chart ──
+  let geo = null, hov = -1;
   function drawChart() {
-    const c = $('chart'), sm = lastSamples; if (!c || $('results').hidden) return;
+    const c = $('chart'), sm = lastSamples; if (!c || $('results').hidden) return; geo = null;
     const dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
     c.width = W * dpr; c.height = H * dpr;
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
@@ -409,6 +429,7 @@
     const t0 = sm[0].t, t1 = sm[sm.length - 1].t;
     const X = (s) => sm.length === 1 || t1 === t0 ? pl + pw / 2 : pl + (s.t - t0) / (t1 - t0) * pw;
     const Y = (v) => pt + ph - v / maxV * ph;
+    geo = { sm, X, Y, pl, pw, pt, ph };
     g.font = '11px ui-monospace, Menlo, Consolas, monospace'; g.fillStyle = '#64748b'; g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 1;
     g.textAlign = 'right'; g.textBaseline = 'middle';
     for (let i = 0; i <= 4; i++) { const v = maxV / 4 * i, y = Y(v); g.beginPath(); g.moveTo(pl, y); g.lineTo(pl + pw, y); g.stroke(); g.fillText(Math.round(v), pl - 6, y); }
@@ -424,7 +445,36 @@
     line('raw', '#64748b', 1.5); line('wpm', '#60a5fa', 2.5);
     g.strokeStyle = '#f87171'; g.lineWidth = 2;
     sm.forEach(s => { if (!s.err) return; const x = X(s), y = pt + ph - s.err / maxE * ph; g.beginPath(); g.moveTo(x - 3.5, y - 3.5); g.lineTo(x + 3.5, y + 3.5); g.moveTo(x + 3.5, y - 3.5); g.lineTo(x - 3.5, y + 3.5); g.stroke(); });
+    drawHover(g, W);
   }
+  // Hover (or touch) the chart: a guide line, dots on both lines and a box with the numbers at that moment.
+  function drawHover(g, W) {
+    if (!geo || hov < 0 || hov >= geo.sm.length) return;
+    const s = geo.sm[hov], x = geo.X(s), yw = geo.Y(s.wpm), yr = geo.Y(s.raw);
+    g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, geo.pt); g.lineTo(x, geo.pt + geo.ph); g.stroke();
+    [[yr, '#94a3b8'], [yw, '#60a5fa']].forEach(p => { g.fillStyle = p[1]; g.beginPath(); g.arc(x, p[0], 4, 0, 7); g.fill(); g.strokeStyle = '#0b0f19'; g.lineWidth = 1.5; g.stroke(); });
+    const rows = [['Time', (Math.round(s.t * 10) / 10) + 's', '#e2e8f0'], ['WPM', String(Math.round(s.wpm)), '#60a5fa'], ['Raw', String(Math.round(s.raw)), '#94a3b8'], ['Mistakes', String(s.err), '#f87171']];
+    g.font = '12px ui-monospace, Menlo, Consolas, monospace';
+    const lh = 17, bw = 128, bh = rows.length * lh + 14;
+    let bx = x + 12; if (bx + bw > W - 4) bx = x - 12 - bw; if (bx < 4) bx = 4;
+    const by = Math.min(Math.max(geo.pt, Math.min(yw, yr) - bh / 2), geo.pt + geo.ph - bh);
+    g.fillStyle = 'rgba(15,23,42,0.96)'; g.strokeStyle = '#475569'; g.lineWidth = 1;
+    g.beginPath(); if (g.roundRect) g.roundRect(bx, by, bw, bh, 8); else g.rect(bx, by, bw, bh); g.fill(); g.stroke();
+    g.textBaseline = 'middle';
+    rows.forEach((r, i) => { const y = by + 7 + lh * i + lh / 2; g.textAlign = 'left'; g.fillStyle = '#94a3b8'; g.fillText(r[0], bx + 10, y); g.textAlign = 'right'; g.fillStyle = r[2]; g.fillText(r[1], bx + bw - 10, y); });
+  }
+  function hoverAt(e) {
+    if (!geo) return;
+    const r = $('chart').getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    let idx = -1;
+    if (x >= geo.pl - 12 && x <= geo.pl + geo.pw + 12 && y >= geo.pt - 6 && y <= geo.pt + geo.ph + 6) {
+      let best = Infinity; geo.sm.forEach((s, i) => { const d = Math.abs(geo.X(s) - x); if (d < best) { best = d; idx = i; } });
+    }
+    if (idx !== hov) { hov = idx; drawChart(); }
+  }
+  $('chart').addEventListener('pointermove', hoverAt);
+  $('chart').addEventListener('pointerdown', hoverAt);
+  $('chart').addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && hov !== -1) { hov = -1; drawChart(); } });
 
   // ── config / best / history ──
   function renderConfig() {
@@ -461,9 +511,14 @@
   // ── inputs ──
   const focusHid = () => { if (document.activeElement !== hid) { try { hid.focus({ preventScroll: true }); } catch (e) { hid.focus(); } } };
   function resetSentinel() { hid.value = SENT; try { hid.setSelectionRange(1, 1); } catch (e) {} }
-  hid.addEventListener('focus', () => { wrap.classList.remove('blurred'); resetSentinel(); });
+  hid.addEventListener('focus', () => {
+    wrap.classList.remove('blurred'); resetSentinel();
+    // On a phone, bring the test to the top of the screen so the keyboard doesn't cover it.
+    if (COARSE) { const up = () => $('testView').scrollIntoView({ block: 'start', behavior: 'smooth' }); setTimeout(up, 120); setTimeout(up, 450); }
+  });
   hid.addEventListener('blur', () => { if (!finished) wrap.classList.add('blurred'); });
   wrap.addEventListener('mousedown', (e) => { e.preventDefault(); focusHid(); });
+  wrap.addEventListener('click', focusHid);   // taps: phones only open the keyboard from a real tap
   window.addEventListener('blur', () => { if (!finished && started) wrap.classList.add('blurred'); });
 
   document.addEventListener('keydown', (e) => {
@@ -484,19 +539,29 @@
     }
   });
   // Phones: keyboards often report "Unidentified" keys, so read what was typed from the input instead.
+  // Some keyboards build each word as a "composition" (and change it as you type), so we compare what is in the box
+  // with what we have already counted and only type/delete the difference.
+  let composed = '', lastEnd = { t: 0, text: '' };
+  const hidText = () => hid.value.replace(SENT, '');
+  function syncComposed(text) {
+    let i = 0; while (i < composed.length && i < text.length && composed[i] === text[i]) i++;
+    for (let k = composed.length; k > i; k--) back(false);
+    for (let k = i; k < text.length; k++) typeChar(text[k]);
+    composed = text;
+  }
   hid.addEventListener('input', (e) => {
-    if (e.isComposing) return;
+    if (e.isComposing) { syncComposed(hidText()); return; }
     const type = e.inputType || '';
     if (type.indexOf('delete') === 0) back(type === 'deleteWordBackward');
-    else if (e.data) for (const ch of e.data) typeChar(ch);
-    resetSentinel();
+    else if (e.data && !(Date.now() - lastEnd.t < 60 && e.data === lastEnd.text)) for (const ch of e.data) typeChar(ch);
+    composed = ''; resetSentinel();
   });
-  hid.addEventListener('compositionend', (e) => { if (e.data) for (const ch of e.data) typeChar(ch); resetSentinel(); });
+  hid.addEventListener('compositionend', () => { const t = hidText(); syncComposed(t); lastEnd = { t: Date.now(), text: t }; composed = ''; resetSentinel(); });
   document.addEventListener('mousemove', () => { if (started && !finished) document.body.classList.remove('typing'); });
 
-  $('restartBtn').addEventListener('click', () => restart(true));
-  $('nextBtn').addEventListener('click', () => restart(true));
-  $('retryBtn').addEventListener('click', () => restart(false));
+  $('restartBtn').addEventListener('click', () => restart(true, true));
+  $('nextBtn').addEventListener('click', () => restart(true, true));
+  $('retryBtn').addEventListener('click', () => restart(false, true));
   $('sizeUp').addEventListener('click', () => { S.size = Math.min(SIZES.length - 1, S.size + 1); saveSettings(); layout(); focusHid(); });
   $('sizeDown').addEventListener('click', () => { S.size = Math.max(0, S.size - 1); saveSettings(); layout(); focusHid(); });
   $('liveToggle').checked = S.live;
