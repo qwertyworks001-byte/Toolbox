@@ -219,7 +219,7 @@ window.TOOLBOX_TOOLS = [
     id: 'text-diff',
     name: 'Text Difference Tool',
     description: 'Compare two pieces of text and see exactly what changed.',
-    tags: ['diff', 'compare', 'text', 'difference', 'changes', 'compare files', 'developer', 'merge', 'before after', 'edits', 'lines', 'code'],
+    tags: ['diff', 'compare', 'text', 'difference', 'changes', 'compare files', 'developer', 'merge', 'before after', 'edits', 'lines', 'code', 'word diff', 'what changed'],
     categories: ['developer'],
     path: 'TextDiff/text-diff.html',
     color: '#fbbf24'
@@ -236,8 +236,8 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'ambience-player',
     name: 'Ambience Player',
-    description: 'Layer rain, wind, fire, waves and more, with a volume slider for each sound.',
-    tags: ['ambience', 'ambient', 'sounds', 'white noise', 'rain', 'focus', 'sleep', 'relax', 'background noise', 'mixer', 'nature sounds', 'brown noise', 'study', 'meditation'],
+    description: 'Layer rain, thunder, waves, fire, a busy cafe and more, with a volume slider for each sound.',
+    tags: ['ambience', 'ambient', 'sounds', 'white noise', 'rain', 'focus', 'sleep', 'relax', 'background noise', 'mixer', 'nature sounds', 'brown noise', 'study', 'meditation', 'coffee shop', 'cafe', 'bar', 'crowd', 'bees', 'thunderstorm', 'waves'],
     categories: ['utilities', 'health'],
     path: 'AmbiencePlayer/ambience-player.html',
     color: '#38bdf8'
@@ -384,6 +384,36 @@ window.TOOLBOX_TOOLS = [
     categories: ['utilities', 'random'],
     path: 'TypingTest/typing-test.html',
     color: '#60a5fa',
+    popular: false
+  },
+  {
+    id: 'aim-tester',
+    name: 'Aim Tester',
+    description: 'Click targets as fast and accurately as you can. Classic, three-target and single-target modes, four difficulties, reaction times and personal bests.',
+    tags: ['aim', 'aim trainer', 'aim test', 'mouse accuracy', 'accuracy', 'reaction time', 'click speed', 'clicking', 'fps', 'gaming', 'targets', 'mouse', 'practice'],
+    categories: ['random', 'utilities'],
+    path: 'AimTester/aim-tester.html',
+    color: '#ef4444',
+    popular: false
+  },
+  {
+    id: 'remove-words',
+    name: 'Remove Repetitive Words',
+    description: 'Paste your text, list the words, phrases or sentences you want gone, and remove them in one click. Case-sensitive toggle and undo included.',
+    tags: ['remove words', 'delete words', 'repetitive words', 'filler words', 'find and remove', 'text cleaner', 'text', 'editing', 'writing', 'essay', 'remove phrase', 'word remover'],
+    categories: ['utilities'],
+    path: 'RemoveWords/remove-words.html',
+    color: '#14b8a6',
+    popular: false
+  },
+  {
+    id: 'click-speed-test',
+    name: 'Click Speed Test',
+    description: 'See how many times you can click in 1 to 60 seconds. Live CPS, a per-second graph, a rank and personal bests for every length.',
+    tags: ['click speed', 'cps', 'cps test', 'clicks per second', 'click test', 'clicker', 'mouse', 'clicking', 'speed test', 'gaming', 'butterfly click', 'jitter click', 'spacebar'],
+    categories: ['random', 'utilities'],
+    path: 'ClickSpeedTest/click-speed-test.html',
+    color: '#f59e0b',
     popular: false
   },
 ];

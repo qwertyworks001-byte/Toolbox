@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Click Speed Test</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../firebase-config.js"></script>
+<script src="../toolbox-sync.js"></script>
+<script src="../toolbox-fab.js"></script>
+<link rel="stylesheet" href="../style.css">
+<style>
+  [hidden] { display: none !important; }
+  .stat-num { font-variant-numeric: tabular-nums; }
+  .pill { font-size: 0.75rem; padding: 0.375rem 0.75rem; border-radius: 9999px; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; cursor: pointer; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease; }
+  .pill:hover { border-color: #3b82f6; color: #60a5fa; }
+  .pill.on { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #93c5fd; }
+  .pill.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: 600; }
+  .pill.primary:hover { background: #60a5fa; border-color: #60a5fa; color: #fff; }
+  .pill.danger { border-color: #ef4444; color: #fca5a5; background: rgba(239, 68, 68, 0.12); }
+  @media (pointer: coarse) { .pill { padding: 0.55rem 0.9rem; font-size: 0.85rem; } .kbd-hint { display: none; } }
+  kbd { background: rgba(255, 255, 255, 0.08); padding: 0.05rem 0.4rem; border-radius: 0.3rem; font-size: 0.75rem; color: #cbd5e1; }
+  #pad { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; width: 100%; min-height: 15rem; height: 38vh; max-height: 22rem; border-radius: 0.9rem; background: #0b1220; border: 2px dashed #334155; text-align: center; padding: 1rem; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color 0.15s ease, background 0.1s ease; outline: none; }
+  #pad:hover, #pad:focus-visible { border-color: #3b82f6; }
+  #pad.running { border-style: solid; border-color: #3b82f6; }
+  #pad.hit { background: #111c33; }
+  #pad.done { border-style: solid; border-color: #10b981; }
+  #padNum { font-size: 4.5rem; line-height: 1; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+  #bar { height: 0.35rem; border-radius: 9999px; background: #1e293b; overflow: hidden; }
+  #barFill { height: 100%; width: 0%; background: #3b82f6; border-radius: 9999px; }
+  .barcol { flex: 1 1 0; min-width: 2px; background: #3b82f6; border-radius: 3px 3px 0 0; opacity: 0.85; }
+  .barcol.peak { background: #10b981; opacity: 1; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-weight: 500; color: #64748b; font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+  td { padding: 0.35rem 0.5rem; font-size: 0.85rem; color: #cbd5e1; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Click Speed Test</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">How many times can you click in a few seconds? Pick a length, then click the box as fast as you can. The timer starts on your first click.</p>
+  </header>
+
+  <!-- Settings -->
+  <div class="glass rounded-2xl p-4 mb-5">
+    <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Test length</p>
+    <div class="flex flex-wrap justify-center gap-2" id="cfgDur"></div>
+    <p class="text-center text-xs text-slate-500 mt-3" id="bestLine"></p>
+  </div>
+
+  <!-- Test -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mb-5">
+    <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Time left</p><p class="stat-num text-xl font-bold text-white" id="hTime">&ndash;</p></div>
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Clicks</p><p class="stat-num text-xl font-bold text-blue-400" id="hClicks">0</p></div>
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">CPS</p><p class="stat-num text-xl font-bold text-white" id="hCps">0.0</p></div>
+    </div>
+    <div id="bar" class="mb-3"><div id="barFill"></div></div>
+    <div id="pad" role="button" tabindex="0" aria-label="Click here as fast as you can">
+      <p id="padNum">&nbsp;</p>
+      <p class="text-lg font-semibold text-white" id="padMsg">Click here to start</p>
+      <p class="text-sm text-slate-400" id="padSub"></p>
+      <p class="kbd-hint text-xs text-slate-500 mt-2"><kbd>Space</kbd> also counts &nbsp;&middot;&nbsp; <kbd>Esc</kbd> resets</p>
+    </div>
+    <div class="mt-3 flex justify-center">
+      <button type="button" class="pill" id="resetBtn" hidden>Reset</button>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results" hidden aria-live="polite">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Clicks per second</p><p class="stat-num text-3xl font-bold text-blue-400 mt-1" id="rCps">0</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Total clicks</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rClicks">0</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Peak second</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rPeak">0</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Rank</p><p class="text-2xl font-bold text-white mt-1 leading-9" id="rRank">&ndash;</p></div>
+    </div>
+
+    <div class="glass rounded-2xl p-4 sm:p-6 mb-5">
+      <h2 class="text-sm font-semibold text-white mb-3">More details</h2>
+      <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+        <div><dt class="text-xs text-slate-500">Test length</dt><dd class="text-slate-200" id="rDur"></dd></div>
+        <div><dt class="text-xs text-slate-500">Average gap between clicks</dt><dd class="stat-num text-slate-200" id="rGap"></dd></div>
+        <div><dt class="text-xs text-slate-500">Fastest gap</dt><dd class="stat-num text-slate-200" id="rFast"></dd></div>
+      </dl>
+      <div id="chartWrap" class="mt-5" hidden>
+        <p class="text-xs text-slate-500 mb-2">Clicks in each second <span class="text-emerald-400">(peak in green)</span></p>
+        <div class="flex items-end gap-[3px] h-24" id="chart"></div>
+        <div class="flex justify-between text-[10px] text-slate-600 mt-1"><span>0s</span><span id="chartEnd"></span></div>
+      </div>
+      <p id="pbMsg" class="mt-4 text-sm"></p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="pill primary" id="againBtn">Try again</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="glass rounded-2xl p-4 sm:p-6">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="text-sm font-semibold text-white">History</h2>
+      <button type="button" class="pill" id="clearHist">Clear history</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-3" id="histStats"></p>
+    <div class="overflow-x-auto" id="histBox"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const STORE = 'toolbox:click-speed', FAV_KEY = 'toolbox:favorites', TOOL_ID = 'click-speed-test';
+  const $ = (id) => document.getElementById(id);
+  const DURS = [1, 2, 5, 10, 15, 30, 60];
+  const RANKS = [
+    [0, 'Sloth'], [3, 'Casual'], [5, 'Quick'], [7, 'Fast'], [9, 'Rapid'], [11, 'Lightning'], [14, 'Superhuman']
+  ];
+  const LOCK_MS = 800;       // after a run ends, ignore clicks briefly so a stray click doesn't start the next run
+  const fmt = (n, d) => Number(n).toFixed(d == null ? 1 : d);
+  const rankFor = (cps) => { let r = RANKS[0][1]; for (const [min, name] of RANKS) if (cps >= min) r = name; return r; };
+
+  // ── storage ──
+  function db() {
+    try { const v = JSON.parse(localStorage.getItem(STORE)); if (v && typeof v === 'object') return { settings: v.settings || {}, best: v.best || {}, hist: Array.isArray(v.hist) ? v.hist : [] }; } catch (e) {}
+    return { settings: {}, best: {}, hist: [] };
+  }
+  function dbSave(d) { try { localStorage.setItem(STORE, JSON.stringify(d)); } catch (e) {} }
+
+  // ── state ──
+  let dur = (() => { const d = db().settings.dur; return DURS.includes(d) ? d : 10; })();
+  let phase = 'idle';        // idle | running | done
+  let stamps = [];           // ms since first click, one per click
+  let t0 = 0, raf = 0, lockUntil = 0;
+
+  const el = { pad: $('pad'), padNum: $('padNum'), padMsg: $('padMsg'), padSub: $('padSub'), hTime: $('hTime'), hClicks: $('hClicks'), hCps: $('hCps'), barFill: $('barFill'), reset: $('resetBtn') };
+
+  function renderConfig() {
+    const box = $('cfgDur'); box.innerHTML = '';
+    DURS.forEach(d => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pill' + (d === dur ? ' on' : ''); b.textContent = d + (d === 1 ? ' second' : ' seconds');
+      b.addEventListener('click', () => {
+        if (phase === 'running') return;
+        dur = d; const s = db(); s.settings.dur = d; dbSave(s);
+        resetRun(); renderConfig(); updateBest();
+      });
+      box.appendChild(b);
+    });
+  }
+  function updateBest() {
+    const b = db().best[dur];
+    $('bestLine').textContent = b ? 'Your best for ' + dur + (dur === 1 ? ' second' : ' seconds') + ': ' + fmt(b.cps, 2) + ' CPS (' + b.clicks + ' clicks)' : 'No result yet for this length.';
+  }
+  function updateHud(elapsed) {
+    const n = stamps.length;
+    el.hClicks.textContent = n;
+    el.hTime.textContent = phase === 'idle' ? fmt(dur, 1) : fmt(Math.max(0, dur - elapsed / 1000), 1);
+    const sec = Math.max(elapsed / 1000, 0.001);
+    el.hCps.textContent = phase === 'running' && n > 1 ? fmt(n / Math.max(sec, 0.5), 1) : phase === 'done' ? fmt(n / dur, 1) : '0.0';
+    el.barFill.style.width = (phase === 'idle' ? 0 : Math.min(100, elapsed / (dur * 10))) + '%';
+  }
+
+  // ── run ──
+  function resetRun() {
+    cancelAnimationFrame(raf);
+    phase = 'idle'; stamps = []; lockUntil = 0;
+    el.pad.className = ''; el.pad.id = 'pad';
+    el.padNum.innerHTML = '&nbsp;'; el.padMsg.textContent = 'Click here to start';
+    el.padSub.textContent = 'The ' + dur + ' second' + ' timer starts on your first click.';
+    el.reset.hidden = true; $('results').hidden = true;
+    updateHud(0);
+  }
+  function tick() {
+    if (phase !== 'running') return;
+    const elapsed = performance.now() - t0;
+    if (elapsed >= dur * 1000) { finish(); return; }
+    updateHud(elapsed);
+    raf = requestAnimationFrame(tick);
+  }
+  function registerClick() {
+    const now = performance.now();
+    if (phase === 'done') {
+      if (now < lockUntil) return;
+      resetRun();                         // fall through: this click is the first click of a new run
+    }
+    if (phase === 'idle') {
+      phase = 'running'; t0 = now; stamps = [];
+      el.pad.classList.add('running'); el.padMsg.textContent = 'Keep clicking!'; el.padSub.textContent = '';
+      el.reset.hidden = false;
+      raf = requestAnimationFrame(tick);
+    }
+    const elapsed = now - t0;
+    if (elapsed >= dur * 1000) { finish(); return; }
+    stamps.push(elapsed);
+    el.padNum.textContent = stamps.length;
+    el.pad.classList.add('hit'); setTimeout(() => el.pad.classList.remove('hit'), 60);
+    updateHud(elapsed);
+  }
+  function finish() {
+    if (phase !== 'running') return;
+    cancelAnimationFrame(raf);
+    phase = 'done'; lockUntil = performance.now() + LOCK_MS;
+    el.pad.classList.remove('running', 'hit'); el.pad.classList.add('done');
+    const n = stamps.length, cps = n / dur;
+    el.padNum.textContent = n;
+    el.padMsg.textContent = 'Time is up!';
+    el.padSub.textContent = fmt(cps, 2) + ' clicks per second. Click again to go again.';
+    updateHud(dur * 1000);
+    el.hTime.textContent = '0.0';
+    showResults(n, cps);
+  }
+
+  // ── results ──
+  function peakWindow(ts) {                 // most clicks inside any one-second window
+    let best = 0, j = 0;
+    for (let i = 0; i < ts.length; i++) { while (ts[i] - ts[j] >= 1000) j++; best = Math.max(best, i - j + 1); }
+    return best;
+  }
+  function showResults(n, cps) {
+    const peak = peakWindow(stamps);
+    const gaps = []; for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1]);
+    const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+    const fastGap = gaps.length ? Math.min.apply(null, gaps) : 0;
+
+    $('rCps').textContent = fmt(cps, 2);
+    $('rClicks').textContent = n;
+    $('rPeak').textContent = peak;
+    $('rRank').textContent = n ? rankFor(cps) : '–';
+    $('rDur').textContent = dur + (dur === 1 ? ' second' : ' seconds');
+    $('rGap').textContent = gaps.length ? Math.round(avgGap) + ' ms' : '–';
+    $('rFast').textContent = gaps.length ? Math.round(fastGap) + ' ms' : '–';
+
+    // clicks-per-second chart
+    const wrap = $('chartWrap'), chart = $('chart'); chart.innerHTML = '';
+    if (dur >= 5 && n) {
+      const buckets = new Array(dur).fill(0);
+      stamps.forEach(t => { buckets[Math.min(dur - 1, Math.floor(t / 1000))]++; });
+      const mx = Math.max.apply(null, buckets) || 1, pk = buckets.indexOf(mx);
+      buckets.forEach((v, i) => {
+        const c = document.createElement('div');
+        c.className = 'barcol' + (i === pk ? ' peak' : '');
+        c.style.height = Math.max(3, (v / mx) * 100) + '%';
+        c.title = 'Second ' + (i + 1) + ': ' + v + ' clicks';
+        chart.appendChild(c);
+      });
+      $('chartEnd').textContent = dur + 's';
+      wrap.hidden = false;
+    } else wrap.hidden = true;
+
+    // best + history
+    const d = db(), prev = d.best[dur];
+    const msg = $('pbMsg');
+    if (n && (!prev || cps > prev.cps)) {
+      d.best[dur] = { cps: cps, clicks: n, date: Date.now() };
+      msg.className = 'mt-4 text-sm text-emerald-400';
+      msg.textContent = prev ? 'New personal best! Up from ' + fmt(prev.cps, 2) + ' CPS.' : 'First result for this length. That is your personal best to beat.';
+    } else if (prev) {
+      msg.className = 'mt-4 text-sm text-slate-400';
+      msg.textContent = 'Personal best: ' + fmt(prev.cps, 2) + ' CPS (' + fmt(cps - prev.cps, 2) + ' from it).';
+    } else { msg.className = 'mt-4 text-sm text-slate-400'; msg.textContent = ''; }
+    if (n) d.hist.unshift({ dur: dur, clicks: n, cps: cps, peak: peak, date: Date.now() });
+    d.hist = d.hist.slice(0, 50);
+    dbSave(d);
+    updateBest(); renderHistory();
+    $('results').hidden = false;
+  }
+
+  // ── history ──
+  function renderHistory() {
+    const h = db().hist, box = $('histBox');
+    $('clearHist').hidden = !h.length;
+    if (!h.length) { box.innerHTML = '<p class="text-sm text-slate-500">No tests yet. Your last 50 results will show up here.</p>'; $('histStats').textContent = ''; return; }
+    const avg = h.reduce((a, r) => a + r.cps, 0) / h.length;
+    $('histStats').textContent = h.length + (h.length === 1 ? ' test' : ' tests') + ' saved · average ' + fmt(avg, 2) + ' CPS';
+    const rows = h.slice(0, 15).map(r => '<tr><td class="text-slate-400">' + new Date(r.date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '</td><td>' + r.dur + 's</td><td class="stat-num">' + r.clicks + '</td><td class="stat-num font-semibold text-white">' + fmt(r.cps, 2) + '</td><td class="stat-num">' + (r.peak != null ? r.peak : '–') + '</td></tr>').join('');
+    box.innerHTML = '<table><thead><tr><th>When</th><th>Length</th><th>Clicks</th><th>CPS</th><th>Peak second</th></tr></thead><tbody>' + rows + '</tbody></table>' + (h.length > 15 ? '<p class="text-xs text-slate-600 mt-2">Showing the latest 15.</p>' : '');
+  }
+  let sureTimer;
+  $('clearHist').addEventListener('click', () => {
+    const b = $('clearHist');
+    if (!b.dataset.sure) {                 // on-page confirmation instead of a browser pop-up
+      b.dataset.sure = '1'; b.textContent = 'Click again to confirm'; b.classList.add('danger');
+      clearTimeout(sureTimer); sureTimer = setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Clear history'; b.classList.remove('danger'); }, 3000);
+      return;
+    }
+    clearTimeout(sureTimer);
+    const d = db(); d.hist = []; d.best = {}; dbSave(d);
+    b.dataset.sure = ''; b.textContent = 'Clear history'; b.classList.remove('danger');
+    renderHistory(); updateBest();
+  });
+
+  // ── input ──
+  el.pad.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;            // left click, touch or pen only
+    e.preventDefault(); registerClick();
+  });
+  el.pad.addEventListener('contextmenu', (e) => e.preventDefault());
+  el.pad.addEventListener('dblclick', (e) => e.preventDefault());
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { resetRun(); return; }
+    if (e.code === 'Space' && !e.repeat) {
+      const t = e.target;
+      if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;   // keep Space working on other controls
+      e.preventDefault(); registerClick();
+    }
+  });
+  el.reset.addEventListener('click', resetRun);
+  $('againBtn').addEventListener('click', () => { resetRun(); el.pad.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+
+  // ── favourite star (same storage the homepage uses) ──
+  const favBtn = $('favToggle');
+  const getFavs = () => { try { const v = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  function paintFav() {
+    const on = getFavs().includes(TOOL_ID);
+    favBtn.innerHTML = on ? '&#9733;' : '&#9734;'; favBtn.setAttribute('aria-pressed', on);
+    favBtn.setAttribute('aria-label', on ? 'Remove from favorites' : 'Add to favorites');
+    favBtn.classList.toggle('text-amber-400', on); favBtn.classList.toggle('text-slate-600', !on);
+  }
+  favBtn.addEventListener('click', () => {
+    const f = getFavs(), i = f.indexOf(TOOL_ID); if (i < 0) f.push(TOOL_ID); else f.splice(i, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch (e) {}
+    paintFav();
+  });
+  window.addEventListener('toolbox:synced', paintFav);
+
+  // ── go ──
+  renderConfig(); updateBest(); renderHistory(); paintFav(); resetRun();
+})();
+</script>
+</body>
+</html>

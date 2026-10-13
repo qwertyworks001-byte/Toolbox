@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aim Tester</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../firebase-config.js"></script>
+<script src="../toolbox-sync.js"></script>
+<script src="../toolbox-fab.js"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  [hidden] { display: none !important; }
+  .stat-num { font-variant-numeric: tabular-nums; }
+  .pill { font-size: 0.75rem; padding: 0.375rem 0.75rem; border-radius: 9999px; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; cursor: pointer; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease; }
+  .pill:hover { border-color: #3b82f6; color: #60a5fa; }
+  .pill.on { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #93c5fd; }
+  .pill.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: 600; }
+  .pill.primary:hover { background: #60a5fa; border-color: #60a5fa; color: #fff; }
+  .sep { width: 1px; height: 1.2rem; background: rgba(255, 255, 255, 0.12); }
+  @media (pointer: coarse) { .pill { padding: 0.55rem 0.9rem; font-size: 0.85rem; } .kbd-hint { display: none; } }
+  #arenaWrap { position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: 70vh; border-radius: 0.9rem; overflow: hidden; background: #0b1220; border: 1px solid #334155; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #arena { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; background: rgba(11, 18, 32, 0.78); text-align: center; padding: 1rem; cursor: pointer; }
+  kbd { background: rgba(255, 255, 255, 0.08); padding: 0.05rem 0.4rem; border-radius: 0.3rem; font-size: 0.75rem; color: #cbd5e1; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-weight: 500; color: #64748b; font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+  td { padding: 0.35rem 0.5rem; font-size: 0.85rem; color: #cbd5e1; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Aim Tester</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Click the targets as fast and as accurately as you can. Pick a mode, a difficulty and a length, then track your personal bests.</p>
+  </header>
+
+  <!-- Settings -->
+  <div class="glass rounded-2xl p-4 mb-5">
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Mode</p>
+        <div class="flex flex-wrap justify-center gap-2" id="cfgMode"></div>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Difficulty</p>
+        <div class="flex flex-wrap justify-center gap-2" id="cfgDiff"></div>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-slate-500 mb-2 text-center">Length</p>
+        <div class="flex flex-wrap justify-center gap-2" id="cfgDur"></div>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-400 mt-3" id="modeDesc"></p>
+    <p class="text-center text-xs text-slate-500 mt-1" id="bestLine"></p>
+  </div>
+
+  <!-- Test -->
+  <section id="testView" class="glass rounded-2xl p-4 sm:p-5 mb-5">
+    <div class="grid grid-cols-4 gap-2 mb-3 text-center">
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Time</p><p class="stat-num text-xl font-bold text-white" id="hTime">0.0</p></div>
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Score</p><p class="stat-num text-xl font-bold text-blue-400" id="hScore">0</p></div>
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Accuracy</p><p class="stat-num text-xl font-bold text-white" id="hAcc">&ndash;</p></div>
+      <div><p class="text-[11px] uppercase tracking-wider text-slate-500">Streak</p><p class="stat-num text-xl font-bold text-white" id="hStreak">0</p></div>
+    </div>
+    <div id="arenaWrap">
+      <canvas id="arena" aria-label="Aim test arena"></canvas>
+      <div id="overlay" role="button" tabindex="0" aria-label="Start the test">
+        <p class="text-xl font-bold text-white">Click to start</p>
+        <p class="text-sm text-slate-400" id="ovSub"></p>
+        <p class="kbd-hint text-xs text-slate-500 mt-2"><kbd>Space</kbd> / <kbd>Enter</kbd> start &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel a run</p>
+      </div>
+    </div>
+    <div class="mt-3 flex justify-center">
+      <button type="button" class="pill" id="cancelBtn" hidden>Cancel run</button>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results" hidden aria-live="polite">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Score</p><p class="stat-num text-3xl font-bold text-blue-400 mt-1" id="rScore">0</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Accuracy</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rAcc">0%</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Avg reaction</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rAvg">&ndash;</p></div>
+      <div class="glass rounded-2xl p-4"><p class="text-xs uppercase tracking-wider text-slate-500">Hits / sec</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rHps">0</p></div>
+      <div class="glass rounded-2xl p-4 col-span-2 sm:col-span-1"><p class="text-xs uppercase tracking-wider text-slate-500">Best streak</p><p class="stat-num text-3xl font-bold text-white mt-1" id="rStreak">0</p></div>
+    </div>
+
+    <div class="glass rounded-2xl p-4 sm:p-6 mb-5">
+      <h2 class="text-sm font-semibold text-white mb-3">More details</h2>
+      <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+        <div><dt class="text-xs text-slate-500">Test</dt><dd class="text-slate-200" id="rTest"></dd></div>
+        <div><dt class="text-xs text-slate-500">Hits</dt><dd class="stat-num text-slate-200" id="rHits"></dd></div>
+        <div><dt class="text-xs text-slate-500">Missed clicks</dt><dd class="stat-num text-slate-200" id="rMiss"></dd></div>
+        <div><dt class="text-xs text-slate-500">Targets that expired</dt><dd class="stat-num text-slate-200" id="rExp"></dd></div>
+        <div><dt class="text-xs text-slate-500">Fastest / median reaction</dt><dd class="stat-num text-slate-200" id="rFast"></dd></div>
+        <div><dt class="text-xs text-slate-500">Total clicks</dt><dd class="stat-num text-slate-200" id="rClicks"></dd></div>
+      </dl>
+      <p id="pbMsg" class="mt-4 text-sm"></p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button type="button" class="pill primary" id="againBtn">Play again</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="glass rounded-2xl p-4 sm:p-6">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-sm font-semibold text-white">Recent runs</h2>
+      <button type="button" class="pill" id="clearHist" hidden>Clear history</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-3" id="histStats"></p>
+    <div class="overflow-x-auto" id="histBox"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const STORE = 'toolbox:aim-tester', FAV_KEY = 'toolbox:favorites', TOOL_ID = 'aim-tester';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // r = target radius as a fraction of the arena width. life = ms a target stays (classic only). gap = ms between new targets (classic only).
+  const MODES = {
+    classic: { name: 'Classic', desc: 'Targets pop up and shrink away. Hit them before they vanish.', expire: true },
+    three:   { name: 'Three targets', desc: 'Three targets are always on screen. Hit one and a new one replaces it.', count: 3 },
+    single:  { name: 'Single target', desc: 'One target at a time, in random spots. Pure flick practice.', count: 1 }
+  };
+  const DIFFS = {
+    easy:   { name: 'Easy',   r: 0.040, life: 1800, gap: 800 },
+    medium: { name: 'Medium', r: 0.030, life: 1300, gap: 600 },
+    hard:   { name: 'Hard',   r: 0.022, life: 950,  gap: 450 },
+    insane: { name: 'Insane', r: 0.015, life: 700,  gap: 350 }
+  };
+  const DURS = [15, 30, 60];
+
+  // ── storage ──
+  function db() {
+    try { const d = JSON.parse(localStorage.getItem(STORE)); if (d && typeof d === 'object') return { settings: d.settings || null, best: d.best || {}, hist: Array.isArray(d.hist) ? d.hist : [] }; } catch (e) {}
+    return { settings: null, best: {}, hist: [] };
+  }
+  function dbSave(d) { try { localStorage.setItem(STORE, JSON.stringify(d)); } catch (e) {} }
+  const S = Object.assign({ mode: 'classic', diff: 'medium', dur: 30 }, db().settings || {});
+  if (!MODES[S.mode]) S.mode = 'classic';
+  if (!DIFFS[S.diff]) S.diff = 'medium';
+  if (!DURS.includes(S.dur)) S.dur = 30;
+  const saveSettings = () => { const d = db(); d.settings = S; dbSave(d); };
+  const cfgKey = () => S.mode + '|' + S.diff + '|' + S.dur;
+  const cfgLabel = () => MODES[S.mode].name + ', ' + DIFFS[S.diff].name + ', ' + S.dur + 's';
+
+  // ── canvas ──
+  const cv = $('arena'), g = cv.getContext('2d');
+  let W = 0, H = 0;
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (state !== 'running') draw(performance.now());
+  }
+
+  // ── state ──
+  let state = 'idle';   // idle | countdown | running
+  let targets = [], pops = [], flashes = [];
+  let t0 = 0, cdStart = 0, nextSpawn = 0, raf = 0;
+  let score, hits, misses, expired, streak, bestStreak, reacts, clicks;
+  const radius = () => Math.max(13, DIFFS[S.diff].r * W);
+
+  function resetStats() { score = hits = misses = expired = streak = bestStreak = clicks = 0; reacts = []; targets = []; pops = []; flashes = []; }
+
+  function spawn(now) {
+    const r = radius(), mx = r / W + 0.01, my = r / H + 0.01;
+    let x = 0.5, y = 0.5;
+    for (let i = 0; i < 30; i++) {
+      x = mx + Math.random() * (1 - 2 * mx); y = my + Math.random() * (1 - 2 * my);
+      if (targets.every(t => Math.hypot((t.x - x) * W, (t.y - y) * H) > r * 2.4)) break;
+    }
+    targets.push({ x, y, born: now });
+  }
+
+  // ── flow ──
+  function begin() {
+    if (state !== 'idle') return;
+    resetStats();
+    $('overlay').hidden = true; $('cancelBtn').hidden = false;
+    state = 'countdown'; cdStart = performance.now();
+    cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
+    updateHud(0);
+  }
+  function startRun(now) {
+    state = 'running'; t0 = now; nextSpawn = now;
+    const m = MODES[S.mode];
+    if (!m.expire) for (let i = 0; i < m.count; i++) spawn(now);
+  }
+  function cancel() {
+    if (state === 'idle') return;
+    cancelAnimationFrame(raf); state = 'idle'; targets = []; pops = []; flashes = [];
+    $('overlay').hidden = false; $('cancelBtn').hidden = true; updateHud(0); draw(performance.now());
+  }
+  function finish() {
+    cancelAnimationFrame(raf); state = 'idle'; targets = [];
+    $('cancelBtn').hidden = true;
+    const dur = S.dur, acc = clicks ? hits / clicks * 100 : 0;
+    const avg = reacts.length ? reacts.reduce((a, b) => a + b, 0) / reacts.length : 0;
+    const sorted = reacts.slice().sort((a, b) => a - b), med = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+    let pb = '';
+    if (clicks >= 3) {
+      const d = db(), key = cfgKey(), prev = d.best[key];
+      if (!prev || score > prev.score) { d.best[key] = { score, acc: Math.round(acc * 10) / 10, d: Date.now() }; pb = prev ? 'new' : 'first'; }
+      else pb = 'old:' + prev.score;
+      d.hist.push({ d: Date.now(), m: cfgLabel(), score, acc: Math.round(acc * 10) / 10, avg: Math.round(avg), hits });
+      d.hist = d.hist.slice(-50); dbSave(d);
+    }
+    $('rScore').textContent = score;
+    $('rAcc').textContent = Math.round(acc) + '%';
+    $('rAvg').textContent = reacts.length ? Math.round(avg) + ' ms' : '\u2013';
+    $('rHps').textContent = (hits / dur).toFixed(2);
+    $('rStreak').textContent = bestStreak;
+    $('rTest').textContent = cfgLabel();
+    $('rHits').textContent = hits;
+    $('rMiss').textContent = misses;
+    $('rExp').textContent = MODES[S.mode].expire ? expired : 'n/a';
+    $('rFast').textContent = reacts.length ? Math.round(sorted[0]) + ' / ' + Math.round(med) + ' ms' : '\u2013';
+    $('rClicks').textContent = clicks;
+    const pbEl = $('pbMsg');
+    pbEl.textContent = pb === 'new' ? '\uD83C\uDFC6 New personal best for this test!' : pb === 'first' ? '\uD83C\uDFC6 First result saved for this test type.' : pb.startsWith('old:') ? 'Personal best for this test: ' + pb.slice(4) : 'Too few clicks to save this run.';
+    pbEl.style.color = pb === 'new' || pb === 'first' ? '#60a5fa' : '#94a3b8';
+    $('testView').hidden = true; $('results').hidden = false;
+    renderHistory(); updateBest();
+    $('results').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function again() {
+    $('results').hidden = true; $('testView').hidden = false; $('overlay').hidden = false;
+    resetStats(); updateHud(0); resize(); draw(performance.now());
+    $('testView').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  // ── game loop ──
+  function frame(now) {
+    if (state === 'idle') return;
+    if (state === 'countdown') {
+      if (now - cdStart >= 3000) startRun(now);
+    }
+    if (state === 'running') {
+      const el = now - t0, m = MODES[S.mode], df = DIFFS[S.diff];
+      if (el >= S.dur * 1000) { updateHud(S.dur * 1000); draw(now); finish(); return; }
+      if (m.expire) {
+        while (now >= nextSpawn && targets.length < 10) { spawn(nextSpawn); nextSpawn += df.gap; }
+        if (now >= nextSpawn) nextSpawn = now + df.gap;
+        for (let i = targets.length - 1; i >= 0; i--) {
+          if (now - targets[i].born >= df.life) { flashes.push({ x: targets[i].x, y: targets[i].y, t: now, kind: 'expire' }); targets.splice(i, 1); expired++; streak = 0; }
+        }
+      }
+      updateHud(el);
+    }
+    draw(now);
+    raf = requestAnimationFrame(frame);
+  }
+
+  function updateHud(el) {
+    $('hTime').textContent = Math.max(0, (S.dur * 1000 - el) / 1000).toFixed(1);
+    $('hScore').textContent = score || 0;
+    $('hAcc').textContent = clicks ? Math.round(hits / clicks * 100) + '%' : '\u2013';
+    $('hStreak').textContent = streak || 0;
+  }
+
+  // ── drawing ──
+  function draw(now) {
+    g.clearRect(0, 0, W, H);
+    // faint grid so the arena has some depth
+    g.strokeStyle = 'rgba(148,163,184,0.06)'; g.lineWidth = 1; g.beginPath();
+    for (let x = W / 10; x < W; x += W / 10) { g.moveTo(x, 0); g.lineTo(x, H); }
+    for (let y = H / 8; y < H; y += H / 8) { g.moveTo(0, y); g.lineTo(W, y); }
+    g.stroke();
+
+    const r = radius(), m = MODES[S.mode], life = DIFFS[S.diff].life;
+    targets.forEach(t => {
+      const x = t.x * W, y = t.y * H;
+      const frac = m.expire ? Math.max(0, 1 - (now - t.born) / life) : 1;
+      const appear = Math.min(1, (now - t.born) / 90);
+      const rr = r * (0.6 + 0.4 * appear);
+      g.globalAlpha = appear;
+      g.beginPath(); g.arc(x, y, rr, 0, 7); g.fillStyle = 'rgba(59,130,246,0.18)'; g.fill();
+      g.lineWidth = 2; g.strokeStyle = '#3b82f6'; g.stroke();
+      g.beginPath(); g.arc(x, y, Math.max(2, rr * frac), 0, 7); g.fillStyle = frac < 0.3 ? '#f59e0b' : '#60a5fa'; g.fill();
+      if (!m.expire) { g.beginPath(); g.arc(x, y, rr * 0.28, 0, 7); g.fillStyle = '#e0f2fe'; g.fill(); }
+      g.globalAlpha = 1;
+    });
+    pops = pops.filter(p => now - p.t < 260);
+    pops.forEach(p => {
+      const k = (now - p.t) / 260;
+      g.globalAlpha = 1 - k; g.strokeStyle = '#34d399'; g.lineWidth = 3;
+      g.beginPath(); g.arc(p.x * W, p.y * H, r * (1 + k * 0.7), 0, 7); g.stroke(); g.globalAlpha = 1;
+    });
+    flashes = flashes.filter(f => now - f.t < 300);
+    flashes.forEach(f => {
+      const k = (now - f.t) / 300, x = f.x * W, y = f.y * H, s = f.kind === 'miss' ? 7 : r * 0.5;
+      g.globalAlpha = 1 - k; g.strokeStyle = f.kind === 'miss' ? '#f87171' : '#f59e0b'; g.lineWidth = 2.5;
+      g.beginPath(); g.moveTo(x - s, y - s); g.lineTo(x + s, y + s); g.moveTo(x + s, y - s); g.lineTo(x - s, y + s); g.stroke(); g.globalAlpha = 1;
+    });
+    if (state === 'countdown') {
+      const n = 3 - Math.floor((now - cdStart) / 1000);
+      g.fillStyle = 'rgba(226,232,240,0.9)'; g.font = '700 ' + Math.round(H * 0.28) + 'px ui-sans-serif, system-ui, sans-serif';
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n > 0 ? n : 'Go', W / 2, H / 2);
+    }
+  }
+
+  // ── input ──
+  cv.addEventListener('pointerdown', (e) => {
+    if (state !== 'running') return;
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect(), px = e.clientX - rect.left, py = e.clientY - rect.top, now = performance.now();
+    const r = radius();
+    clicks++;
+    let hit = -1, best = Infinity;
+    targets.forEach((t, i) => { const d = Math.hypot(t.x * W - px, t.y * H - py); if (d <= r && d < best) { best = d; hit = i; } });
+    if (hit >= 0) {
+      const t = targets[hit], life = DIFFS[S.diff].life, m = MODES[S.mode];
+      const frac = m.expire ? Math.max(0, 1 - (now - t.born) / life) : 0;
+      score += m.expire ? Math.round(50 + 50 * frac) : 100;
+      hits++; streak++; if (streak > bestStreak) bestStreak = streak;
+      reacts.push(now - t.born);
+      pops.push({ x: t.x, y: t.y, t: now });
+      targets.splice(hit, 1);
+      if (!m.expire) spawn(now);
+    } else {
+      misses++; streak = 0;
+      flashes.push({ x: px / W, y: py / H, t: now, kind: 'miss' });
+    }
+  }, { passive: false });
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  $('overlay').addEventListener('click', begin);
+  $('overlay').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); begin(); } });
+  $('cancelBtn').addEventListener('click', cancel);
+  $('againBtn').addEventListener('click', again);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { cancel(); return; }
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') return;
+    if ((e.key === ' ' || e.key === 'Enter') && !$('results').hidden) { e.preventDefault(); again(); }
+    else if ((e.key === ' ' || e.key === 'Enter') && state === 'idle' && !$('testView').hidden) { e.preventDefault(); begin(); }
+  });
+  window.addEventListener('blur', () => { if (state === 'running') cancel(); });   // alt-tabbing away would unfairly eat targets
+
+  // ── config / best / history ──
+  function pills(boxId, items, cur, act) {
+    $(boxId).innerHTML = items.map(([val, label]) => '<button type="button" class="pill' + (String(cur) === String(val) ? ' on' : '') + '" data-act="' + act + '" data-val="' + val + '">' + esc(label) + '</button>').join('');
+  }
+  function renderConfig() {
+    pills('cfgMode', Object.keys(MODES).map(k => [k, MODES[k].name]), S.mode, 'mode');
+    pills('cfgDiff', Object.keys(DIFFS).map(k => [k, DIFFS[k].name]), S.diff, 'diff');
+    pills('cfgDur', DURS.map(n => [n, n + 's']), S.dur, 'dur');
+    $('modeDesc').textContent = MODES[S.mode].desc;
+    $('ovSub').textContent = cfgLabel() + '. A 3-second countdown starts when you click.';
+  }
+  function updateBest() {
+    const b = db().best[cfgKey()];
+    $('bestLine').textContent = b ? 'Personal best (' + cfgLabel() + '): ' + b.score + ' points, ' + Math.round(b.acc) + '% accuracy' : 'No personal best yet for ' + cfgLabel() + '.';
+  }
+  function renderHistory() {
+    const h = db().hist, box = $('histBox');
+    $('clearHist').hidden = !h.length;
+    if (!h.length) { box.innerHTML = '<p class="text-sm text-slate-500">Finish a run and it will show up here.</p>'; $('histStats').textContent = ''; return; }
+    const last = h.slice(-10), avg = last.reduce((a, r) => a + r.acc, 0) / last.length;
+    $('histStats').textContent = h.length + ' run' + (h.length === 1 ? '' : 's') + ' saved \u00b7 average accuracy of last ' + last.length + ': ' + Math.round(avg) + '%';
+    box.innerHTML = '<table><thead><tr><th>When</th><th>Test</th><th>Score</th><th>Accuracy</th><th>Reaction</th></tr></thead><tbody>' +
+      last.slice().reverse().map(r => '<tr><td>' + esc(new Date(r.d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) + '</td><td>' + esc(r.m) + '</td><td class="stat-num" style="color:#60a5fa">' + r.score + '</td><td class="stat-num">' + Math.round(r.acc) + '%</td><td class="stat-num">' + (r.avg ? r.avg + ' ms' : '\u2013') + '</td></tr>').join('') + '</tbody></table>';
+  }
+  function onConfig(e) {
+    const b = e.target.closest('[data-act]'); if (!b || state !== 'idle') return;
+    const act = b.dataset.act, val = b.dataset.val;
+    if (act === 'mode') S.mode = val; else if (act === 'diff') S.diff = val; else if (act === 'dur') S.dur = +val;
+    saveSettings(); renderConfig(); updateBest(); updateHud(0); draw(performance.now());
+  }
+  ['cfgMode', 'cfgDiff', 'cfgDur'].forEach(id => $(id).addEventListener('click', onConfig));
+  $('clearHist').addEventListener('click', () => {
+    if ($('clearHist').dataset.sure !== '1') {   // on-page confirm instead of a browser pop-up
+      $('clearHist').dataset.sure = '1'; $('clearHist').textContent = 'Click again to confirm (bests are kept)';
+      setTimeout(() => { $('clearHist').dataset.sure = ''; $('clearHist').textContent = 'Clear history'; }, 3500);
+      return;
+    }
+    const d = db(); d.hist = []; dbSave(d); $('clearHist').dataset.sure = ''; $('clearHist').textContent = 'Clear history'; renderHistory();
+  });
+
+  // ── favourite star (same storage the homepage uses) ──
+  const favBtn = $('favToggle');
+  const getFavs = () => { try { const v = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  function paintFav() {
+    const on = getFavs().includes(TOOL_ID);
+    favBtn.innerHTML = on ? '&#9733;' : '&#9734;'; favBtn.setAttribute('aria-pressed', on);
+    favBtn.setAttribute('aria-label', on ? 'Remove from favorites' : 'Add to favorites');
+    favBtn.classList.toggle('text-amber-400', on); favBtn.classList.toggle('text-slate-600', !on);
+  }
+  favBtn.addEventListener('click', () => {
+    const f = getFavs(), i = f.indexOf(TOOL_ID); if (i < 0) f.push(TOOL_ID); else f.splice(i, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch (e) {}
+    paintFav();
+  });
+  window.addEventListener('toolbox:synced', paintFav);
+
+  // ── go ──
+  resetStats();
+  window.addEventListener('resize', resize);
+  renderConfig(); updateBest(); renderHistory(); paintFav(); updateHud(0); resize();
+})();
+</script>
+</body>
+</html>

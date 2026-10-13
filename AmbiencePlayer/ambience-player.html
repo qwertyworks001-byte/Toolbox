@@ -16,6 +16,7 @@
   .snd-btn:focus-visible, .chip:focus-visible, .vol:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
   .ico { font-size: 1.6rem; line-height: 1; filter: grayscale(.7) opacity(.7); transition: filter .2s, transform .2s; }
   .snd.on .ico { filter: none; transform: scale(1.08); }
+  .snd.loading .dot { background: #fbbf24; animation: pulse .8s ease-in-out infinite; }
   .dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #475569; flex: none; }
   .snd.on .dot { background: #38bdf8; animation: pulse 2.4s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: .35; transform: scale(.8);} 50% { opacity: 1; transform: scale(1.15);} }
@@ -47,7 +48,7 @@
       <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Ambience Player</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Layer as many sounds as you like and set each one's volume. Everything is generated live in your browser.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Layer as many sounds as you like and set each one's volume.</p>
   </header>
 
   <div class="glass rounded-2xl p-4 sm:p-5 mb-5 bar">
@@ -88,7 +89,7 @@
 
   <div id="groups" class="space-y-6"></div>
 
-  <p class="text-xs text-slate-500 mt-8">Every sound is synthesised in your browser with the Web Audio API, so there are no audio files to load and nothing to license. Headphones help.</p>
+  <p class="text-xs text-slate-500 mt-8">Rain on a roof, thunder, wind, ocean waves, stream, waterfall, crickets, birds, beehive, busy cafe and crowded bar are recordings from <a class="underline hover:text-blue-400" href="https://pixabay.com/" target="_blank" rel="noopener">Pixabay</a>, used under the <a class="underline hover:text-blue-400" href="https://pixabay.com/service/license-summary/" target="_blank" rel="noopener">Pixabay Content License</a>. The rest are generated live in your browser. Headphones help.</p>
 </div>
 
 <script>
@@ -129,8 +130,9 @@
     return (buffers[type] = buf);
   }
 
-  function makeTrack(def, ctx, dest) {
-    const bus = ctx.createGain(); bus.gain.value = def.trim;
+  function makeTrack(def, ctx, dest, sample) {
+    // sample: a decoded recording (already loudness-matched), used instead of the generated recipe
+    const bus = ctx.createGain(); bus.gain.value = sample ? 1 : def.trim;
     const vol = ctx.createGain(); vol.gain.value = 0;
     bus.connect(vol); vol.connect(dest);
     const srcs = [], events = [];
@@ -154,7 +156,10 @@
         return send;
       }
     };
-    def.build(h);
+    if (sample) {
+      const s = ctx.createBufferSource(); s.buffer = sample; s.loop = true;
+      s.start(0, Math.random() * sample.duration); srcs.push(s); s.connect(bus);
+    } else def.build(h);
     return {
       def, vol,
       pump(limit) {
@@ -210,12 +215,12 @@
       h.chain(h.noise('white'), h.filter('highpass', 6500), h.gain(0.12), h.bus);
       h.event(0, 0.015, 0.07, t => drop(h, t, 1000, 5000, 0.35, 0.03));
     } },
-    { id: 'rain-roof', name: 'Rain on a roof', icon: '\u{1F3E0}', group: 'Weather', trim: 1.0, build(h) {
+    { id: 'rain-roof', name: 'Rain on a roof', icon: '\u{1F3E0}', group: 'Weather', trim: 1.0, file: 'sounds/rain-roof.mp3', build(h) {
       h.chain(h.noise('white'), h.filter('bandpass', 2200, 0.6), h.gain(0.45), h.bus);
       h.chain(h.noise('pink'), h.filter('lowpass', 1500), h.gain(0.15), h.bus);
       h.event(0, 0.03, 0.12, t => drop(h, t, 700, 2400, 0.9, 0.05, 12));
     } },
-    { id: 'thunder', name: 'Thunder', icon: '⛈️', group: 'Weather', trim: 0.62, build(h) {
+    { id: 'thunder', name: 'Thunder', icon: '⛈️', group: 'Weather', trim: 0.62, file: 'sounds/thunder.mp3', build(h) {
       h.event(rand(2, 6), 14, 40, t => {
         const dur = rand(5, 9), a = rand(0.3, 1.0);
         const lp = h.filter('lowpass', rand(180, 420), 0.7), e = h.gain(0), p = h.pan(rand(-0.5, 0.5));
@@ -226,7 +231,7 @@
         if (Math.random() < 0.45) pop(h, t, 900, 2000, 0.5, rand(0.15, 0.35));
       });
     } },
-    { id: 'wind', name: 'Wind', icon: '\u{1F32C}️', group: 'Weather', trim: 0.42, build(h) {
+    { id: 'wind', name: 'Wind', icon: '\u{1F32C}️', group: 'Weather', trim: 0.42, file: 'sounds/wind.mp3', build(h) {
       const bp = h.filter('bandpass', 500, 1.1), g = h.gain(0.55);
       h.chain(h.noise('pink'), bp, g, h.bus);
       h.mod(h.osc('sine', 0.07), 260, bp.frequency); h.mod(h.osc('sine', 0.113), 160, bp.frequency); h.mod(h.osc('sine', 0.045), 0.3, g.gain);
@@ -235,14 +240,14 @@
       h.mod(h.osc('sine', 0.05), 0.25, lo.gain);
     } },
 
-    { id: 'ocean', name: 'Ocean waves', icon: '\u{1F30A}', group: 'Water', trim: 0.45, build(h) {
+    { id: 'ocean', name: 'Ocean waves', icon: '\u{1F30A}', group: 'Water', trim: 0.45, file: 'sounds/ocean.mp3', build(h) {
       const lg = h.gain(0.45), hi = h.filter('bandpass', 3200, 0.6), hg = h.gain(0.12);
       h.chain(h.noise('brown'), h.filter('lowpass', 600), lg, h.bus);
       h.chain(h.noise('white'), hi, hg, h.bus);
       const w1 = h.osc('sine', 0.105), w2 = h.osc('sine', 0.037);
       h.mod(w1, 0.4, lg.gain); h.mod(w2, 0.1, lg.gain); h.mod(w1, 0.12, hg.gain); h.mod(w2, 0.04, hg.gain); h.mod(w1, 1800, hi.frequency);
     } },
-    { id: 'stream', name: 'Stream', icon: '\u{1F3DE}️', group: 'Water', trim: 2.2, build(h) {
+    { id: 'stream', name: 'Stream', icon: '\u{1F3DE}️', group: 'Water', trim: 2.2, file: 'sounds/stream.mp3', build(h) {
       for (let k = 0; k < 4; k++) {
         const f = rand(500, 2800), bp = h.filter('bandpass', f, rand(2, 5)), g = h.gain(0.22);
         h.chain(h.noise('pink'), bp, g, h.bus);
@@ -250,7 +255,7 @@
       }
       h.chain(h.noise('white'), h.filter('highpass', 3500), h.gain(0.07), h.bus);
     } },
-    { id: 'waterfall', name: 'Waterfall', icon: '\u{1F4A7}', group: 'Water', trim: 0.45, build(h) {
+    { id: 'waterfall', name: 'Waterfall', icon: '\u{1F4A7}', group: 'Water', trim: 0.45, file: 'sounds/waterfall.mp3', build(h) {
       const g = h.gain(0.6);
       h.chain(h.noise('white'), h.filter('lowpass', 7000), g, h.bus);
       h.chain(h.noise('pink'), h.filter('bandpass', 800, 0.5), h.gain(0.5), h.bus);
@@ -282,7 +287,7 @@
         }
       });
     } },
-    { id: 'crickets', name: 'Crickets', icon: '\u{1F997}', group: 'Nature', trim: 0.37, build(h) {
+    { id: 'crickets', name: 'Crickets', icon: '\u{1F997}', group: 'Nature', trim: 0.37, file: 'sounds/crickets.mp3', build(h) {
       h.chain(h.noise('pink'), h.filter('lowpass', 500), h.gain(0.05), h.bus);
       for (let k = 0; k < 5; k++) {
         const p = rand(4300, 5300), pan = h.pan(rand(-0.8, 0.8)); pan.connect(h.bus);
@@ -295,7 +300,7 @@
         });
       }
     } },
-    { id: 'birds', name: 'Birds', icon: '\u{1F426}', group: 'Nature', trim: 0.54, build(h) {
+    { id: 'birds', name: 'Birds', icon: '\u{1F426}', group: 'Nature', trim: 0.54, file: 'sounds/birds.mp3', build(h) {
       const room = h.room(0.23, 0.28, 0.35);
       h.event(0.5, 1.8, 6.5, t => {
         const pan = h.pan(rand(-0.7, 0.7)); pan.connect(room);
@@ -312,6 +317,10 @@
         for (let i = 0; i < n; i++) bell(h, t + i * rand(0.1, 0.45), scale[Math.floor(Math.random() * scale.length)], pan, 0.5);
       });
     } },
+
+    { id: 'beehive', name: 'Beehive', icon: '\u{1F41D}', group: 'Nature', trim: 1, file: 'sounds/beehive.mp3' },
+    { id: 'cafe', name: 'Busy cafe', icon: '\u2615', group: 'Places', trim: 1, file: 'sounds/cafe.mp3' },
+    { id: 'crowded-bar', name: 'Crowded bar', icon: '\u{1F37B}', group: 'Places', trim: 1, file: 'sounds/crowded-bar.mp3' },
 
     { id: 'white', name: 'White noise', icon: '\u{1F4FB}', group: 'Noise & hum', trim: 0.27, build(h) { h.chain(h.noise('white'), h.filter('lowpass', 14000), h.bus); } },
     { id: 'pink', name: 'Pink noise', icon: '\u{1F338}', group: 'Noise & hum', trim: 0.25, build(h) { h.chain(h.noise('pink'), h.bus); } },
@@ -372,22 +381,47 @@
   // `on` keeps the last non-empty mix, so "Restore last mix" still works after Stop all
   function persist() { store.set(KEY, { master: state.master, vols: state.vols, on: tracks.size ? [...tracks.keys()] : (store.get(KEY, {}).on || []) }); }
 
+  // recorded sounds are fetched and decoded once, on first use
+  const samples = {}, pending = new Set();
+  function loadSample(def) {
+    if (!def.file) return Promise.resolve(null);
+    if (!samples[def.id]) {
+      samples[def.id] = fetch(def.file).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(b => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no)))
+        .catch(e => { delete samples[def.id]; return null; });
+    }
+    return samples[def.id];
+  }
   function startTrack(id) {
-    if (tracks.has(id)) return;
+    if (tracks.has(id) || pending.has(id)) return;
     ensureCtx();
-    const tr = makeTrack(byId(id), ctx, masterGain);
+    const def = byId(id);
+    if (!def.file) return launch(id, null);
+    pending.add(id); updateUI();
+    loadSample(def).then(buf => {
+      if (!pending.delete(id)) return;           // switched off while loading
+      if (!buf && !def.build) { failed(def); return; }
+      launch(id, buf); persist(); updateUI();
+    });
+  }
+  function failed(def) {
+    updateUI(); $('status').textContent = `Couldn't load "${def.name}". Recorded sounds need the page to be served from the site (not opened as a local file).`;
+  }
+  function launch(id, buf) {
+    const tr = makeTrack(byId(id), ctx, masterGain, buf);
     tracks.set(id, tr); tr.setLevel(volOf(id), 0.8); tr.pump(ctx.currentTime + AHEAD);
     if (!timerId) timerId = setInterval(() => { if (ctx.state === 'running') tracks.forEach(t => t.pump(ctx.currentTime + AHEAD)); }, 300);
   }
   function stopTrack(id, fade) {
+    if (pending.delete(id)) return;
     const tr = tracks.get(id); if (!tr) return;
     tracks.delete(id); tr.stopping = true;
     tr.stop(fade == null ? 0.5 : fade, () => { if (!tracks.size && timerId) { clearInterval(timerId); timerId = null; } });
   }
-  function stopAll(fade) { [...tracks.keys()].forEach(id => stopTrack(id, fade)); }
+  function stopAll(fade) { pending.clear(); [...tracks.keys()].forEach(id => stopTrack(id, fade)); }
 
   /* ======================= UI ======================= */
-  const GROUPS = ['Weather', 'Water', 'Nature', 'Noise & hum'];
+  const GROUPS = ['Weather', 'Water', 'Nature', 'Places', 'Noise & hum'];
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const setP = el => el.style.setProperty('--p', (el.value / el.max * 100) + '%');
 
@@ -408,17 +442,17 @@
 
   function updateUI() {
     document.querySelectorAll('.snd').forEach(c => {
-      const on = tracks.has(c.dataset.id);
-      c.classList.toggle('on', on);
-      c.querySelector('.snd-btn').setAttribute('aria-pressed', on);
+      const on = tracks.has(c.dataset.id), wait = pending.has(c.dataset.id);
+      c.classList.toggle('on', on); c.classList.toggle('loading', wait);
+      c.querySelector('.snd-btn').setAttribute('aria-pressed', on || wait);
     });
-    const n = tracks.size, running = ctx && ctx.state === 'running';
+    const n = tracks.size, running = ctx && ctx.state === 'running', loading = pending.size;
     $('pauseBtn').disabled = !n; $('stopBtn').disabled = !n;
     $('pauseBtn').textContent = n && !running ? 'Resume' : 'Pause';
-    $('status').textContent = !n ? 'Pick a sound below to start.'
+    $('status').textContent = !n ? (loading ? 'Loading...' : 'Pick a sound below to start.')
       : `${n} sound${n === 1 ? '' : 's'} ${running ? 'playing' : 'paused'}: ${[...tracks.keys()].map(id => byId(id).name).join(', ')}`;
     const saved2 = store.get(KEY, {});
-    $('restoreBtn').classList.toggle('hidden', n > 0 || !(saved2.on && saved2.on.length));
+    $('restoreBtn').classList.toggle('hidden', n > 0 || loading > 0 || !(saved2.on && saved2.on.length));
   }
 
   function setVol(id, v) {
@@ -429,12 +463,12 @@
   document.querySelectorAll('.snd').forEach(card => {
     const id = card.dataset.id, slider = card.querySelector('input');
     card.querySelector('.snd-btn').addEventListener('click', () => {
-      if (tracks.has(id)) stopTrack(id); else startTrack(id);
+      if (tracks.has(id) || pending.has(id)) stopTrack(id); else startTrack(id);
       persist(); updateUI();
     });
     slider.addEventListener('input', () => {
       setP(slider); setVol(id, slider.value / 100);
-      if (!tracks.has(id) && slider.value > 0) { startTrack(id); persist(); updateUI(); }
+      if (!tracks.has(id) && !pending.has(id) && slider.value > 0) { startTrack(id); persist(); updateUI(); }
     });
   });
 

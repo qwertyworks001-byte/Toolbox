@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remove Repetitive Words</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../firebase-config.js"></script>
+<script src="../toolbox-sync.js"></script>
+<script src="../toolbox-fab.js"></script>
+<link rel="stylesheet" href="../style.css">
+<style>
+  [hidden] { display: none !important; }
+  .stat-num { font-variant-numeric: tabular-nums; }
+  .pill { font-size: 0.75rem; padding: 0.375rem 0.75rem; border-radius: 9999px; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; cursor: pointer; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease, opacity 0.15s ease; }
+  .pill:hover { border-color: #3b82f6; color: #60a5fa; }
+  .pill.on { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #93c5fd; }
+  .pill.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: 600; }
+  .pill.primary:hover { background: #60a5fa; border-color: #60a5fa; color: #fff; }
+  .pill.danger { border-color: #ef4444; color: #fca5a5; background: rgba(239, 68, 68, 0.12); }
+  .pill:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pill:disabled:hover { border-color: #475569; color: #cbd5e1; }
+  .pill.primary:disabled:hover { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+  @media (pointer: coarse) { .pill { padding: 0.55rem 0.9rem; font-size: 0.85rem; } }
+  textarea, .field { width: 100%; background: #0b1220; border: 1px solid #334155; border-radius: 0.75rem; color: #e2e8f0; padding: 0.75rem 0.9rem; font-size: 0.95rem; line-height: 1.55; outline: none; transition: border-color 0.15s ease; }
+  textarea { resize: vertical; min-height: 12rem; }
+  textarea:focus, .field:focus { border-color: #3b82f6; }
+  ::placeholder { color: #475569; }
+  .chip { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 100%; padding: 0.25rem 0.35rem 0.25rem 0.7rem; border-radius: 9999px; background: rgba(20, 184, 166, 0.12); border: 1px solid rgba(20, 184, 166, 0.45); color: #99f6e4; font-size: 0.85rem; }
+  .chip .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 18rem; }
+  .chip .cnt { font-size: 0.7rem; color: #5eead4; opacity: 0.85; font-variant-numeric: tabular-nums; }
+  .chip .cnt.zero { color: #94a3b8; opacity: 0.7; }
+  .chip button { width: 1.35rem; height: 1.35rem; line-height: 1; border-radius: 9999px; background: rgba(255, 255, 255, 0.08); color: #cbd5e1; cursor: pointer; }
+  .chip button:hover { background: rgba(239, 68, 68, 0.35); color: #fff; }
+  #preview { background: #0b1220; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem 0.9rem; font-size: 0.95rem; line-height: 1.6; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; max-height: 16rem; overflow: auto; }
+  #preview mark { background: rgba(239, 68, 68, 0.28); color: #fecaca; text-decoration: line-through; border-radius: 0.2rem; padding: 0 0.1rem; }
+  .toggle { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; font-size: 0.85rem; color: #cbd5e1; }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .toggle .track { width: 2.25rem; height: 1.25rem; border-radius: 9999px; background: #334155; position: relative; transition: background 0.15s ease; flex: none; }
+  .toggle .track::after { content: ''; position: absolute; top: 0.15rem; left: 0.15rem; width: 0.95rem; height: 0.95rem; border-radius: 9999px; background: #e2e8f0; transition: transform 0.15s ease; }
+  .toggle input:checked + .track { background: #3b82f6; }
+  .toggle input:checked + .track::after { transform: translateX(1rem); }
+  .toggle input:focus-visible + .track { outline: 2px solid #60a5fa; outline-offset: 2px; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <header class="mb-6">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Remove Repetitive Words</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Paste your text, list the words, phrases or whole sentences you want gone, and remove them in one click. Changed your mind? Undo it.</p>
+  </header>
+
+  <!-- 1. Text -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mb-5">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-sm font-semibold text-white"><span class="text-slate-500 mr-1">1.</span> Your text</h2>
+      <p class="text-xs text-slate-500 stat-num" id="textStats">0 words &middot; 0 characters</p>
+    </div>
+    <textarea id="text" spellcheck="false" placeholder="Paste or type your text here&hellip;"></textarea>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button type="button" class="pill" id="copyBtn">Copy text</button>
+      <button type="button" class="pill" id="clearTextBtn">Clear text</button>
+    </div>
+  </section>
+
+  <!-- 2. What to remove -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mb-5">
+    <h2 class="text-sm font-semibold text-white mb-2"><span class="text-slate-500 mr-1">2.</span> What to remove</h2>
+    <div class="flex gap-2">
+      <input type="text" id="addInput" class="field" autocomplete="off" spellcheck="false" placeholder="A word, a phrase or a whole sentence, then press Enter">
+      <button type="button" class="pill primary" id="addBtn">Add</button>
+    </div>
+    <p class="text-xs text-slate-500 mt-2">Add as many as you like. Pasting several lines adds each line as its own item.</p>
+    <div class="flex flex-wrap gap-2 mt-3 min-h-[1.75rem]" id="chips"></div>
+    <p class="text-xs text-slate-500 mt-1" id="chipsEmpty">Nothing added yet.</p>
+
+    <div class="mt-4 pt-4 border-t border-white/5 flex flex-wrap items-center gap-x-6 gap-y-3">
+      <label class="toggle"><input type="checkbox" id="optCase"><span class="track"></span>Case sensitive</label>
+      <label class="toggle"><input type="checkbox" id="optWhole"><span class="track"></span>Whole words only</label>
+      <label class="toggle"><input type="checkbox" id="optTidy" checked><span class="track"></span>Tidy leftover spaces</label>
+    </div>
+    <p class="text-xs text-slate-500 mt-2" id="optHint"></p>
+  </section>
+
+  <!-- 3. Apply -->
+  <section class="glass rounded-2xl p-4 sm:p-5 mb-5">
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="pill primary" id="removeBtn" disabled>Remove from text</button>
+      <button type="button" class="pill" id="undoBtn" disabled>Undo last removal</button>
+      <button type="button" class="pill" id="clearItemsBtn" hidden>Clear list</button>
+    </div>
+    <p class="text-sm mt-3 text-slate-400" id="status" role="status" aria-live="polite">Add something to remove to get started.</p>
+
+    <div class="mt-4" id="previewWrap" hidden>
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-xs uppercase tracking-wider text-slate-500">Preview of what will be removed</h3>
+        <p class="text-xs text-slate-500 stat-num" id="previewCount"></p>
+      </div>
+      <div id="preview"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const STORE = 'toolbox:remove-words', FAV_KEY = 'toolbox:favorites', TOOL_ID = 'remove-words';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\\/-]/g, '\\$&');
+  const MAX_UNDO = 100;
+
+  const el = {
+    text: $('text'), stats: $('textStats'), add: $('addInput'), addBtn: $('addBtn'),
+    chips: $('chips'), chipsEmpty: $('chipsEmpty'), optCase: $('optCase'), optWhole: $('optWhole'), optTidy: $('optTidy'),
+    hint: $('optHint'), remove: $('removeBtn'), undo: $('undoBtn'), clearItems: $('clearItemsBtn'),
+    status: $('status'), previewWrap: $('previewWrap'), preview: $('preview'), previewCount: $('previewCount'),
+    copy: $('copyBtn'), clearText: $('clearTextBtn')
+  };
+
+  // ── state (settings and the word list are remembered; the text itself is not) ──
+  let items = [];
+  const undoStack = [];
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || '{}');
+    if (Array.isArray(s.items)) items = s.items.filter(x => typeof x === 'string' && x.trim()).slice(0, 200);
+    el.optCase.checked = !!s.cs;
+    el.optWhole.checked = !!s.whole;
+    if (s.tidy === false) el.optTidy.checked = false;
+  } catch (e) {}
+  const save = () => {
+    try { localStorage.setItem(STORE, JSON.stringify({ items, cs: el.optCase.checked, whole: el.optWhole.checked, tidy: el.optTidy.checked })); } catch (e) {}
+  };
+
+  // ── matching ──
+  // One pattern for every item, longest first so a long phrase wins over a word inside it.
+  // Spaces inside an item match any run of whitespace, so a pasted sentence still matches across line breaks.
+  function patternFor(list) {
+    const parts = list.map(s => s.trim()).filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+      .map(s => reEsc(s).split(/\s+/).join('\\s+'));
+    if (!parts.length) return null;
+    const alt = parts.join('|');
+    const body = el.optWhole.checked ? '(?<![\\p{L}\\p{N}_])(?:' + alt + ')(?![\\p{L}\\p{N}_])' : '(?:' + alt + ')';
+    try { return new RegExp(body, 'gu' + (el.optCase.checked ? '' : 'i')); } catch (e) { return null; }
+  }
+  function countFor(item, text) {
+    const re = patternFor([item]);
+    if (!re || !text) return 0;
+    let n = 0, m;
+    while ((m = re.exec(text))) { n++; if (m[0] === '') re.lastIndex++; }
+    return n;
+  }
+  function tidy(t) {
+    return t.replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+([,.])/g, '$1').replace(/[ \t]+$/gm, '');
+  }
+
+  // ── rendering ──
+  const plural = (n, w) => n + ' ' + (n === 1 ? w : w === 'match' ? 'matches' : w + 's');
+  function setStatus(msg, tone) {
+    el.status.textContent = msg;
+    el.status.className = 'text-sm mt-3 ' + (tone === 'good' ? 'text-emerald-400' : tone === 'warn' ? 'text-amber-400' : 'text-slate-400');
+  }
+  function renderStats() {
+    const t = el.text.value, words = (t.trim().match(/\S+/g) || []).length;
+    el.stats.textContent = plural(words, 'word') + ' · ' + plural(t.length, 'character');
+  }
+  function renderOptHint() {
+    const bits = [];
+    bits.push(el.optCase.checked ? '“The” and “the” are treated as different.' : '“The”, “the” and “THE” all match.');
+    bits.push(el.optWhole.checked ? 'Removing “cat” leaves “category” alone.' : 'Removing “cat” also hits the start of “category”.');
+    el.hint.textContent = bits.join(' ');
+  }
+  function renderChips() {
+    const t = el.text.value;
+    el.chips.innerHTML = '';
+    items.forEach((it, i) => {
+      const n = countFor(it, t);
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.innerHTML = '<span class="txt" title="' + esc(it) + '">' + esc(it) + '</span><span class="cnt' + (n ? '' : ' zero') + '">' + n + '&times;</span><button type="button" aria-label="Remove &ldquo;' + esc(it) + '&rdquo; from the list" data-i="' + i + '">&times;</button>';
+      el.chips.appendChild(c);
+    });
+    el.chipsEmpty.hidden = items.length > 0;
+    el.clearItems.hidden = items.length === 0;
+  }
+  function renderPreview() {
+    const t = el.text.value, re = patternFor(items);
+    if (!re || !t) { el.previewWrap.hidden = true; return 0; }
+    let out = '', last = 0, n = 0, m;
+    while ((m = re.exec(t))) {
+      if (m[0] === '') { re.lastIndex++; continue; }
+      out += esc(t.slice(last, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+      last = m.index + m[0].length; n++;
+    }
+    out += esc(t.slice(last));
+    el.previewWrap.hidden = n === 0;
+    if (n) { el.preview.innerHTML = out; el.previewCount.textContent = plural(n, 'match') + ' found'; }
+    return n;
+  }
+  function refresh() {
+    renderStats(); renderChips();
+    const n = renderPreview();
+    el.remove.disabled = !(items.length && el.text.value && n);
+    el.undo.disabled = !undoStack.length;
+    el.undo.textContent = undoStack.length > 1 ? 'Undo last removal (' + undoStack.length + ')' : 'Undo last removal';
+    return n;
+  }
+  // The status line is only rewritten when the user changes something (not by every keystroke refresh)
+  function refreshWithHint() {
+    const n = refresh();
+    if (!items.length) setStatus('Add something to remove to get started.');
+    else if (!el.text.value.trim()) setStatus('Paste some text above.');
+    else if (!n) setStatus('None of your items were found in the text.', 'warn');
+    else setStatus(plural(n, 'match') + ' ready to remove.');
+  }
+
+  // ── list handling ──
+  function addItems(raw) {
+    const lines = String(raw).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    let added = 0, dupes = 0;
+    lines.forEach(l => {
+      const key = el.optCase.checked ? l : l.toLowerCase();
+      const has = items.some(x => (el.optCase.checked ? x : x.toLowerCase()) === key);
+      if (has) { dupes++; return; }
+      if (items.length < 200) { items.push(l); added++; }
+    });
+    save(); refreshWithHint();
+    if (!added && dupes) setStatus('That is already in your list.', 'warn');
+  }
+  el.addBtn.addEventListener('click', () => { if (el.add.value.trim()) { addItems(el.add.value); el.add.value = ''; } el.add.focus(); });
+  el.add.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); el.addBtn.click(); }
+  });
+  el.add.addEventListener('paste', (e) => {
+    const t = (e.clipboardData || window.clipboardData).getData('text');
+    if (/\r?\n/.test(t.trim())) { e.preventDefault(); addItems(t); }
+  });
+  el.chips.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-i]'); if (!b) return;
+    items.splice(+b.dataset.i, 1); save(); refreshWithHint();
+  });
+  el.clearItems.addEventListener('click', () => { items = []; save(); refreshWithHint(); });
+
+  // ── options ──
+  [el.optCase, el.optWhole, el.optTidy].forEach(o => o.addEventListener('change', () => { save(); renderOptHint(); refreshWithHint(); }));
+
+  // ── text ──
+  el.text.addEventListener('input', refreshWithHint);
+
+  // ── remove / undo ──
+  function snapshot(label) {
+    undoStack.push({ text: el.text.value, start: el.text.selectionStart, end: el.text.selectionEnd, label });
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+  }
+  el.remove.addEventListener('click', () => {
+    const before = el.text.value, re = patternFor(items);
+    if (!re || !before) return;
+    let n = 0;
+    let after = before.replace(re, (m) => { if (m === '') return m; n++; return ''; });
+    if (!n) { setStatus('None of your items were found in the text.', 'warn'); return; }
+    if (el.optTidy.checked) after = tidy(after);
+    snapshot('removal');
+    el.text.value = after;
+    refresh();
+    const gone = before.length - after.length;
+    setStatus('Removed ' + plural(n, 'match') + ' (' + plural(gone, 'character') + ' shorter). Not right? Press Undo.', 'good');
+  });
+  function undo() {
+    const s = undoStack.pop(); if (!s) return;
+    el.text.value = s.text;
+    try { el.text.setSelectionRange(s.start, s.end); } catch (e) {}
+    refresh();
+    setStatus(s.label === 'clear' ? 'Brought your text back.' : 'Undid the last removal.', 'good');
+  }
+  el.undo.addEventListener('click', undo);
+
+  // ── copy / clear text ──
+  let copyTimer;
+  el.copy.addEventListener('click', async () => {
+    const t = el.text.value; if (!t) return;
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+      try { el.text.select(); ok = document.execCommand('copy'); el.text.setSelectionRange(t.length, t.length); } catch (e2) {}
+    }
+    el.copy.textContent = ok ? 'Copied!' : 'Copy failed';
+    clearTimeout(copyTimer); copyTimer = setTimeout(() => { el.copy.textContent = 'Copy text'; }, 1500);
+  });
+  el.clearText.addEventListener('click', () => {
+    if (!el.text.value) return;
+    snapshot('clear');           // clearing can be undone too, so no confirmation is needed
+    el.text.value = '';
+    refresh();
+    setStatus('Text cleared. Press Undo to bring it back.', 'warn');
+  });
+
+  // ── favourite star (same storage the homepage uses) ──
+  const favBtn = $('favToggle');
+  const getFavs = () => { try { const v = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  function paintFav() {
+    const on = getFavs().includes(TOOL_ID);
+    favBtn.innerHTML = on ? '&#9733;' : '&#9734;'; favBtn.setAttribute('aria-pressed', on);
+    favBtn.setAttribute('aria-label', on ? 'Remove from favorites' : 'Add to favorites');
+    favBtn.classList.toggle('text-amber-400', on); favBtn.classList.toggle('text-slate-600', !on);
+  }
+  favBtn.addEventListener('click', () => {
+    const f = getFavs(), i = f.indexOf(TOOL_ID); if (i < 0) f.push(TOOL_ID); else f.splice(i, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch (e) {}
+    paintFav();
+  });
+  window.addEventListener('toolbox:synced', paintFav);
+
+  // ── go ──
+  renderOptHint(); paintFav(); refreshWithHint();
+})();
+</script>
+</body>
+</html>
