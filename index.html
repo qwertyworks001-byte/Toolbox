@@ -12,6 +12,7 @@
 <script src="toolbox-fab.js"></script>
 <link rel="stylesheet" href="style.css">
 <script src="timer-engine.js"></script>
+<script src="quick-start.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -82,6 +83,14 @@
   body.is-dragging, body.is-dragging * { cursor: grabbing !important; -webkit-user-select: none; user-select: none; }
   .fav-btn { transition: transform 0.15s ease, color 0.15s ease; }
   .fav-btn:hover { transform: scale(1.15); }
+
+  /* quick start strip on the Timers card (shown when you search things like "30 second timer") */
+  .qs-strip { border-top: 1px dashed rgba(255, 255, 255, 0.16); margin-top: 0.35rem; padding-top: 0.75rem; }
+  .qs-btn { background: var(--accent-2); color: #241a05; box-shadow: 0 2px 0 0 #c99f2e; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .qs-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 0 0 #c99f2e; }
+  .qs-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 0 #c99f2e; }
+  .qs-alt { border: 1px solid rgba(255, 255, 255, 0.2); color: #cbd5e1; transition: border-color 0.15s ease, color 0.15s ease; }
+  .qs-alt:hover { border-color: var(--accent-2); color: #fde68a; }
 </style>
 </head>
 <body class="text-slate-200 antialiased">
@@ -170,6 +179,7 @@
 
   let activeFilter = 'all'; // 'all' | 'favorites' | category key
   let query = '';
+  let quick = null, quickMsg = null;      // what the search text means as a timer / alarm / stopwatch, and the "started!" message after a click
 
   toolStat.textContent = `${TOOLS.length} tools across ${CATEGORIES.length} categories`;
 
@@ -201,6 +211,55 @@
 
   function toolById(id) { return TOOLS.find(t => t.id === id); }
 
+  // ── Quick start: "30 second timer", "alarm for 7:30am", "stopwatch" ──
+  // The Timers card shows ready-made buttons for what you typed, like a Google timer. They start it right here: the timer
+  // engine runs on every Toolbox page, so the countdown shows in the corner and rings without opening the Timers page.
+  const is12h = () => { try { return localStorage.getItem('toolbox:alarm-12h') !== 'off'; } catch (e) { return true; } };
+  let quickActs = [];
+  function refreshQuick() {
+    const Q = window.ToolboxQuick, now = new Date();
+    quick = (query && Q) ? Q.parse(query, now) : null;
+    quickActs = quick ? Q.actions(quick, now, is12h()) : [];
+    quickMsg = null;
+  }
+  function quickHTML() {
+    if (quickMsg) {
+      return `<div class="qs-strip" data-qs-strip>
+        <p class="text-sm ${quickMsg.ok ? 'text-emerald-300' : 'text-amber-300'}" role="status">${quickMsg.ok ? '&#10003; ' : ''}${esc(quickMsg.text)}</p>
+        <div class="flex flex-wrap gap-2 mt-2"><button type="button" data-qs-open="${esc(quickMsg.tab)}" class="qs-alt text-xs font-semibold px-3 py-1.5 rounded-md">Open Timers &rarr;</button></div>
+      </div>`;
+    }
+    return `<div class="qs-strip" data-qs-strip>
+      <p class="text-[11px] uppercase tracking-wider text-slate-500 mb-2">Quick start</p>
+      <div class="flex flex-wrap items-center gap-2">${quickActs.map((a, i) => `<button type="button" data-qs="${esc(a.id)}" class="${i === 0 ? 'qs-btn' : 'qs-alt'} text-left text-sm font-semibold px-3.5 py-1.5 rounded-md">&#9654; ${esc(a.label)}${a.sub ? `<span class="block font-normal text-xs opacity-70 pl-4">${esc(a.sub)}</span>` : ''}</button>`).join('')}</div>
+    </div>`;
+  }
+  function runQuick(id) {
+    const T = window.ToolboxTimers, a = quickActs.find(x => x.id === id); if (!T || !a) return;
+    try { T.unlock(); } catch (e) {}                       // this click is what lets the alarm make sound later
+    const i = id.indexOf(':'), kind = i < 0 ? id : id.slice(0, i), val = i < 0 ? '' : id.slice(i + 1);
+    let ok = true, text = '';
+    if (kind === 'timer') {
+      if (T.timerAdd(parseInt(val, 10) * 1000, '') === null) { ok = false; text = 'You already have the maximum number of timers running.'; }
+      else text = a.label.replace(/^Start /, '') + ' started. It is counting down in the corner of the screen and will ring when it reaches zero.';
+    } else if (kind === 'alarm') {
+      if (T.alarmAdd(val, false, '') === null) { ok = false; text = 'You already have the maximum number of alarms set.'; }
+      else text = a.label.replace(/^Set alarm/, 'Alarm set') + (a.sub ? ' (' + a.sub + ')' : '') + '. Keep Toolbox open in a tab so it can ring.';
+    } else {
+      const st = T.getState().stopwatch.status;
+      if (st === 'running') text = 'The stopwatch is already running. You can see it in the corner of the screen.';
+      else { T.stopwatchStart(); text = (st === 'paused' ? 'Stopwatch resumed.' : 'Stopwatch started.') + ' You can see it in the corner of the screen.'; }
+    }
+    quickMsg = { ok, text, tab: kind };
+    const strip = document.querySelector('[data-qs-strip]'); if (strip) strip.outerHTML = quickHTML();
+  }
+  mainGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-qs], [data-qs-open]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();                // the buttons sit inside the card's link
+    if (b.hasAttribute('data-qs')) runQuick(b.getAttribute('data-qs'));
+    else window.location.href = 'Timers/timers.html?tab=' + encodeURIComponent(b.getAttribute('data-qs-open'));
+  });
+
   // ── Tag search ──────────────────────────────────────────────
   // Every word you type must match something in the tool. A word scores highest on an exact tag, then the start of
   // a tag (or of a word inside one), then anywhere inside a tag; the name counts too; the description is a weak last
@@ -221,6 +280,7 @@
     return best;
   }
   function matchScore(tool, q) {
+    if (quick && tool.id === 'timers' && q === query) return 1000;      // "30 second timer": the Timers tool always leads
     const words = norm(q).split(/\s+/).filter(Boolean);
     if (!words.length) return 1;
     let total = 0;
@@ -236,7 +296,8 @@
 
   function cardHTML(tool, reorder) {
     const fav = isFavorite(tool.id);
-    const tags = query ? matchedTags(tool, query) : [];
+    const isQuick = !!(query && quick && tool.id === 'timers');
+    const tags = query && !isQuick ? matchedTags(tool, query) : [];
     const tagRow = tags.length
       ? `<div class="flex flex-wrap gap-1.5 mt-1">${tags.map(t => `<span class="text-[11px] leading-none px-2 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">#${esc(t)}</span>`).join('')}</div>`
       : '';
@@ -249,6 +310,7 @@
         <h3 class="font-display text-base font-semibold text-white ${reorder ? 'pr-20' : 'pr-6'}">${tool.name}</h3>
         <p class="text-sm text-slate-400 leading-relaxed">${tool.description}</p>
         ${tagRow}
+        ${isQuick ? quickHTML() : ''}
       </a>
     `;
   }
@@ -419,6 +481,7 @@
   }
 
   function inFilter(tool) {
+    if (quick && query && tool.id === 'timers') return true;           // a timer request shows the Timers card whatever category is picked
     if (activeFilter === 'all') return true;
     if (activeFilter === 'favorites') return isFavorite(tool.id);
     return (tool.categories || []).includes(activeFilter);
@@ -499,7 +562,11 @@
 
   searchInput.addEventListener('input', () => {
     query = searchInput.value.trim();
+    refreshQuick();
     render();
+  });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing && quickActs.length && !quickMsg && document.querySelector('[data-qs-strip]')) { e.preventDefault(); runQuick(quickActs[0].id); }
   });
 
   randomToolBtn.addEventListener('click', () => {

@@ -63,6 +63,12 @@
   pre { background: #020617; padding: 0.7rem; border-radius: 0.6rem; font-size: 0.72rem; overflow: auto; }
   #emojiDlg { width: min(34rem, 96vw); }
   #hEmojiPick { padding: 0.3rem 0.6rem; font-size: 1.1rem; line-height: 1; flex: none; }
+  .habit.counter { border-left: 3px solid var(--c); padding-left: 0.7rem; }
+  input[type=number].cin { width: 4.4rem; text-align: center; padding: 0.3rem 0.2rem; -moz-appearance: textfield; appearance: textfield; }
+  input[type=number].cin::-webkit-outer-spin-button, input[type=number].cin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .day .cnt { position: absolute; right: 3px; bottom: 1px; font-size: 0.55rem; line-height: 1; opacity: 0.85; font-weight: 600; }
+  .chips .sep { align-self: center; color: #64748b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0.1rem 0 0.3rem; }
+  .sub { font-size: 0.8rem; color: #94a3b8; margin: -0.4rem 0 0.6rem; }
 </style>
 </head>
 <body>
@@ -82,6 +88,14 @@
       <div class="row" style="margin-top:0.75rem"><button class="btn primary" id="addBtn" type="button">+ Add habit</button><button class="btn small" id="todayBtn" type="button">Jump to today</button></div>
     </section>
     <section class="card" id="quickCard" aria-label="Quick add"><h2>Quick add</h2><div class="chips" id="quickChips" style="margin-bottom:0"></div></section>
+    <section class="card" id="counterCard" aria-label="Counters">
+      <h2>Counters</h2>
+      <p class="sub" id="counterDate"></p>
+      <div id="clist"></div>
+      <div class="chips" id="cquick" style="margin:0.75rem 0 0"></div>
+      <div class="row" style="margin-top:0.75rem"><button class="btn primary" id="addCounterBtn" type="button">+ Add counter</button></div>
+      <p class="note" style="margin:0.6rem 0 0">Counters keep a running total for each day, like sets or reps. They never change your calendar colours or streaks. Pick one under Calendar to see its history.</p>
+    </section>
    </div>
 
     <section class="card" aria-label="Calendar">
@@ -99,9 +113,12 @@
 
 <dialog id="habitDlg">
   <h2 id="habitTitle">New habit</h2>
+  <div class="seg" id="hKind"><button type="button" data-k="habit">&#9989; Check-in habit</button><button type="button" data-k="counter">&#128290; Counter</button></div>
+  <p class="note" id="kindNote" style="margin:0.5rem 0 0.9rem"></p>
   <div id="presetWrap"><label class="f" style="margin-top:0">Start from a preset</label><div class="chips" id="presets"></div></div>
   <label class="f" for="hName">Name</label><input type="text" id="hName" maxlength="40" placeholder="e.g. Workout">
   <div class="row"><div style="width:9.5rem"><label class="f" for="hEmoji">Emoji</label><div style="display:flex;gap:0.35rem"><input type="text" id="hEmoji" maxlength="16" placeholder="&#127947;" style="flex:1;min-width:0;width:auto"><button type="button" class="btn" id="hEmojiPick" aria-label="Pick an emoji from the list" title="Pick an emoji from the list">&#128512;</button></div></div><div style="flex:1;min-width:9rem"><label class="f">Colour</label><div class="sw" id="hColors"></div></div></div>
+  <div id="habitOnly">
   <label class="f">How often?</label>
   <div class="seg" id="hMode"><button type="button" data-m="daily">Every day</button><button type="button" data-m="days">Set days</button><button type="button" data-m="weekly">Times a week</button></div>
   <div id="daysWrap" class="hide" style="margin-top:0.6rem"><div class="dayp" id="hDays"></div></div>
@@ -111,9 +128,11 @@
   <div class="row"><input type="time" id="hRemind" style="width:9.5rem"><button class="btn small" id="hRemindClear" type="button">Clear</button></div>
   <div id="icsWrap" class="hide" style="margin-top:0.6rem"><button class="btn small" id="hIcs" type="button">&#128197; Add this reminder to my calendar</button>
     <p class="note" style="margin:0.4rem 0 0">Your phone&rsquo;s calendar will then remind you at that time, even when this page is closed. Do this once per habit, and again if you change the time or days.</p></div>
+  </div>
+  <div id="counterOnly" class="hide"><label class="f" for="hStep">Each tap adds <span style="color:#64748b">(1 = one at a time; 10 = e.g. 10 reps per set)</span></label><input type="number" id="hStep" min="1" max="999" value="1"></div>
   <div class="err hide" id="hErr"></div>
   <div class="row" id="hFoot" style="margin-top:1.2rem;justify-content:space-between"><button class="btn danger hide" id="hDelete" type="button">Delete</button><span style="flex:1"></span><button class="btn" id="hCancel" type="button">Cancel</button><button class="btn primary" id="hSave" type="button">Save</button></div>
-  <div id="hConfirm" class="hide" style="margin-top:1.2rem"><p style="margin:0 0 0.6rem;color:#fca5a5">Delete this habit? It will disappear from your check-ins and calendar.</p><div class="row" style="justify-content:flex-end"><button class="btn" id="hKeep" type="button">Keep it</button><button class="btn fill" id="hYes" type="button">Yes, delete</button></div></div>
+  <div id="hConfirm" class="hide" style="margin-top:1.2rem"><p id="hConfirmMsg" style="margin:0 0 0.6rem;color:#fca5a5">Delete this habit? It will disappear from your check-ins and calendar.</p><div class="row" style="justify-content:flex-end"><button class="btn" id="hKeep" type="button">Keep it</button><button class="btn fill" id="hYes" type="button">Yes, delete</button></div></div>
 </dialog>
 
 <dialog id="emojiDlg" aria-label="Pick an emoji"><div class="row" style="justify-content:space-between;margin-bottom:0.6rem"><h2 style="margin:0">Pick an emoji</h2><button class="btn small" id="emojiClose" type="button">Close</button></div><div id="emojiHost"></div></dialog>
@@ -153,14 +172,16 @@
         target: Math.min(99, Math.max(1, parseInt(h.target, 10) || 1)), mode: ['daily', 'days', 'weekly'].includes(h.mode) ? h.mode : 'daily',
         days: Array.isArray(h.days) ? h.days.filter(x => Number.isInteger(x) && x >= 0 && x <= 6) : [], weekly: Math.min(7, Math.max(1, parseInt(h.weekly, 10) || 3)),
         remind: /^([01]\d|2[0-3]):[0-5]\d$/.test(h.remind) ? h.remind : '',
+        kind: h.kind === 'counter' ? 'counter' : 'habit', step: Math.min(999, Math.max(1, parseInt(h.step, 10) || 1)),
         c: Number(h.c) || 0, u: Number(h.u) || 0, deleted: !!h.deleted };
       if (out.habits[id].mode === 'days' && !out.habits[id].days.length) out.habits[id].mode = 'daily';
+      if (out.habits[id].kind === 'counter') Object.assign(out.habits[id], { mode: 'daily', days: [], target: 1, remind: '' });   // a counter has no schedule, goal or reminder
     });
     Object.keys(d.log || {}).forEach(k => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !d.log[k]) return;
       Object.keys(d.log[k]).forEach(id => {
         const e = d.log[k][id]; if (!Array.isArray(e)) return;
-        const n = Math.min(999, Math.max(0, parseInt(e[0], 10) || 0)); (out.log[k] = out.log[k] || {})[id] = [n, Number(e[1]) || 0];
+        const n = Math.min(99999, Math.max(0, parseInt(e[0], 10) || 0)); (out.log[k] = out.log[k] || {})[id] = [n, Number(e[1]) || 0];
       });
     });
     return out;
@@ -169,9 +190,15 @@
   const getCount = (data, id, k) => { const e = data.log[k] && data.log[k][id]; return e ? e[0] : 0; };
   const isDone = (h, data, k) => getCount(data, h.id, k) >= h.target;
   const isScheduled = (h, k) => (h.mode === 'days' ? h.days.includes(dow(k)) : true);
-  function setCount(data, id, k, n, ts) { (data.log[k] = data.log[k] || {})[id] = [Math.min(999, Math.max(0, n)), ts]; }
+  function setCount(data, id, k, n, ts) { (data.log[k] = data.log[k] || {})[id] = [Math.min(99999, Math.max(0, n)), ts]; }
   const weekGoal = (h) => (h.mode === 'daily' ? 7 : h.mode === 'days' ? h.days.length : h.weekly);
   function weekDone(h, data, k) { const s = weekStart(k); let c = 0; for (let i = 0; i < 7; i++) if (isDone(h, data, addDays(s, i))) c++; return c; }
+
+  // Counters: a plain per-day tally. They are never "done", never scheduled, and are kept out of streaks and the All-habits calendar colouring.
+  const isCounter = (h) => h.kind === 'counter';
+  function weekTotal(h, data, k) { const s = weekStart(k); let c = 0; for (let i = 0; i < 7; i++) c += getCount(data, h.id, addDays(s, i)); return c; }
+  function monthStats(h, data, cells) { let total = 0, days = 0, best = 0; cells.forEach(k => { if (!k) return; const n = getCount(data, h.id, k); if (n > 0) { total += n; days++; if (n > best) best = n; } }); return { total, days, best }; }
+  const totalCount = (data, id) => Object.keys(data.log).reduce((sum, k) => sum + (data.log[k][id] ? data.log[k][id][0] : 0), 0);
 
   // Streaks: daily / set-days habits count consecutive scheduled days; "times a week" habits count consecutive weeks that hit the goal.
   // Today (or this week) not being finished yet never breaks a streak.
@@ -260,7 +287,11 @@
     { name: 'Sleep 8 hours', emoji: '\uD83D\uDE34', color: '#6366f1', mode: 'daily', target: 1 },
     { name: 'Vitamins', emoji: '\uD83D\uDC8A', color: '#ec4899', mode: 'daily', target: 1 },
     { name: 'Healthy meal', emoji: '\uD83E\uDD57', color: '#84cc16', mode: 'daily', target: 3 },
-    { name: 'Tidy up', emoji: '\uD83E\uDDF9', color: '#a855f7', mode: 'weekly', weekly: 3, target: 1 }
+    { name: 'Tidy up', emoji: '\uD83E\uDDF9', color: '#a855f7', mode: 'weekly', weekly: 3, target: 1 },
+    { kind: 'counter', name: 'Sets', emoji: '\uD83D\uDD01', color: '#f97316', step: 1 },
+    { kind: 'counter', name: 'Reps', emoji: '\uD83D\uDD22', color: '#ef4444', step: 1 },
+    { kind: 'counter', name: 'Push-ups', emoji: '\uD83D\uDCAA', color: '#ec4899', step: 5 },
+    { kind: 'counter', name: 'Coffees', emoji: '\u2615', color: '#f59e0b', step: 1 }
   ];
   const DAYN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const STORE = 'toolbox:habits';
@@ -277,7 +308,9 @@
   let view = { y: new Date().getFullYear(), m: new Date().getMonth() }, calSel = 'all';
   let editing = null, form = null, pendingId = null;
 
-  const liveHabits = () => Object.values(data.habits).filter(h => !h.deleted).sort((a, b) => a.c - b.c || (a.name < b.name ? -1 : 1));
+  const liveAll = () => Object.values(data.habits).filter(h => !h.deleted).sort((a, b) => a.c - b.c || (a.name < b.name ? -1 : 1));
+  const liveHabits = () => liveAll().filter(h => !isCounter(h));      // check-in habits: the only things that colour the calendar and build streaks
+  const liveCounters = () => liveAll().filter(isCounter);
   const saveLocal = () => { try { localStorage.setItem(STORE, JSON.stringify(data)); } catch (e) {} };
   function changed() { saveLocal(); render(); Sync.schedulePush(); }
   const newId = () => 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -307,18 +340,40 @@
     }).join('');
   }
 
+  const counterMeta = (h) => 'This week <b>' + weekTotal(h, data, sel) + '</b>' + (h.step > 1 ? ' \u00B7 +' + h.step + ' per tap' : '');
+  function renderCounters() {
+    const cs = liveCounters(), have = new Set(cs.map(h => h.name.trim().toLowerCase()));
+    const chips = PRESETS.map((p, i) => ({ p, i })).filter(x => x.p.kind === 'counter' && !have.has(x.p.name.toLowerCase()));
+    $('counterDate').textContent = 'Counting for ' + fmtDay(sel);
+    $('cquick').innerHTML = chips.map(x => `<button type="button" class="chip" data-quick="${x.i}" style="--c:${x.p.color}">${x.p.emoji} ${esc(x.p.name)}</button>`).join('');
+    $('cquick').classList.toggle('hide', !chips.length);
+    if (!cs.length) { $('clist').innerHTML = '<div class="empty-state"><p>No counters yet. Add one for sets, reps, cups of coffee, or anything you want a daily tally of.</p></div>'; return; }
+    $('clist').innerHTML = cs.map(h => {
+      const n = getCount(data, h.id, sel), st = h.step;
+      return `<div class="habit counter" style="--c:${h.color}" data-id="${h.id}">
+        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${counterMeta(h)}</div></div>
+        <div class="stepper"><button type="button" class="btn small" data-act="dec" aria-label="Take ${st} off ${esc(h.name)}">\u2212${st > 1 ? st : ''}</button><input type="number" class="cin" inputmode="numeric" min="0" max="99999" value="${n}" aria-label="${esc(h.name)} count"><button type="button" class="btn small" data-act="inc" aria-label="Add ${st} to ${esc(h.name)}">+${st > 1 ? st : ''}</button></div>
+        <button type="button" class="btn small" data-act="edit" aria-label="Edit ${esc(h.name)}">\u22EF</button></div>`;
+    }).join('');
+  }
+
   function renderCal() {
-    const hs = liveHabits(), t = todayKey();
-    if (calSel !== 'all' && !hs.find(h => h.id === calSel)) calSel = 'all';
-    $('chips').innerHTML = `<button type="button" class="chip${calSel === 'all' ? ' on' : ''}" data-cal="all">All habits</button>` + hs.map(h => `<button type="button" class="chip${calSel === h.id ? ' on' : ''}" style="--c:${h.color}" data-cal="${h.id}">${esc(h.emoji)} ${esc(h.name)}</button>`).join('');
+    const hs = liveHabits(), cs = liveCounters(), t = todayKey();
+    if (calSel !== 'all' && !hs.concat(cs).find(h => h.id === calSel)) calSel = 'all';
+    const chip = (h) => `<button type="button" class="chip${calSel === h.id ? ' on' : ''}" style="--c:${h.color}" data-cal="${h.id}">${esc(h.emoji)} ${esc(h.name)}</button>`;
+    $('chips').innerHTML = `<button type="button" class="chip${calSel === 'all' ? ' on' : ''}" data-cal="all">All habits</button>` + hs.map(chip).join('') + (cs.length ? '<span class="sep">Counters</span>' + cs.map(chip).join('') : '');
     $('monthLabel').textContent = new Date(view.y, view.m, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    const cells = monthGrid(view.y, view.m), H = hs.find(h => h.id === calSel);
+    const cells = monthGrid(view.y, view.m), H = hs.concat(cs).find(h => h.id === calSel);
     let html = DAYN.map(d => `<div class="dow">${d[0]}</div>`).join('');
-    let done = 0, sched = 0, perfect = 0;
+    let done = 0, sched = 0, perfect = 0, cMax = 0;
+    if (H && isCounter(H)) cells.forEach(k => { if (k) cMax = Math.max(cMax, getCount(data, H.id, k)); });   // busiest day this month sets the deepest shade
     cells.forEach(k => {
       if (!k) { html += '<div class="day empty"></div>'; return; }
-      const future = k > t; let style = '', cls = '';
-      if (H) {
+      const future = k > t; let style = '', cls = '', badge = '', label = k;
+      if (H && isCounter(H)) {
+        const n = getCount(data, H.id, k);
+        if (n > 0) { const pct = Math.round(25 + 65 * n / (cMax || 1)); style = `background:color-mix(in srgb, ${H.color} ${pct}%, transparent);border-color:${H.color}`; if (pct >= 60) cls = ' full'; badge = `<span class="cnt">${n >= 10000 ? Math.round(n / 1000) + 'k' : n}</span>`; label = k + ': ' + n; }
+      } else if (H) {
         const n = getCount(data, H.id, k), full = n >= H.target, s = isScheduled(H, k);
         if (!future && s) sched++; if (full) done++;
         if (full) { style = `background:${H.color};border-color:${H.color}`; cls = ' full'; }
@@ -329,22 +384,25 @@
         const d = on.filter(h => isDone(h, data, k)).length;
         if (on.length && d) { const f = d / on.length; style = `background:rgba(34,197,94,${0.18 + 0.72 * f});border-color:rgba(34,197,94,0.9)`; if (f === 1) { cls = ' full'; if (!future) perfect++; } }
       }
-      html += `<button type="button" class="day${cls}${future ? ' future' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" style="${style}" data-day="${k}" aria-label="${k}">${fromKey(k).getDate()}</button>`;
+      html += `<button type="button" class="day${cls}${future ? ' future' : ''}${k === t ? ' today' : ''}${k === sel ? ' sel' : ''}" style="${style}" data-day="${k}" aria-label="${label}">${fromKey(k).getDate()}${badge}</button>`;
     });
     $('cal').innerHTML = html;
-    if (H) {
+    if (H && isCounter(H)) {
+      const ms = monthStats(H, data, cells);
+      $('stats').innerHTML = `<span><b>${ms.total}</b> this month</span><span><b>${ms.days}</b> active day${ms.days === 1 ? '' : 's'}</span><span>Best day <b>${ms.best}</b></span><span>Avg <b>${ms.days ? Math.round(ms.total / ms.days * 10) / 10 : 0}</b> per active day</span><span>All time <b>${totalCount(data, H.id)}</b></span>`;
+    } else if (H) {
       const mode = H.mode === 'weekly' ? '' : ` of <b>${sched}</b> scheduled`;
       $('stats').innerHTML = `<span><b>${done}</b> day${done === 1 ? '' : 's'} done${mode}</span><span>Streak <b>${currentStreak(H, data, t)}</b></span><span>Best <b>${bestStreak(H, data, t)}</b></span>`;
-    } else $('stats').innerHTML = hs.length ? `<span><b>${perfect}</b> perfect day${perfect === 1 ? '' : 's'} this month</span><span class="note">Greener = more habits done</span>` : '';
+    } else $('stats').innerHTML = hs.length ? `<span><b>${perfect}</b> perfect day${perfect === 1 ? '' : 's'} this month</span><span class="note">Greener = more habits done${cs.length ? ' (counters not included)' : ''}</span>` : '';
   }
 
   function renderQuick() {
     const have = new Set(liveHabits().map(h => h.name.trim().toLowerCase()));
-    const left = PRESETS.map((p, i) => ({ p, i })).filter(x => !have.has(x.p.name.toLowerCase()));
+    const left = PRESETS.map((p, i) => ({ p, i })).filter(x => x.p.kind !== 'counter' && !have.has(x.p.name.toLowerCase()));
     $('quickCard').classList.toggle('hide', !left.length);
     $('quickChips').innerHTML = left.map(x => `<button type="button" class="chip" data-quick="${x.i}" style="--c:${x.p.color}">${x.p.emoji} ${esc(x.p.name)}</button>`).join('');
   }
-  function render() { if (followToday) sel = todayKey(); renderList(); renderQuick(); renderCal(); Sync.renderPill(); }
+  function render() { if (followToday) sel = todayKey(); renderList(); renderQuick(); renderCounters(); renderCal(); Sync.renderPill(); }
 
   // ══════════════ interactions ══════════════
   $('list').addEventListener('click', (e) => {
@@ -355,6 +413,21 @@
     setCount(data, h.id, sel, next, Date.now()); changed();
   });
   $('quickChips').addEventListener('click', (e) => { const q = e.target.closest('[data-quick]'); if (q) addHabit(PRESETS[+q.getAttribute('data-quick')]); });
+  $('counterCard').addEventListener('click', (e) => {
+    const q = e.target.closest('[data-quick]'); if (q) { addHabit(PRESETS[+q.getAttribute('data-quick')]); return; }
+    const row = e.target.closest('.habit'), btn = e.target.closest('[data-act]'); if (!row || !btn) return;
+    const h = data.habits[row.getAttribute('data-id')], act = btn.getAttribute('data-act'); if (!h) return;
+    if (act === 'edit') { openHabit(h); return; }
+    setCount(data, h.id, sel, getCount(data, h.id, sel) + (act === 'inc' ? h.step : -h.step), Date.now()); changed();
+  });
+  // Typing a number straight in: save it without redrawing the list, so a tap on + or - right afterwards still lands.
+  $('counterCard').addEventListener('change', (e) => {
+    const inp = e.target.closest('.cin'), row = inp && inp.closest('.habit'); if (!row) return;
+    const h = data.habits[row.getAttribute('data-id')]; if (!h) return;
+    const v = Math.min(99999, Math.max(0, parseInt(inp.value, 10) || 0));
+    inp.value = v; setCount(data, h.id, sel, v, Date.now());
+    saveLocal(); renderCal(); row.querySelector('.meta').innerHTML = counterMeta(h); Sync.schedulePush();
+  });
   $('cal').addEventListener('click', (e) => { const d = e.target.closest('[data-day]'); if (d) { sel = d.getAttribute('data-day'); followToday = sel === todayKey(); render(); } });
   $('chips').addEventListener('click', (e) => { const c = e.target.closest('[data-cal]'); if (c) { calSel = c.getAttribute('data-cal'); renderCal(); } });
   $('prevDay').addEventListener('click', () => { sel = addDays(sel, -1); followToday = false; render(); });
@@ -375,25 +448,32 @@
   const closeDlg = (d) => { if (d.close) d.close(); else d.removeAttribute('open'); };
   function drawForm() {
     $('hName').value = form.name; $('hEmoji').value = form.emoji; $('hWeekly').value = form.weekly; $('hTarget').value = form.target; $('hRemind').value = form.remind; $('icsWrap').classList.toggle('hide', !form.remind);
+    const ctr = form.kind === 'counter';
+    $('hStep').value = form.step;
+    $('hKind').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.getAttribute('data-k') === form.kind));
+    $('kindNote').textContent = ctr ? 'Keeps a running count each day (sets, reps, anything). It never changes your calendar colours or streaks.' : 'Tick it off each day. Counts towards your streaks and the colours on your calendar.';
+    $('habitOnly').classList.toggle('hide', ctr); $('counterOnly').classList.toggle('hide', !ctr);
+    $('habitTitle').textContent = (editing ? 'Edit ' : 'New ') + (ctr ? 'counter' : 'habit'); $('hName').placeholder = ctr ? 'e.g. Sets' : 'e.g. Workout';
+    $('presets').innerHTML = PRESETS.map((p, i) => ({ p, i })).filter(x => (x.p.kind === 'counter') === ctr).map(x => `<button type="button" class="chip" data-p="${x.i}" style="--c:${x.p.color}">${x.p.emoji} ${esc(x.p.name)}</button>`).join('');
     $('hColors').innerHTML = COLORS.map(c => `<button type="button" style="background:${c}" class="${c === form.color ? 'on' : ''}" data-color="${c}" aria-label="Colour ${c}"></button>`).join('');
     $('hMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.getAttribute('data-m') === form.mode));
     $('daysWrap').classList.toggle('hide', form.mode !== 'days'); $('weeklyWrap').classList.toggle('hide', form.mode !== 'weekly');
     $('hDays').innerHTML = DAYN.map((d, i) => `<button type="button" class="${form.days.includes(i) ? 'on' : ''}" data-d="${i}">${d}</button>`).join('');
   }
-  function openHabit(h) {
+  function openHabit(h, kind) {
     editing = h ? h.id : null;
-    form = h ? { name: h.name, emoji: h.emoji, color: h.color, mode: h.mode, days: h.days.slice(), weekly: h.weekly, target: h.target, remind: h.remind } : { name: '', emoji: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], mode: 'daily', days: [0, 2, 4], weekly: 3, target: 1, remind: '' };
+    form = h ? { name: h.name, emoji: h.emoji, color: h.color, mode: h.mode, days: h.days.slice(), weekly: h.weekly, target: h.target, remind: h.remind, kind: h.kind, step: h.step } : { name: '', emoji: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], mode: 'daily', days: [0, 2, 4], weekly: 3, target: 1, remind: '', kind: kind === 'counter' ? 'counter' : 'habit', step: 1 };
     pendingId = h ? null : newId(); $('hFoot').classList.remove('hide'); $('hConfirm').classList.add('hide');
-    $('habitTitle').textContent = h ? 'Edit habit' : 'New habit';
     $('presetWrap').classList.toggle('hide', !!h); $('hDelete').classList.toggle('hide', !h); $('hErr').classList.add('hide');
-    $('presets').innerHTML = PRESETS.map((p, i) => `<button type="button" class="chip" data-p="${i}" style="--c:${p.color}">${p.emoji} ${esc(p.name)}</button>`).join('');
     drawForm(); openDlg($('habitDlg'));
   }
-  const readForm = () => { form.name = $('hName').value; form.emoji = $('hEmoji').value; form.weekly = parseInt($('hWeekly').value, 10) || 3; form.target = parseInt($('hTarget').value, 10) || 1; form.remind = $('hRemind').value || ''; };
+  const readForm = () => { form.name = $('hName').value; form.emoji = $('hEmoji').value; form.weekly = parseInt($('hWeekly').value, 10) || 3; form.target = parseInt($('hTarget').value, 10) || 1; form.remind = $('hRemind').value || ''; form.step = Math.min(999, Math.max(1, parseInt($('hStep').value, 10) || 1)); };
   $('addBtn').addEventListener('click', () => openHabit(null));
-  $('presets').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const p = PRESETS[+b.getAttribute('data-p')]; form = { name: p.name, emoji: p.emoji, color: p.color, mode: p.mode, days: (p.days || [0, 2, 4]).slice(), weekly: p.weekly || 3, target: p.target || 1, remind: $('hRemind').value || '' }; drawForm(); });
+  $('addCounterBtn').addEventListener('click', () => openHabit(null, 'counter'));
+  $('presets').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const p = PRESETS[+b.getAttribute('data-p')]; form = { name: p.name, emoji: p.emoji, color: p.color, mode: p.mode || 'daily', days: (p.days || [0, 2, 4]).slice(), weekly: p.weekly || 3, target: p.target || 1, remind: $('hRemind').value || '', kind: p.kind === 'counter' ? 'counter' : 'habit', step: p.step || 1 }; drawForm(); });
   $('hColors').addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) { readForm(); form.color = b.getAttribute('data-color'); drawForm(); } });
   $('hMode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { readForm(); form.mode = b.getAttribute('data-m'); drawForm(); } });
+  $('hKind').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) { readForm(); form.kind = b.getAttribute('data-k'); drawForm(); } });
   $('hDays').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (!b) return; readForm(); const i = +b.getAttribute('data-d'); form.days = form.days.includes(i) ? form.days.filter(x => x !== i) : form.days.concat(i); drawForm(); });
   $('hCancel').addEventListener('click', () => closeDlg($('habitDlg')));
   // Emoji picker: browse every emoji instead of pasting one in (the same list as the Emoji Picker tool).
@@ -406,19 +486,22 @@
     if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) emojiPicker.focusSearch();      // on a phone, don't pop the keyboard up unasked
   });
   $('emojiClose').addEventListener('click', () => closeDlg($('emojiDlg')));
-  const formError = () => (!form.name.trim() ? 'Give it a name.' : (form.mode === 'days' && !form.days.length ? 'Pick at least one day.' : ''));
+  const formError = () => (!form.name.trim() ? 'Give it a name.' : (form.kind !== 'counter' && form.mode === 'days' && !form.days.length ? 'Pick at least one day.' : ''));
   $('hSave').addEventListener('click', () => {
     readForm();
     const err = formError();
     if (err) { $('hErr').textContent = err; $('hErr').classList.remove('hide'); return; }
-    const now = Date.now(), fields = { name: form.name.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind };
+    const now = Date.now(), fields = { name: form.name.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind, kind: form.kind, step: form.step };
     if (editing) { Object.assign(data.habits[editing], normalize({ habits: { [editing]: Object.assign({}, data.habits[editing], fields) } }).habits[editing], { u: now }); }
     else addHabitNoRender(fields, now, pendingId || newId());
     closeDlg($('habitDlg')); changed();
   });
   function addHabitNoRender(p, now, id) { data.habits[id] = normalize({ habits: { [id]: Object.assign({ c: now, u: now }, p) } }).habits[id]; }
   // Deleting asks for confirmation inside the dialog (no browser pop-up).
-  $('hDelete').addEventListener('click', () => { $('hFoot').classList.add('hide'); $('hConfirm').classList.remove('hide'); });
+  $('hDelete').addEventListener('click', () => {
+    $('hConfirmMsg').textContent = form.kind === 'counter' ? 'Delete this counter? Its counts will disappear from the app and the calendar.' : 'Delete this habit? It will disappear from your check-ins and calendar.';
+    $('hFoot').classList.add('hide'); $('hConfirm').classList.remove('hide');
+  });
   $('hKeep').addEventListener('click', () => { $('hConfirm').classList.add('hide'); $('hFoot').classList.remove('hide'); });
   $('hYes').addEventListener('click', () => { if (editing) { data.habits[editing].deleted = true; data.habits[editing].u = Date.now(); closeDlg($('habitDlg')); changed(); } });
 

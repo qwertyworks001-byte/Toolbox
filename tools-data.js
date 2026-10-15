@@ -291,8 +291,8 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'timers',
     name: 'Timers',
-    description: 'Stopwatch, countdown timer, alarm, and a repeating interval loop (e.g. 90/20 min cycles).',
-    tags: ['timer', 'stopwatch', 'alarm', 'countdown', 'interval', 'loop', 'pomodoro', 'laps', 'alarm clock', 'notifications', 'study', 'workout'],
+    description: 'Stopwatch, countdown timer, alarm, and a repeating interval loop (e.g. 90/20 min cycles). Tip: search "30 second timer" or "alarm for 7:30am" on the homepage to start one instantly.',
+    tags: ['timer', 'stopwatch', 'alarm', 'countdown', 'interval', 'loop', 'pomodoro', 'laps', 'alarm clock', 'notifications', 'study', 'workout', 'set timer', 'set alarm'],
     categories: ['utilities', 'health'],
     path: 'Timers/timers.html',
     color: '#fbbf24',
