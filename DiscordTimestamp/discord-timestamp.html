@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord Timestamp Generator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  .row { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+  .row:hover { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; color: #93c5fd; overflow-wrap: anywhere; }
+  .prev { font-size: 1.05rem; color: #f1f5f9; overflow-wrap: anywhere; }
+  .copy-btn { flex: none; min-width: 5.2rem; }
+  .copy-btn.done { border-color: #10b981; color: #6ee7b7; }
+  .off .row { opacity: 0.4; pointer-events: none; }
+  input[type="datetime-local"] { min-height: 2.5rem; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="root">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Discord Timestamp Generator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Pick a date and time, copy the code, and paste it into Discord. Everyone sees it in their own time zone.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label for="dt" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Date and time</label>
+        <input type="datetime-local" id="dt" step="1" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+        <label for="tz" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Time zone of that time</label>
+        <select id="tz" class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="nowBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Now</button>
+        <button type="button" data-add="900" class="add text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+15 min</button>
+        <button type="button" data-add="3600" class="add text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+1 hour</button>
+        <button type="button" data-add="86400" class="add text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+1 day</button>
+        <button type="button" data-add="604800" class="add text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">+1 week</button>
+      </div>
+      <label class="inline-flex items-center gap-2 text-xs text-slate-400 sm:ml-auto">Unix time
+        <input type="text" id="unix" inputmode="numeric" spellcheck="false" class="w-36 bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </label>
+    </div>
+    <p class="text-xs text-amber-400 mt-3 hidden" id="err"></p>
+  </div>
+
+  <div class="glass rounded-2xl p-6" id="results">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="text-sm font-semibold text-white">Copy a format</h2>
+      <span class="text-xs text-slate-400" id="whenText" aria-live="polite"></span>
+    </div>
+    <div id="list"></div>
+    <p class="text-xs text-slate-500 mt-3">The previews use this device&rsquo;s language and time zone. In Discord, each person sees the time in their own. Paste the code into a normal message: it will not turn into a time inside a code block.</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const dtIn = $('dt'), tzSel = $('tz'), unixIn = $('unix'), list = $('list');
+  const TZ_KEY = 'toolbox:discord-timestamp:tz';
+  const DEVICE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } })();
+  const pad = n => (n < 10 ? '0' : '') + n;
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  let ts = null;                       // unix seconds, or null when the inputs are not valid
+
+  /* ---------- time zone maths ---------- */
+  function wallParts(ms, tz) {
+    const p = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(new Date(ms)).forEach(x => { p[x.type] = x.value; });
+    return p;
+  }
+  function tzOffset(ms, tz) {           // how far the zone's clock is ahead of UTC at this instant, in ms
+    const p = wallParts(ms, tz);
+    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000;
+  }
+  function wallToUtc(y, mo, d, h, mi, s, tz) {   // the clock reading y-mo-d h:mi:s in zone tz -> UTC ms
+    const guess = Date.UTC(y, mo - 1, d, h, mi, s);
+    let u = guess - tzOffset(guess, tz);
+    const off2 = tzOffset(u, tz);
+    if (guess - off2 !== u) u = guess - off2;     // we crossed a daylight saving change
+    return u;
+  }
+  function toInputValue(sec, tz) {
+    const p = wallParts(sec * 1000, tz);
+    return p.year + '-' + p.month + '-' + p.day + 'T' + pad(+p.hour % 24) + ':' + p.minute + ':' + p.second;
+  }
+  function fromInput() {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(dtIn.value);
+    if (!m) return null;
+    return Math.floor(wallToUtc(+m[1], +m[2], +m[3], +m[4], +m[5], +(m[6] || 0), tzSel.value) / 1000);
+  }
+
+  /* ---------- time zone list ---------- */
+  function buildZones() {
+    let zones = [];
+    try { if (Intl.supportedValuesOf) zones = Intl.supportedValuesOf('timeZone'); } catch (e) {}
+    if (!zones.length) zones = ['Pacific/Auckland', 'Australia/Sydney', 'Asia/Tokyo', 'Asia/Kolkata', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+    if (!zones.includes('UTC')) zones = ['UTC'].concat(zones);
+    const label = z => z.replace(/_/g, ' ');
+    let saved = null; try { saved = localStorage.getItem(TZ_KEY); } catch (e) {}
+    tzSel.innerHTML = `<option value="${esc(DEVICE_TZ)}">Your device (${esc(label(DEVICE_TZ))})</option>` +
+      zones.map(z => `<option value="${esc(z)}">${esc(label(z))}</option>`).join('');
+    tzSel.value = saved && (zones.includes(saved) || saved === DEVICE_TZ) ? saved : DEVICE_TZ;
+  }
+
+  /* ---------- formats ---------- */
+  const FORMATS = [
+    { f: 't', name: 'Short time' },
+    { f: 'T', name: 'Long time' },
+    { f: 'd', name: 'Short date' },
+    { f: 'D', name: 'Long date' },
+    { f: 'f', name: 'Short date and time' },
+    { f: 'F', name: 'Long date and time' },
+    { f: 'R', name: 'Relative' }
+  ];
+  const loc = (() => { try { return navigator.language || 'en-US'; } catch (e) { return 'en-US'; } })();
+  const fmt = (o, d) => new Intl.DateTimeFormat(loc, o).format(d);
+  const T_SHORT = { hour: 'numeric', minute: '2-digit' }, T_LONG = { hour: 'numeric', minute: '2-digit', second: '2-digit' };
+  const D_LONG = { year: 'numeric', month: 'long', day: 'numeric' };
+  function relative(sec) {
+    const diff = sec - Math.floor(Date.now() / 1000), a = Math.abs(diff);
+    const rtf = new Intl.RelativeTimeFormat(loc, { numeric: 'always' });
+    const units = [['year', 31536000], ['month', 2592000], ['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]];
+    for (const [u, s] of units) if (a >= s || u === 'second') return rtf.format(Math.trunc(diff / s), u);
+  }
+  function preview(f, sec) {
+    const d = new Date(sec * 1000);
+    switch (f) {
+      case 't': return fmt(T_SHORT, d);
+      case 'T': return fmt(T_LONG, d);
+      case 'd': return fmt({ year: 'numeric', month: '2-digit', day: '2-digit' }, d);
+      case 'D': return fmt(D_LONG, d);
+      case 'f': return fmt(D_LONG, d) + ' ' + fmt(T_SHORT, d);
+      case 'F': return fmt(Object.assign({ weekday: 'long' }, D_LONG), d) + ' ' + fmt(T_SHORT, d);
+      default: return relative(sec);
+    }
+  }
+  const code = (f, sec) => '<t:' + sec + ':' + f + '>';
+
+  /* ---------- rendering ---------- */
+  function render() {
+    const ok = ts !== null;
+    $('results').classList.toggle('off', !ok);
+    $('whenText').textContent = ok ? 'Unix time ' + ts : '';
+    list.innerHTML = FORMATS.map(x => `<div class="row bg-slate-900/50 border border-slate-700 rounded-lg p-3 mb-2 flex items-start gap-3" data-f="${x.f}" role="button" tabindex="0" aria-label="Copy ${esc(x.name)}">
+      <div class="min-w-0 flex-1"><div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1">${esc(x.name)}</div>
+        <div class="prev" data-prev="${x.f}">${ok ? esc(preview(x.f, ts)) : '&mdash;'}</div>
+        <div class="code mt-1">${ok ? esc(code(x.f, ts)) : ''}</div></div>
+      <button type="button" class="copy-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300">Copy</button></div>`).join('');
+  }
+  function showError(msg) { const e = $('err'); e.textContent = msg; e.classList.toggle('hidden', !msg); }
+
+  // set the timestamp and (optionally) refresh the other inputs from it
+  function setTs(sec, syncInputs) {
+    ts = sec;
+    if (sec !== null && syncInputs !== 'none') {
+      if (syncInputs !== 'dt') dtIn.value = toInputValue(sec, tzSel.value);
+      if (syncInputs !== 'unix') unixIn.value = String(sec);
+    }
+    render();
+  }
+
+  /* ---------- events ---------- */
+  dtIn.addEventListener('input', () => {
+    const v = fromInput();
+    if (v === null) { showError('Pick a full date and time.'); setTs(null, 'none'); return; }
+    showError(''); setTs(v, 'dt');
+  });
+  tzSel.addEventListener('change', () => {
+    try { localStorage.setItem(TZ_KEY, tzSel.value); } catch (e) {}
+    const v = fromInput();           // keep the clock reading, change which zone it is in
+    if (v === null) return;
+    showError(''); setTs(v, 'tz');
+  });
+  unixIn.addEventListener('input', () => {
+    const t = unixIn.value.trim();
+    if (!/^-?\d{1,11}$/.test(t)) { showError(t ? 'Unix time is a whole number of seconds, like 1790000000.' : ''); setTs(null, 'none'); return; }
+    showError(''); setTs(parseInt(t, 10), 'unix');
+  });
+  $('nowBtn').addEventListener('click', () => { showError(''); setTs(Math.floor(Date.now() / 1000)); });
+  document.querySelectorAll('.add').forEach(b => b.addEventListener('click', () => {
+    showError(''); setTs((ts === null ? Math.floor(Date.now() / 1000) : ts) + (+b.dataset.add));
+  }));
+
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+    try {
+      const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+  async function copyRow(row) {
+    if (ts === null) return;
+    const btn = row.querySelector('.copy-btn'), ok = await copyText(code(row.dataset.f, ts));
+    btn.textContent = ok ? '\u2713 Copied' : 'Copy failed'; btn.classList.toggle('done', ok);
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1200);
+  }
+  list.addEventListener('click', e => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const sel = window.getSelection && String(window.getSelection());
+    if (sel && !e.target.closest('.copy-btn')) return;
+    copyRow(row);
+  });
+  list.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('row')) { e.preventDefault(); copyRow(e.target); }
+  });
+
+  // keep the "in 3 hours" preview ticking without redrawing the whole list
+  setInterval(() => {
+    if (ts === null || document.hidden) return;
+    const el = list.querySelector('[data-prev="R"]'); if (el) el.textContent = relative(ts);
+  }, 1000);
+
+  /* ---------- boot ---------- */
+  buildZones();
+  const start = Math.floor(Date.now() / 1000);
+  setTs(start - (start % 60) + 3600);          // default: one hour from now, rounded down to the minute
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'discord-timestamp';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

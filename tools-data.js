@@ -416,4 +416,44 @@ window.TOOLBOX_TOOLS = [
     color: '#f59e0b',
     popular: false
   },
+  {
+    id: 'fancy-text',
+    name: 'Fancy Text & Discord Fonts',
+    description: 'Turn your text into dozens of fonts and styles (bold, script, gothic, bubble, small caps, strikethrough and more) plus Discord formatting. Click to copy.',
+    tags: ['discord fonts', 'discord', 'fonts', 'font generator', 'fancy text', 'text generator', 'cool text', 'cursive', 'gothic', 'bubble text', 'unicode', 'nitro', 'bold', 'strikethrough', 'markdown', 'copy paste', 'stylish text'],
+    categories: ['utilities', 'random'],
+    path: 'FancyText/fancy-text.html',
+    color: '#5865f2',
+    popular: false
+  },
+  {
+    id: 'discord-timestamp',
+    name: 'Discord Timestamp Generator',
+    description: 'Pick a date and time and get the Discord timestamp code, which shows in every reader\'s own time zone. Seven formats, one click to copy.',
+    tags: ['discord', 'discord timestamp', 'timestamp', 'hammertime', 'time zone', 'timezone', 'unix', 'epoch', 'relative time', 'countdown', 'event time', 'meeting', 'chat', 'copy paste', 'convert time'],
+    categories: ['utilities', 'developer'],
+    path: 'DiscordTimestamp/discord-timestamp.html',
+    color: '#7289da',
+    popular: false
+  },
+  {
+    id: 'discord-colored-text',
+    name: 'Discord Colored Text Generator',
+    description: 'Select parts of your message, colour them, and copy a Discord-ready code block. Text and background colours, bold, italic, underline, strikethrough and rainbow.',
+    tags: ['discord', 'colored text', 'coloured text', 'discord colors', 'ansi', 'color text', 'colour', 'rainbow', 'code block', 'text color', 'background color', 'formatting', 'chat', 'copy paste', 'bold'],
+    categories: ['utilities', 'design'],
+    path: 'DiscordColoredText/discord-colored-text.html',
+    color: '#6c71c4',
+    popular: false
+  },
+  {
+    id: 'puzzle-generator',
+    name: 'Puzzle Generator',
+    description: 'Make your own puzzles. Crossword maker: paste words and clues to get a numbered grid you can solve on screen, print, or download. More puzzle types coming.',
+    tags: ['puzzle', 'crossword', 'crossword maker', 'crossword generator', 'word puzzle', 'clues', 'sudoku', 'word search', 'games', 'teacher', 'worksheet', 'printable', 'brain teaser'],
+    categories: ['random', 'utilities'],
+    path: 'PuzzleGenerator/puzzle-generator.html',
+    color: '#ff7a59',
+    popular: false
+  },
 ];

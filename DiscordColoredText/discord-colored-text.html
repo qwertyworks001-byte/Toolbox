@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discord Colored Text Generator</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  #ed { min-height: 11rem; max-height: 60vh; overflow: auto; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #334155; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.875rem; line-height: 1.35rem; background: var(--ebg, #313338); color: var(--efg, #dbdee1); }
+  #ed:empty::before { content: attr(data-placeholder); color: #64748b; pointer-events: none; }
+  #ed:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+  #ed ::selection, #ed::selection { background: rgba(88, 101, 242, 0.45); }
+  .sw { width: 2rem; height: 2rem; border-radius: 0.4rem; border: 2px solid rgba(255,255,255,0.18); cursor: pointer; transition: transform 0.1s ease, border-color 0.15s ease; flex: none; }
+  .sw:hover { transform: translateY(-1px); border-color: #fff; }
+  .sw:active { transform: scale(0.93); }
+  .fmt { min-width: 2.4rem; }
+  .lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; width: 5.4rem; flex: none; }
+  #outBox { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; white-space: pre-wrap; overflow-wrap: anywhere; color: #cbd5e1; }
+  .esc { color: #fbbf24; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="root">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Discord Colored Text Generator</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Type your message, select some text, pick a colour, then copy it and paste it into Discord.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <div class="flex flex-col gap-3 mb-4" id="toolbar">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="lab">Style</span>
+        <button type="button" data-flag="b" class="fmt text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 font-bold" title="Bold (Ctrl+B)">B</button>
+        <button type="button" data-flag="i" class="fmt text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 italic" title="Italic (Ctrl+I)">I</button>
+        <button type="button" data-flag="u" class="fmt text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 underline" title="Underline (Ctrl+U)">U</button>
+        <button type="button" data-flag="s" class="fmt text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400 line-through" title="Strikethrough">S</button>
+        <button type="button" id="rainbowBtn" class="text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">&#127752; Rainbow</button>
+        <button type="button" id="clearSelBtn" class="text-sm px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Clear style</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-2"><span class="lab">Text colour</span><div class="flex flex-wrap gap-2" id="fgRow"></div></div>
+      <div class="flex flex-wrap items-center gap-2"><span class="lab">Background</span><div class="flex flex-wrap gap-2" id="bgRow"></div></div>
+      <p class="text-xs text-amber-400 hidden" id="hint" role="status"></p>
+    </div>
+
+    <div id="ed" contenteditable="plaintext-only" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Your message" data-placeholder="Type or paste your message, then select part of it and pick a colour..."></div>
+
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-3 mt-4">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="copyBtn" class="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Copy for Discord</button>
+        <button type="button" id="exampleBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Example</button>
+        <button type="button" id="resetBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Reset all styles</button>
+        <button type="button" id="clearBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Clear text</button>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400 sm:ml-auto">
+        <label class="inline-flex items-center gap-1.5">Preview as
+          <select id="theme" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1 text-slate-200">
+            <option value="light">Light</option><option value="ash">Ash</option><option value="dark">Dark</option><option value="onyx">Onyx</option>
+          </select>
+        </label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="optBlock" class="accent-blue-500" checked> Wrap in a code block</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-white">What gets copied</h2>
+      <span class="text-xs text-slate-400" id="count" aria-live="polite"></span>
+    </div>
+    <div id="outBox" class="bg-slate-900/50 border border-slate-700 rounded-lg p-3 max-h-60 overflow-auto"></div>
+    <p class="text-xs text-slate-500 mt-3">Discord shows colours inside an <code>ansi</code> code block, so keep &ldquo;Wrap in a code block&rdquo; on when pasting into a normal message. Colours show on Discord desktop and the web, and some mobile apps may show the raw codes instead. The preview colours and backgrounds are close to Discord&rsquo;s but not exact. This is an unofficial tool.</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const ed = $('ed');
+  const KEY = 'toolbox:discord-colored-text', THEME_KEY = 'toolbox:discord-colored-text:theme';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /* ---------- palette ---------- */
+  const FG = [
+    { c: 30, n: 'Dark gray', h: '#4f545c' }, { c: 31, n: 'Red', h: '#dc322f' }, { c: 32, n: 'Yellowish green', h: '#859900' }, { c: 33, n: 'Gold', h: '#b58900' },
+    { c: 34, n: 'Light blue', h: '#268bd2' }, { c: 35, n: 'Pink', h: '#d33682' }, { c: 36, n: 'Teal', h: '#2aa198' }, { c: 37, n: 'White', h: '#ffffff' }
+  ];
+  const BG = [
+    { c: 40, n: 'Blueish black', h: '#002b36' }, { c: 41, n: 'Rust brown', h: '#cb4b16' }, { c: 42, n: 'Gray (40%)', h: '#586e75' }, { c: 43, n: 'Gray (45%)', h: '#657b83' },
+    { c: 44, n: 'Light gray (55%)', h: '#839496' }, { c: 45, n: 'Blurple', h: '#6c71c4' }, { c: 46, n: 'Light gray (60%)', h: '#93a1a1' }, { c: 47, n: 'Cream white', h: '#fdf6e3' }
+  ];
+  const HEX = {}; FG.concat(BG).forEach(x => { HEX[x.c] = x.h; });
+  const RAINBOW = [31, 33, 32, 36, 34, 35];
+  const THEMES = { light: { bg: '#fbfbfb', fg: '#2e3338' }, ash: { bg: '#313338', fg: '#dbdee1' }, dark: { bg: '#1e1f22', fg: '#dbdee1' }, onyx: { bg: '#000000', fg: '#dbdee1' } };
+
+  /* ---------- model: the text plus one style per character ---------- */
+  const mk = (fg, bg, b, i, u, s) => { fg = fg || 0; bg = bg || 0; b = +!!b; i = +!!i; u = +!!u; s = +!!s; return { fg, bg, b, i, u, s, k: [fg, bg, b, i, u, s].join('|') }; };
+  const PLAIN = mk(0, 0, 0, 0, 0, 0);
+  const isPlain = st => st.k === PLAIN.k;
+  const withS = (st, o) => mk(o.fg !== undefined ? o.fg : st.fg, o.bg !== undefined ? o.bg : st.bg, o.b !== undefined ? o.b : st.b, o.i !== undefined ? o.i : st.i, o.u !== undefined ? o.u : st.u, o.s !== undefined ? o.s : st.s);
+  let text = '', S = [];
+
+  function css(st) {
+    let c = '';
+    if (st.fg) c += 'color:' + HEX[st.fg] + ';';
+    if (st.bg) c += 'background:' + HEX[st.bg] + ';';
+    if (st.b) c += 'font-weight:700;';
+    if (st.i) c += 'font-style:italic;';
+    const dec = (st.u ? 'underline ' : '') + (st.s ? 'line-through' : '');
+    if (dec) c += 'text-decoration:' + dec.trim() + ';';
+    return c;
+  }
+  function render() {
+    let html = '', i = 0;
+    while (i < text.length) {
+      let j = i; const k = S[i].k;
+      while (j < text.length && S[j].k === k) j++;
+      const chunk = esc(text.slice(i, j)), c = css(S[i]);
+      html += c ? `<span style="${c}">${chunk}</span>` : chunk;
+      i = j;
+    }
+    if (text.endsWith('\n')) html += '<br data-end="1">';     // so the caret can sit on the empty last line
+    ed.innerHTML = html;
+  }
+
+  /* ---------- reading the editor and its selection ---------- */
+  function readText(n) {
+    let s = '';
+    n.childNodes.forEach(c => {
+      if (c.nodeType === 3) s += c.nodeValue;
+      else if (c.nodeName === 'BR') { if (!(c.dataset && c.dataset.end)) s += '\n'; }
+      else s += readText(c);
+    });
+    return s;
+  }
+  function offsetOf(container, offset) {
+    const r = document.createRange(); r.selectNodeContents(ed); r.setEnd(container, offset);
+    return readText(r.cloneContents()).length;
+  }
+  function getOffsets() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const r = sel.getRangeAt(0);
+    if (!ed.contains(r.startContainer) || !ed.contains(r.endContainer)) return null;
+    const a = offsetOf(r.startContainer, r.startOffset), b = offsetOf(r.endContainer, r.endOffset);
+    return [Math.min(a, b), Math.max(a, b)];
+  }
+  function locate(pos) {
+    const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT); let n, acc = 0;
+    while ((n = w.nextNode())) { const len = n.nodeValue.length; if (pos <= acc + len) return [n, pos - acc]; acc += len; }
+    return [ed, ed.childNodes.length];
+  }
+  function setOffsets(o) {
+    if (!o) return;
+    try {
+      const r = document.createRange(), a = locate(o[0]), b = locate(o[1]);
+      r.setStart(a[0], a[1]); r.setEnd(b[0], b[1]);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    } catch (e) {}
+  }
+  let lastSel = null;
+  document.addEventListener('selectionchange', () => { if (document.activeElement === ed) { const o = getOffsets(); if (o) lastSel = o; } });
+
+  /* ---------- editing ---------- */
+  let composing = false;
+  function onInput() {
+    if (composing) return;
+    const o = getOffsets(), old = text, nt = readText(ed);
+    const m = Math.min(old.length, nt.length); let p = 0, s = 0;
+    while (p < m && old[p] === nt[p]) p++;
+    while (s < m - p && old[old.length - 1 - s] === nt[nt.length - 1 - s]) s++;
+    const base = p > 0 ? S[p - 1] : (S[0] || PLAIN);        // typed text takes the style of the character before it
+    S = S.slice(0, p).concat(new Array(nt.length - p - s).fill(base), S.slice(old.length - s));
+    text = nt; render(); setOffsets(o); lastSel = o || lastSel; changed();
+  }
+  ed.addEventListener('input', onInput);
+  ed.addEventListener('compositionstart', () => { composing = true; });
+  ed.addEventListener('compositionend', () => { composing = false; onInput(); });
+  ed.addEventListener('beforeinput', e => {
+    if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') { e.preventDefault(); document.execCommand('insertText', false, '\n'); }
+  });
+  ed.addEventListener('paste', e => {
+    e.preventDefault();
+    const t = ((e.clipboardData || window.clipboardData).getData('text/plain') || '').replace(/\r\n?/g, '\n');
+    if (t) document.execCommand('insertText', false, t);
+  });
+  if (ed.contentEditable !== 'plaintext-only') ed.contentEditable = 'true';     // older browsers: the handlers above keep it plain text
+
+  /* ---------- applying styles to the selection ---------- */
+  let hintTimer = null;
+  function hint(msg) {
+    const h = $('hint'); h.textContent = msg; h.classList.toggle('hidden', !msg);
+    clearTimeout(hintTimer); if (msg) hintTimer = setTimeout(() => hint(''), 3500);
+  }
+  function currentSel() { return (document.activeElement === ed ? getOffsets() : null) || lastSel; }
+  function apply(fn) {
+    const sel = currentSel();
+    if (!sel || sel[0] === sel[1] || sel[1] > text.length) { hint('Select some text first, then pick a colour or style.'); return; }
+    hint('');
+    for (let i = sel[0]; i < sel[1]; i++) S[i] = fn(S[i], i);
+    const focused = document.activeElement === ed;
+    render(); if (focused) setOffsets(sel);
+    lastSel = sel; changed();
+  }
+  const range = () => { const s = currentSel(); return s && s[0] < s[1] ? S.slice(s[0], s[1]) : []; };
+  function setColor(prop, code) {
+    const r = range(), same = r.length && r.every(st => st[prop] === code);
+    apply(st => withS(st, { [prop]: same ? 0 : code }));        // picking the colour it already has removes it
+  }
+  function toggle(flag) {
+    const r = range(), all = r.length && r.every(st => st[flag]);
+    apply(st => withS(st, { [flag]: all ? 0 : 1 }));
+  }
+  function rainbow() {
+    let n = 0;
+    apply((st, i) => /\s/.test(text[i]) ? st : withS(st, { fg: RAINBOW[n++ % RAINBOW.length] }));
+  }
+
+  /* ---------- toolbar ---------- */
+  function swatches(host, list, prop) {
+    host.innerHTML = list.map(x => `<button type="button" class="sw" data-prop="${prop}" data-c="${x.c}" style="background:${x.h}" title="${x.n}" aria-label="${prop === 'fg' ? 'Text' : 'Background'} colour: ${x.n}"></button>`).join('');
+  }
+  swatches($('fgRow'), FG, 'fg'); swatches($('bgRow'), BG, 'bg');
+  $('toolbar').addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });     // keep the text selection while clicking
+  $('toolbar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.prop) setColor(b.dataset.prop, +b.dataset.c);
+    else if (b.dataset.flag) toggle(b.dataset.flag);
+    else if (b.id === 'rainbowBtn') rainbow();
+    else if (b.id === 'clearSelBtn') apply(() => PLAIN);
+  });
+  ed.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+    const f = { b: 'b', i: 'i', u: 'u' }[e.key.toLowerCase()];
+    if (f) { e.preventDefault(); toggle(f); }
+  });
+
+  /* ---------- output ---------- */
+  const ESC = '\x1b';
+  function codes(st) { return [st.b && 1, st.i && 3, st.u && 4, st.s && 9, st.fg, st.bg].filter(Boolean).join(';'); }
+  function ansi() {
+    let out = '', cur = PLAIN;
+    for (let i = 0; i < text.length; i++) {
+      const st = S[i];
+      if (st.k !== cur.k) { out += isPlain(st) ? ESC + '[0m' : ESC + '[0;' + codes(st) + 'm'; cur = st; }
+      out += text[i];
+    }
+    if (!isPlain(cur)) out += ESC + '[0m';
+    return out;
+  }
+  const finalText = () => { const a = ansi(); return $('optBlock').checked ? '```ansi\n' + a + '\n```' : a; };
+
+  function updateOutput() {
+    const box = $('outBox'), count = $('count');
+    if (!text) { box.innerHTML = '<span class="text-slate-500">Nothing yet. Type a message above.</span>'; count.textContent = ''; return; }
+    const t = finalText();
+    box.innerHTML = esc(t).replace(/\x1b/g, '<span class="esc" title="Escape character">&#9243;</span>');
+    count.textContent = t.length + ' characters' + (t.length > 2000 ? ' · over Discord\u2019s 2,000 limit (4,000 with Nitro)' : '');
+    count.style.color = t.length > 2000 ? '#fbbf24' : '';
+  }
+
+  /* ---------- saving ---------- */
+  function save() {
+    const runs = []; let i = 0;
+    while (i < text.length) { let j = i; while (j < text.length && S[j].k === S[i].k) j++; const st = S[i]; runs.push([text.slice(i, j), st.fg, st.bg, st.b, st.i, st.u, st.s]); i = j; }
+    try { localStorage.setItem(KEY, JSON.stringify(runs)); } catch (e) {}
+  }
+  function load(runs) {
+    text = ''; S = [];
+    (runs || []).forEach(r => { if (!Array.isArray(r) || typeof r[0] !== 'string') return; const st = mk(+r[1] || 0, +r[2] || 0, r[3], r[4], r[5], r[6]); text += r[0]; for (let n = 0; n < r[0].length; n++) S.push(st); });
+    render(); updateOutput();
+  }
+  function changed() { updateOutput(); save(); }
+
+  /* ---------- buttons ---------- */
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+    try {
+      const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+  $('copyBtn').addEventListener('click', async () => {
+    const btn = $('copyBtn');
+    if (!text) { btn.textContent = 'Type something first'; setTimeout(() => { btn.textContent = 'Copy for Discord'; }, 1400); return; }
+    btn.textContent = (await copyText(finalText())) ? '\u2713 Copied' : 'Copy failed';
+    setTimeout(() => { btn.textContent = 'Copy for Discord'; }, 1400);
+  });
+  $('optBlock').addEventListener('change', updateOutput);
+  $('resetBtn').addEventListener('click', () => { S = S.map(() => PLAIN); render(); changed(); });
+  $('clearBtn').addEventListener('click', () => { text = ''; S = []; render(); changed(); ed.focus(); });
+  $('exampleBtn').addEventListener('click', () => load([
+    ['Welcome to the ', 0, 0, 0, 0, 0, 0], ['Colored', 34, 0, 1, 0, 0, 0], [' Text ', 31, 0, 0, 0, 1, 0], ['Generator', 33, 45, 0, 0, 0, 0], ['!\n', 0, 0, 0, 0, 0, 0],
+    ['Make it ', 0, 0, 0, 0, 0, 0], ['stand out', 35, 0, 1, 1, 0, 0], [' or ', 0, 0, 0, 0, 0, 0], ['cross it out', 36, 0, 0, 0, 0, 1]
+  ]) || changed());
+
+  function setTheme(name) {
+    const t = THEMES[name] || THEMES.ash;
+    ed.style.setProperty('--ebg', t.bg); ed.style.setProperty('--efg', t.fg);
+    $('theme').value = THEMES[name] ? name : 'ash';
+  }
+  $('theme').addEventListener('change', e => { setTheme(e.target.value); try { localStorage.setItem(THEME_KEY, e.target.value); } catch (er) {} });
+
+  /* ---------- boot ---------- */
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  let th = 'ash'; try { th = localStorage.getItem(THEME_KEY) || 'ash'; } catch (e) {}
+  setTheme(th);
+  if (Array.isArray(saved) && saved.length) load(saved); else updateOutput();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'discord-colored-text';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

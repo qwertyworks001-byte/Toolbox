@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fancy Text & Discord Fonts</title>
+<link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../style.css">
+<script src="../timer-engine.js"></script>
+<style>
+  textarea { font-family: inherit; }
+  .out { font-size: 1.05rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; color: #f1f5f9; }
+  .row { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+  .row:hover { border-color: #3b82f6; background: rgba(59,130,246,0.06); }
+  .dim .out { color: #64748b; }
+  .copy-btn { flex: none; min-width: 5.2rem; }
+  .copy-btn.done { border-color: #10b981; color: #6ee7b7; }
+  .grp { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin: 1rem 0 0.4rem; }
+  .grp:first-child { margin-top: 0; }
+</style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8" id="root">
+
+  <header class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-blue-400 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+        </svg>
+        Toolbox
+      </a>
+      <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Fancy Text &amp; Discord Fonts</h1>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Type once, get your text in dozens of styles. Click any result to copy it, then paste it into Discord, Roblox, Instagram or anywhere else.</p>
+  </header>
+
+  <div class="glass rounded-2xl p-6 mb-5">
+    <label for="textIn" class="block text-xs uppercase tracking-wider text-slate-500 mb-2">Your text</label>
+    <textarea id="textIn" rows="4" spellcheck="false" placeholder="Type or paste your text..."
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-3 mt-4">
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="exampleBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Example</button>
+        <button type="button" id="clearBtn" class="text-sm px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-blue-400">Clear</button>
+      </div>
+      <span class="text-xs text-slate-500 sm:ml-auto" id="count"></span>
+    </div>
+  </div>
+
+  <div class="glass rounded-2xl p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div class="flex flex-wrap gap-2" role="tablist">
+        <button type="button" class="tab-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="all">All</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="fonts">Fonts</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="effects">Lines &amp; effects</button>
+        <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-tab="discord">Discord formatting</button>
+      </div>
+      <span class="text-xs text-slate-400" id="summary" aria-live="polite"></span>
+    </div>
+    <div id="list" class="max-h-[70vh] overflow-auto pr-1"></div>
+    <p class="text-xs text-slate-500 mt-3">Fonts and effects are special Unicode characters, so they work almost anywhere you can paste text, but a few apps or fonts may show boxes for some styles. Screen readers also read them poorly, so keep important info in plain text. &ldquo;Discord formatting&rdquo; uses Discord&rsquo;s own markdown and only looks styled inside Discord.</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const input = $('textIn'), list = $('list');
+  const KEY = 'toolbox:fancy-text';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /* ---------- text transforms ---------- */
+  // Maps A-Z, a-z (and optionally 0-9) onto a run of Unicode code points. `ex` holds letters whose
+  // code point is a gap in the block and lives elsewhere (e.g. script capital B).
+  function alpha(up, lo, dg, ex) {
+    return s => Array.from(s).map(ch => {
+      if (ex && ex[ch]) return ex[ch];
+      const c = ch.codePointAt(0);
+      if (up !== null && c >= 65 && c <= 90) return String.fromCodePoint(up + c - 65);
+      if (lo !== null && c >= 97 && c <= 122) return String.fromCodePoint(lo + c - 97);
+      if (dg !== null && c >= 48 && c <= 57) return typeof dg === 'function' ? dg(c - 48) : String.fromCodePoint(dg + c - 48);
+      return ch;
+    }).join('');
+  }
+  const table = (from, to, upper) => {
+    const m = {}; Array.from(from).forEach((f, i) => { m[f] = Array.from(to)[i]; });
+    return s => Array.from(s).map(ch => m[ch] !== undefined ? m[ch] : (upper ? (m[ch.toLowerCase()] !== undefined ? m[ch.toLowerCase()] : ch) : ch)).join('');
+  };
+  const combine = mark => s => Array.from(s).map(ch => /\s/.test(ch) ? ch : ch + mark).join('');
+  const lines = f => s => s.split('\n').map(f).join('\n');
+  const LOW = 'abcdefghijklmnopqrstuvwxyz';
+
+  const circDigit = n => n === 0 ? '\u24EA' : String.fromCodePoint(0x2460 + n - 1);
+  const negCircDigit = n => n === 0 ? '\u24FF' : String.fromCodePoint(0x2776 + n - 1);
+  const fullwidth = s => Array.from(s).map(ch => {
+    const c = ch.codePointAt(0);
+    return c === 32 ? '\u3000' : (c > 32 && c < 127) ? String.fromCodePoint(c + 0xFEE0) : ch;
+  }).join('');
+  const flip = s => Array.from(table(
+    LOW + '0123456789.,\'!?()[]{}<>&_',
+    '\u0250q\u0254p\u01DD\u025F\u0183\u0265\u1D09\u027E\u029El\u026Fuod\u0062\u0279s\u0287n\u028C\u028Dx\u028Ez' + '0\u0196\u1105\u0190\u3123\u03DB9\u3125' + '86' + '\u02D9\',\u00A1\u00BF)(][}{><\u214B\u203E', true)(s)).reverse().join('');
+
+  const STYLES = [
+    // fonts
+    { g: 'fonts', n: 'Bold', f: alpha(0x1D400, 0x1D41A, 0x1D7CE) },
+    { g: 'fonts', n: 'Italic', f: alpha(0x1D434, 0x1D44E, null, { h: '\u210E' }) },
+    { g: 'fonts', n: 'Bold italic', f: alpha(0x1D468, 0x1D482, null) },
+    { g: 'fonts', n: 'Script', f: alpha(0x1D49C, 0x1D4B6, null, { B: '\u212C', E: '\u2130', F: '\u2131', H: '\u210B', I: '\u2110', L: '\u2112', M: '\u2133', R: '\u211B', e: '\u212F', g: '\u210A', o: '\u2134' }) },
+    { g: 'fonts', n: 'Bold script', f: alpha(0x1D4D0, 0x1D4EA, 0x1D7CE) },
+    { g: 'fonts', n: 'Fraktur', f: alpha(0x1D504, 0x1D51E, null, { C: '\u212D', H: '\u210C', I: '\u2111', R: '\u211C', Z: '\u2128' }) },
+    { g: 'fonts', n: 'Bold fraktur', f: alpha(0x1D56C, 0x1D586, 0x1D7CE) },
+    { g: 'fonts', n: 'Double-struck', f: alpha(0x1D538, 0x1D552, 0x1D7D8, { C: '\u2102', H: '\u210D', N: '\u2115', P: '\u2119', Q: '\u211A', R: '\u211D', Z: '\u2124' }) },
+    { g: 'fonts', n: 'Sans-serif', f: alpha(0x1D5A0, 0x1D5BA, 0x1D7E2) },
+    { g: 'fonts', n: 'Sans-serif bold', f: alpha(0x1D5D4, 0x1D5EE, 0x1D7EC) },
+    { g: 'fonts', n: 'Sans-serif italic', f: alpha(0x1D608, 0x1D622, 0x1D7E2) },
+    { g: 'fonts', n: 'Sans-serif bold italic', f: alpha(0x1D63C, 0x1D656, 0x1D7EC) },
+    { g: 'fonts', n: 'Monospace', f: alpha(0x1D670, 0x1D68A, 0x1D7F6) },
+    { g: 'fonts', n: 'Fullwidth (vaporwave)', f: fullwidth },
+    { g: 'fonts', n: 'Circled', f: alpha(0x24B6, 0x24D0, circDigit) },
+    { g: 'fonts', n: 'Filled circles', f: s => alpha(0x1F150, 0x1F150, negCircDigit)(s.toUpperCase()) },
+    { g: 'fonts', n: 'Squared', f: s => alpha(0x1F130, 0x1F130, null)(s.toUpperCase()) },
+    { g: 'fonts', n: 'Filled squares', f: s => alpha(0x1F170, 0x1F170, null)(s.toUpperCase()) },
+    { g: 'fonts', n: 'Small caps', f: table(LOW, '\u1D00\u0299\u1D04\u1D05\u1D07\uA730\u0262\u029C\u026A\u1D0A\u1D0B\u029F\u1D0D\u0274\u1D0F\u1D18\u01EB\u0280\uA731\u1D1B\u1D1C\u1D20\u1D21x\u028F\u1D22', true) },
+    { g: 'fonts', n: 'Superscript', f: table(LOW + '0123456789', '\u1D43\u1D47\u1D9C\u1D48\u1D49\u1DA0\u1D4D\u02B0\u2071\u02B2\u1D4F\u02E1\u1D50\u207F\u1D52\u1D56q\u02B3\u02E2\u1D57\u1D58\u1D5B\u02B7\u02E3\u02B8\u1DBB\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079', true) },
+    { g: 'fonts', n: 'Upside down', f: flip },
+    // effects
+    { g: 'effects', n: 'Strikethrough', f: combine('\u0336') },
+    { g: 'effects', n: 'Underline', f: combine('\u0332') },
+    { g: 'effects', n: 'Double underline', f: combine('\u0333') },
+    { g: 'effects', n: 'Slashed', f: combine('\u0338') },
+    { g: 'effects', n: 'Overline', f: combine('\u0305') },
+    { g: 'effects', n: 'Spaced out', f: s => Array.from(s).join('\u2009') },
+    { g: 'effects', n: 'Dotted', f: s => Array.from(s).map(ch => /\s/.test(ch) ? ch : ch + '\u0307').join('') },
+    { g: 'effects', n: 'Sparkle border', f: s => s ? '\u2728 ' + s + ' \u2728' : '' },
+    // discord markdown
+    { g: 'discord', n: 'Bold', f: s => '**' + s + '**' },
+    { g: 'discord', n: 'Italic', f: s => '*' + s + '*' },
+    { g: 'discord', n: 'Bold italic', f: s => '***' + s + '***' },
+    { g: 'discord', n: 'Underline', f: s => '__' + s + '__' },
+    { g: 'discord', n: 'Strikethrough', f: s => '~~' + s + '~~' },
+    { g: 'discord', n: 'Spoiler', f: s => '||' + s + '||' },
+    { g: 'discord', n: 'Inline code', f: s => '`' + s + '`' },
+    { g: 'discord', n: 'Code block', f: s => '```\n' + s + '\n```' },
+    { g: 'discord', n: 'Quote', f: lines(l => '> ' + l) },
+    { g: 'discord', n: 'Big heading', f: lines(l => '# ' + l) },
+    { g: 'discord', n: 'Medium heading', f: lines(l => '## ' + l) },
+    { g: 'discord', n: 'Small heading', f: lines(l => '### ' + l) },
+    { g: 'discord', n: 'Subtext', f: lines(l => '-# ' + l) },
+    { g: 'discord', n: 'Bullet list', f: lines(l => '- ' + l) }
+  ];
+  const GROUPS = { fonts: 'Fonts', effects: 'Lines & effects', discord: 'Discord formatting (works in Discord only)' };
+
+  /* ---------- rendering ---------- */
+  let tab = 'all', results = [];
+  const SAMPLE = 'Your text here';
+
+  function render() {
+    const raw = input.value, empty = !raw.trim(), txt = empty ? SAMPLE : raw;
+    $('count').textContent = empty ? '' : Array.from(raw).length + ' characters';
+    results = [];
+    let html = '', lastG = null;
+    STYLES.forEach(st => {
+      if (tab !== 'all' && st.g !== tab) return;
+      const out = st.f(txt), i = results.push(empty ? '' : out) - 1;
+      if (st.g !== lastG) { html += `<div class="grp">${GROUPS[st.g]}</div>`; lastG = st.g; }
+      html += `<div class="row bg-slate-900/50 border border-slate-700 rounded-lg p-3 mb-2 flex items-start gap-3${empty ? ' dim' : ''}" data-i="${i}" role="button" tabindex="0" aria-label="Copy ${esc(st.n)}">
+        <div class="min-w-0 flex-1"><div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1">${esc(st.n)}</div><div class="out">${esc(out)}</div></div>
+        <button type="button" class="copy-btn text-xs px-3 py-1.5 rounded-full bg-slate-800 border border-slate-600 text-slate-300">Copy</button></div>`;
+    });
+    list.innerHTML = html;
+    $('summary').textContent = results.length + ' styles' + (empty ? ' · type something above to try them' : '');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  }
+
+  /* ---------- copy ---------- */
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+    try {
+      const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e) { return false; }
+  }
+  async function copyRow(row) {
+    const btn = row.querySelector('.copy-btn'), text = results[+row.dataset.i];
+    if (!text) { btn.textContent = 'Type first'; setTimeout(() => { btn.textContent = 'Copy'; }, 1200); input.focus(); return; }
+    const ok = await copyText(text);
+    btn.textContent = ok ? '\u2713 Copied' : 'Copy failed'; btn.classList.toggle('done', ok);
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1200);
+  }
+  list.addEventListener('click', e => {
+    const row = e.target.closest('.row'); if (!row) return;
+    const sel = window.getSelection && String(window.getSelection());
+    if (sel && !e.target.closest('.copy-btn')) return;       // they are selecting text by hand: don't override it
+    copyRow(row);
+  });
+  list.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('row')) { e.preventDefault(); copyRow(e.target); }
+  });
+
+  /* ---------- events ---------- */
+  input.addEventListener('input', () => { try { localStorage.setItem(KEY, input.value); } catch (e) {} render(); });
+  $('clearBtn').addEventListener('click', () => { input.value = ''; try { localStorage.removeItem(KEY); } catch (e) {} render(); input.focus(); });
+  $('exampleBtn').addEventListener('click', () => { input.value = 'Hello world, this is my cool text!'; try { localStorage.setItem(KEY, input.value); } catch (e) {} render(); });
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+
+  try { input.value = localStorage.getItem(KEY) || ''; } catch (e) {}
+  render();
+})();
+</script>
+<script>
+(function () {
+  const TOOL_ID = 'fancy-text';
+  const FAV_KEY = 'toolbox:favorites';
+  const btn = document.getElementById('favToggle');
+  function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+  function render() {
+    const isFav = getFavs().includes(TOOL_ID);
+    btn.innerHTML = isFav ? '&#9733;' : '&#9734;';
+    btn.classList.toggle('text-amber-400', isFav);
+    btn.classList.toggle('text-slate-600', !isFav);
+    btn.setAttribute('aria-pressed', isFav);
+    btn.setAttribute('aria-label', isFav ? 'Remove from favorites' : 'Add to favorites');
+  }
+  btn.addEventListener('click', () => {
+    const favs = getFavs();
+    const idx = favs.indexOf(TOOL_ID);
+    if (idx === -1) favs.push(TOOL_ID); else favs.splice(idx, 1);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(favs)); } catch (e) {}
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>
