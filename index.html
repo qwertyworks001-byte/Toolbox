@@ -578,6 +578,28 @@
 
   window.addEventListener('toolbox:synced', render);   // favourites / recents arrived from another device
   render();
+
+  // Coming back with the browser's Back button / mouse back button restores the text in the search box, but not this page's
+  // own idea of what is being searched. Re-read the box whenever the page is shown so the box and the results always agree.
+  function syncFromInput() {
+    const v = searchInput.value.trim();
+    if (v === query) return;
+    query = v; refreshQuick(); render();
+  }
+  window.addEventListener('pageshow', syncFromInput);
+  window.addEventListener('load', () => setTimeout(syncFromInput, 0));
+
+  // Back / forward button: the browser puts your old text back in the search box but doesn't fire "input", so the page
+  // would show every tool while the box still held your search (and Enter would do nothing). Re-read the box whenever
+  // the page is shown so the results always match what's typed.
+  function syncSearchFromBox() {
+    const v = searchInput.value.trim();
+    if (v === query) return;
+    query = v; refreshQuick(); render();
+  }
+  syncSearchFromBox();
+  window.addEventListener('pageshow', syncSearchFromBox);
+  window.addEventListener('load', syncSearchFromBox);
 })();
 </script>
 </body>

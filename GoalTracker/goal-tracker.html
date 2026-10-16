@@ -27,6 +27,23 @@
   .bar { height: 5px; border-radius: 999px; background: #1e293b; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8b5cf6, #ec4899); transition: width .25s ease; }
   #toolbox-sync-badge { position: static !important; display: inline-block; }
+
+  /* drag handle + dragging */
+  .grip { touch-action: none; cursor: grab; color: #64748b; padding: .3rem .25rem; margin-top: .05rem; border-radius: .4rem; flex: none; line-height: 0; user-select: none; -webkit-user-select: none; }
+  .grip:hover { color: #c4b5fd; background: rgba(255,255,255,.05); }
+  .grip:focus-visible, .sel-row:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+  .goal-row.dragging { position: relative; z-index: 30; box-shadow: 0 10px 30px rgba(0,0,0,.55); border-color: #8b5cf6; background: #1e1b3a; transition: none; cursor: grabbing; }
+  .goal-list.is-dragging .goal-row:not(.dragging) { transition: transform .16s ease, background .15s ease, border-color .15s ease; }
+  body.dragging-goal, body.dragging-goal * { user-select: none !important; -webkit-user-select: none !important; cursor: grabbing !important; }
+
+  /* select mode */
+  .sel-bar { position: sticky; top: .5rem; z-index: 25; background: rgba(15,23,42,.96); border: 1px solid rgba(148,163,184,.25); }
+  .sel-row { cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .sel-row:hover { border-color: #64748b; }
+  .goal-row.picked { border-color: rgba(239,68,68,.65); background: rgba(127,29,29,.2); }
+  .pick { width: 1.35rem; height: 1.35rem; border-radius: .45rem; border: 2px solid #475569; flex: none; display: inline-flex; align-items: center; justify-content: center; color: transparent; font-size: .85rem; line-height: 1; transition: all .12s ease; }
+  .pick.on { background: #ef4444; border-color: #ef4444; color: #fff; }
+  .bulk-del:disabled { opacity: .4; cursor: not-allowed; }
 </style>
 </head>
 <body class="text-slate-200 font-sans antialiased">
@@ -58,8 +75,14 @@
     <p class="text-xs mt-2 min-h-[1rem]" id="addMsg" role="status" aria-live="polite"></p>
   </section>
 
-  <!-- Filter -->
-  <div class="flex flex-wrap gap-2 mb-5" id="chipRow" role="tablist" aria-label="Show goals for"></div>
+  <!-- Filter + select -->
+  <div class="flex items-start justify-between gap-3 mb-4">
+    <div class="flex flex-wrap gap-2" id="chipRow" role="tablist" aria-label="Show goals for"></div>
+    <button type="button" id="selectBtn" aria-pressed="false" style="align-self:flex-start" class="hidden flex-none text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50 text-slate-300 hover:border-violet-500 hover:text-violet-300">Select</button>
+  </div>
+  <p id="rankHint" class="text-xs text-slate-500 mb-4 hidden">Drag the handle (&#8942;&#8942;) on a goal to rank it: the goals you want most go at the top. On a keyboard, focus the handle and use the arrow keys.</p>
+  <p id="rankMsg" class="sr-only" role="status" aria-live="polite"></p>
+  <div id="selBar" class="hidden"></div>
 
   <!-- Goals -->
   <div id="sections" class="space-y-5"></div>
@@ -109,15 +132,18 @@
       let id = typeof g.id === 'string' && g.id ? g.id : uid();
       while (seen[id]) id += 'x';
       seen[id] = 1;
+      const created = Number(g.created) || Date.now();
+      const rank = (g.rank !== null && g.rank !== undefined && g.rank !== '' && isFinite(Number(g.rank))) ? Number(g.rank) : created;   // goals from before ranking existed keep their old order
       out.goals.push({
         id, text: g.text.trim().slice(0, 300),
         h: HIDS.includes(g.h) ? g.h : 'life',
         done: !!g.done, doneAt: g.done ? (Number(g.doneAt) || Date.now()) : null,
-        created: Number(g.created) || Date.now()
+        created, rank
       });
     });
     return out;
   }
+  const byRank = (p, q) => p.rank - q.rank || p.created - q.created || (p.id < q.id ? -1 : p.id > q.id ? 1 : 0);   // most wanted first
   // <<GOALS-PURE-END>>
 
   // ── storage ──
@@ -133,6 +159,8 @@
   let data = load();
   let view = HIDS.includes(readStore(VIEW_KEY)) ? readStore(VIEW_KEY) : 'all';
   let editingId = null, confirmId = null, confirmClear = null;
+  let selecting = false, confirmBulk = false; const selected = new Set();   // select mode
+  let drag = null;                                                           // a goal being dragged
 
   // ── sync state ──
   let syncState = 'local', lastWhen = null, pendingRender = false;
@@ -161,7 +189,7 @@
   // The newest change per goal wins, so goals added on two devices combine, and a delete is remembered (as a
   // "tombstone" for 60 days) so another device doesn't bring the goal back.
   const META_KEY = 'toolbox:goals-sync-meta', OWNER_KEY = 'toolbox:goals-sync-owner', DAY = 86400000;
-  const snapOf = (g) => JSON.stringify([g.text, g.h, !!g.done, g.doneAt || null]);
+  const snapOf = (g) => JSON.stringify([g.text, g.h, !!g.done, g.doneAt || null, g.rank]);
   function cleanMeta(raw) {
     const out = {};
     if (!raw || typeof raw !== 'object') return out;
@@ -193,7 +221,7 @@
   }
   const sigOf = (m) => JSON.stringify(Object.keys(m).sort().map(id => [id, m[id].t, !!m[id].del, m[id].s]));
   function goalsFrom(m) {
-    return cleanData({ goals: Object.keys(m).filter(id => !m[id].del).map(id => m[id].g) }).goals.sort((p, q) => p.created - q.created || (p.id < q.id ? -1 : 1));
+    return cleanData({ goals: Object.keys(m).filter(id => !m[id].del).map(id => m[id].g) }).goals.sort(byRank);
   }
   function applyMeta(m) {                 // make this device match the merged goals, and redraw if anything changed
     meta = m; saveMeta();
@@ -261,6 +289,8 @@
   // ── helpers ──
   const horizonOf = (id) => HORIZONS.find(h => h.id === id);
   const inView = (g) => view === 'all' || g.h === view;
+  const sectionGoals = (h) => data.goals.filter(g => g.h === h).sort(byRank);
+  const nextRank = (h, exceptId) => data.goals.reduce((m, g) => (g.h === h && g.id !== exceptId ? Math.max(m, g.rank) : m), 0) + 1;   // new goals go to the bottom
   function ago(ts) {
     const days = Math.floor((Date.now() - ts) / 86400000);
     if (days <= 0) return 'today';
@@ -278,7 +308,16 @@
     const chips = [{ id: 'all', label: 'All', n: data.goals.length }].concat(HORIZONS.map(h => ({ id: h.id, label: h.short, n: data.goals.filter(g => g.h === h.id).length })));
     $('chipRow').innerHTML = chips.map(c => `<button type="button" role="tab" aria-selected="${view === c.id}" data-view="${c.id}" class="chip text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50 text-slate-300 ${view === c.id ? 'active' : ''}">${c.label} <span class="opacity-60">${c.n}</span></button>`).join('');
   }
-  function rowHTML(g) {
+  function rowHTML(g, canDrag) {
+    if (selecting) {
+      const on = selected.has(g.id);
+      return `<div class="goal-row sel-row flex items-start gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5 ${g.done ? 'done' : ''} ${on ? 'picked' : ''}" data-id="${g.id}" data-act="pick" role="checkbox" aria-checked="${on}" tabindex="0">
+        <span class="pick mt-0.5 ${on ? 'on' : ''}" aria-hidden="true">&#10003;</span>
+        <div class="flex-1 min-w-0">
+          <p class="goal-text text-sm sm:text-base text-white break-words">${esc(g.text)}</p>
+          ${g.done && g.doneAt ? `<p class="text-xs text-slate-500 mt-0.5">Done ${ago(g.doneAt)}</p>` : ''}
+        </div></div>`;
+    }
     if (editingId === g.id) {
       return `<div class="goal-row flex flex-col gap-2 bg-slate-900/60 border border-violet-500/60 rounded-lg px-3 py-3" data-id="${g.id}">
         <input type="text" maxlength="300" value="${esc(g.text)}" class="edit-text w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-violet-500" aria-label="Edit goal">
@@ -290,6 +329,7 @@
     }
     const confirming = confirmId === g.id;
     return `<div class="goal-row flex items-start gap-3 bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2.5 ${g.done ? 'done' : ''}" data-id="${g.id}">
+      ${canDrag ? `<button type="button" class="grip" data-grip aria-label="Drag to rank this goal. Use the up and down arrow keys to move it." title="Drag to reorder"><svg class="pointer-events-none" width="10" height="16" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg></button>` : ''}
       <button type="button" class="check mt-0.5" data-act="toggle" role="checkbox" aria-checked="${g.done}" aria-label="Mark done">&#10003;</button>
       <div class="flex-1 min-w-0">
         <p class="goal-text text-sm sm:text-base text-white break-words">${esc(g.text)}</p>
@@ -304,15 +344,17 @@
       </div></div>`;
   }
   function sectionHTML(h) {
-    const goals = data.goals.filter(g => g.h === h.id);
+    const goals = sectionGoals(h.id);
     const done = goals.filter(g => g.done).length;
     const pct = goals.length ? Math.round(done / goals.length * 100) : 0;
     const clearing = confirmClear === h.id;
+    const allPicked = goals.length > 0 && goals.every(g => selected.has(g.id));
+    const secPickBtn = `<button type="button" data-sec-pick="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300 hover:border-violet-500">${allPicked ? 'Select none' : 'Select all'}</button>`;
     return `<section class="glass rounded-2xl p-4 sm:p-5" aria-label="${h.label}">
       <div class="flex flex-wrap items-center gap-2 mb-2">
         <h2 class="text-base font-semibold text-white mr-auto">${h.label}</h2>
         <span class="text-xs text-slate-400">${done} of ${goals.length} done</span>
-        ${done ? (clearing
+        ${selecting ? secPickBtn : done ? (clearing
           ? `<span class="text-xs text-red-300">Remove ${done} finished?</span>
              <button type="button" data-clear-yes="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold">Remove</button>
              <button type="button" data-clear-no="1" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300">Keep</button>`
@@ -320,13 +362,35 @@
              <button type="button" data-clear="${h.id}" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-600 text-slate-300 hover:border-red-500/60 hover:text-red-400">Clear finished</button>`) : ''}
       </div>
       <div class="bar mb-3" aria-hidden="true"><i style="width:${pct}%"></i></div>
-      <div class="space-y-2">${goals.map(rowHTML).join('')}</div>
+      <div class="goal-list space-y-2" data-h="${h.id}">${goals.map(g => rowHTML(g, goals.length > 1)).join('')}</div>
     </section>`;
   }
+  function renderSelBar() {
+    const el = $('selBar'), btn = $('selectBtn');
+    btn.textContent = selecting ? 'Cancel' : 'Select'; btn.setAttribute('aria-pressed', String(selecting));
+    if (!selecting) { el.className = 'hidden'; el.innerHTML = ''; return; }
+    const vis = data.goals.filter(inView), n = vis.filter(g => selected.has(g.id)).length;
+    el.className = 'sel-bar rounded-xl px-3 py-2.5 mb-4 flex flex-wrap items-center gap-2';
+    const b = 'text-xs px-3 py-1.5 rounded-md bg-slate-800 border border-slate-600 text-slate-300 hover:border-violet-500';
+    el.innerHTML = (confirmBulk && n)
+      ? `<span class="text-sm text-red-300 mr-auto">Delete ${n} goal${n === 1 ? '' : 's'}? This can&rsquo;t be undone.</span>
+         <button type="button" data-bulk="yes" class="text-xs px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold">Delete ${n}</button>
+         <button type="button" data-bulk="no" class="${b}">Keep</button>`
+      : `<span class="text-sm text-slate-200 mr-auto" role="status">${n ? n + ' selected' : 'Tap goals to select them'}</span>
+         <button type="button" data-bulk="all" class="${b}">${n && n === vis.length ? 'Select none' : 'Select all'}</button>
+         <button type="button" data-bulk="del" class="bulk-del text-xs px-3 py-1.5 rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold" ${n ? '' : 'disabled'}>Delete selected</button>
+         <button type="button" data-bulk="cancel" class="${b}">Cancel</button>`;
+  }
   function render() {
+    if (drag) { pendingRender = true; return; }          // never rebuild the page under a goal that is being dragged
+    selected.forEach(id => { if (!data.goals.some(g => g.id === id)) selected.delete(id); });
+    if (!data.goals.length) { selecting = false; selected.clear(); confirmBulk = false; }
+    $('selectBtn').classList.toggle('hidden', !data.goals.length);
+    renderSelBar();
     renderChips();
     const list = HORIZONS.filter(h => (view === 'all' ? data.goals.some(g => g.h === h.id) : h.id === view));
     $('sections').innerHTML = list.map(sectionHTML).join('');
+    $('rankHint').classList.toggle('hidden', selecting || !list.some(h => data.goals.filter(g => g.h === h.id).length > 1));
     const none = !data.goals.length;
     const viewEmpty = view !== 'all' && !data.goals.some(inView);
     $('emptyAll').classList.toggle('hidden', !none && !viewEmpty);
@@ -340,7 +404,7 @@
     const text = $('newText').value.trim();
     if (!text) { say($('addMsg'), 'Type your goal first.', true); $('newText').focus(); return; }
     const h = $('newHorizon').value;
-    data.goals.push({ id: uid(), text: text.slice(0, 300), h, done: false, doneAt: null, created: Date.now() });
+    data.goals.push({ id: uid(), text: text.slice(0, 300), h, done: false, doneAt: null, created: Date.now(), rank: nextRank(h) });
     save();
     $('newText').value = ''; writeStore(DRAFT_KEY, '');
     if (view !== 'all' && view !== h) { view = h; writeStore(VIEW_KEY, view); }
@@ -358,7 +422,7 @@
     const b = e.target.closest('[data-view]'); if (!b) return;
     view = b.getAttribute('data-view'); writeStore(VIEW_KEY, view);
     if (view !== 'all') { $('newHorizon').value = view; writeStore(DRAFT_KEY + '-h', view); }
-    editingId = confirmId = confirmClear = null; render();
+    editingId = confirmId = confirmClear = null; selected.clear(); confirmBulk = false; render();
   });
 
   function finishEdit(saveIt) {
@@ -368,7 +432,9 @@
       if (!g || !row) { editingId = null; render(); return; }
       const t = row.querySelector('.edit-text').value.trim();
       if (!t) { row.querySelector('.edit-text').focus(); return; }
-      g.text = t.slice(0, 300); g.h = row.querySelector('.edit-h').value;
+      const newH = row.querySelector('.edit-h').value;
+      if (newH !== g.h) g.rank = nextRank(newH, g.id);          // moved to another list: goes to the bottom of it
+      g.text = t.slice(0, 300); g.h = newH;
       save();
     }
     editingId = null; render();
@@ -376,6 +442,11 @@
   $('sections').addEventListener('click', (e) => {
     const t = e.target;
     const clearBtn = t.closest('[data-clear]'), clearYes = t.closest('[data-clear-yes]'), clearNo = t.closest('[data-clear-no]'), unc = t.closest('[data-uncheck]');
+    const secPick = t.closest('[data-sec-pick]');
+    if (secPick) {
+      const list = sectionGoals(secPick.getAttribute('data-sec-pick')), all = list.every(g => selected.has(g.id));
+      list.forEach(g => { if (all) selected.delete(g.id); else selected.add(g.id); }); confirmBulk = false; return render();
+    }
     if (clearBtn) { confirmClear = clearBtn.getAttribute('data-clear'); return render(); }
     if (clearNo) { confirmClear = null; return render(); }
     if (clearYes) { const h = clearYes.getAttribute('data-clear-yes'); data.goals = data.goals.filter(g => !(g.h === h && g.done)); confirmClear = null; save(); return render(); }
@@ -388,12 +459,19 @@
       case 'toggle': g.done = !g.done; g.doneAt = g.done ? Date.now() : null; save(); break;
       case 'edit': editingId = id; confirmId = null; break;
       case 'del': confirmId = id; break;
+      case 'pick': togglePick(id); break;
       case 'del-no': confirmId = null; break;
       case 'del-yes': data.goals = data.goals.filter(x => x.id !== id); confirmId = null; save(); break;
     }
     render();
   });
   $('sections').addEventListener('keydown', (e) => {
+    const grip = e.target.closest && e.target.closest('[data-grip]');
+    if (grip) return keyMove(e, grip);
+    if (selecting && e.target.classList && e.target.classList.contains('sel-row') && (e.key === ' ' || e.key === 'Enter')) {
+      e.preventDefault(); const pid = e.target.getAttribute('data-id'); togglePick(pid); render();
+      const r = document.querySelector('.goal-row[data-id="' + pid + '"]'); if (r) r.focus({ preventScroll: true }); return;
+    }
     if (!editingId || !e.target.classList.contains('edit-text')) return;
     if (e.key === 'Enter') { e.preventDefault(); finishEdit(true); } else if (e.key === 'Escape') finishEdit(false);
   });
@@ -423,6 +501,106 @@
     };
     r.onerror = () => say($('backupMsg'), 'Could not read that file.', true);
     r.readAsText(f); $('importFile').value = '';
+  });
+
+  // ── ranking: drag a goal by its handle (mouse, touch or pen), or use the arrow keys on the handle ──
+  function setOrder(h, ids) {                        // ids = the section's goals, most wanted first
+    const cur = sectionGoals(h), byId = {}; cur.forEach(g => { byId[g.id] = g; });
+    const ordered = ids.map(id => byId[id]).filter(Boolean);
+    cur.forEach(g => { if (!ordered.includes(g)) ordered.push(g); });
+    let changed = false; ordered.forEach((g, i) => { if (g.rank !== i + 1) { g.rank = i + 1; changed = true; } });
+    if (changed) save();
+  }
+  function startDrag(e, grip) {
+    const row = grip.closest('.goal-row'), list = row.parentElement, rows = Array.from(list.children), sy = window.scrollY;
+    const rects = rows.map(r => { const b = r.getBoundingClientRect(); return { top: b.top + sy, h: b.height }; });
+    const i0 = rows.indexOf(row);
+    drag = { row, list, rows, rects, i0, to: i0, h: list.getAttribute('data-h'), grip, id: e.pointerId, startY: e.clientY + sy, clientY: e.clientY, raf: 0,
+             gap: rows.length > 1 ? Math.max(0, rects[1].top - (rects[0].top + rects[0].h)) : 8 };
+    try { grip.setPointerCapture(e.pointerId); } catch (err) {}
+    row.classList.add('dragging'); list.classList.add('is-dragging'); document.body.classList.add('dragging-goal');
+    document.addEventListener('pointermove', onDragMove); document.addEventListener('pointerup', onDragUp);
+    document.addEventListener('pointercancel', onDragCancel); document.addEventListener('keydown', onDragKey, true);
+    drag.raf = requestAnimationFrame(dragTick); updateDrag();
+  }
+  function updateDrag() {
+    const d = drag; if (!d) return;
+    const dy = d.clientY + window.scrollY - d.startY;
+    d.row.style.transform = 'translateY(' + dy + 'px)';
+    const r0 = d.rects[d.i0], mid = r0.top + r0.h / 2 + dy; let to = d.i0;
+    d.rects.forEach((r, i) => { const c = r.top + r.h / 2; if (i > d.i0 && c < mid) to++; else if (i < d.i0 && c > mid) to--; });
+    d.to = to;
+    const shift = r0.h + d.gap;
+    d.rows.forEach((r, i) => {
+      if (i === d.i0) return;
+      const sh = (d.i0 < to && i > d.i0 && i <= to) ? -shift : (d.i0 > to && i < d.i0 && i >= to) ? shift : 0;
+      r.style.transform = sh ? 'translateY(' + sh + 'px)' : '';
+    });
+  }
+  function dragTick() {                                 // scroll the page when the goal is held near the top or bottom edge
+    const d = drag; if (!d) return;
+    const edge = 70, vh = window.innerHeight; let v = 0;
+    if (d.clientY < edge) v = -Math.min(18, Math.ceil((edge - d.clientY) / 4)); else if (d.clientY > vh - edge) v = Math.min(18, Math.ceil((d.clientY - (vh - edge)) / 4));
+    if (v) { window.scrollBy(0, v); updateDrag(); }
+    d.raf = requestAnimationFrame(dragTick);
+  }
+  function onDragMove(e) { if (drag && e.pointerId === drag.id) { drag.clientY = e.clientY; updateDrag(); } }
+  function onDragUp(e) { if (drag && e.pointerId === drag.id) endDrag(true); }
+  function onDragCancel(e) { if (drag && e.pointerId === drag.id) endDrag(false); }
+  function onDragKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); endDrag(false); } }
+  function endDrag(commit) {
+    const d = drag; if (!d) return; drag = null;
+    cancelAnimationFrame(d.raf);
+    document.removeEventListener('pointermove', onDragMove); document.removeEventListener('pointerup', onDragUp);
+    document.removeEventListener('pointercancel', onDragCancel); document.removeEventListener('keydown', onDragKey, true);
+    try { d.grip.releasePointerCapture(d.id); } catch (err) {}
+    document.body.classList.remove('dragging-goal');
+    if (commit && d.to !== d.i0) {
+      const ids = d.rows.map(r => r.getAttribute('data-id')); ids.splice(d.to, 0, ids.splice(d.i0, 1)[0]);
+      setOrder(d.h, ids); $('rankMsg').textContent = 'Moved to position ' + (d.to + 1) + ' of ' + ids.length + '.';
+    }
+    render();                                            // rebuilds the list, which also clears the drag styling
+  }
+  $('sections').addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest && e.target.closest('[data-grip]');
+    if (!grip || drag || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault(); startDrag(e, grip);
+  });
+  function keyMove(e, grip) {
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const row = grip.closest('.goal-row'), id = row.getAttribute('data-id'), h = row.parentElement.getAttribute('data-h');
+    const ids = sectionGoals(h).map(g => g.id), i = ids.indexOf(id); if (i < 0) return;
+    const j = Math.max(0, Math.min(ids.length - 1, e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : e.key === 'Home' ? 0 : ids.length - 1));
+    if (j === i) return;
+    ids.splice(j, 0, ids.splice(i, 1)[0]); setOrder(h, ids); render();
+    $('rankMsg').textContent = 'Moved to position ' + (j + 1) + ' of ' + ids.length + '.';
+    const g2 = document.querySelector('.goal-row[data-id="' + id + '"] [data-grip]'); if (g2) g2.focus();
+  }
+
+  // ── select mode: tick several goals, then delete them together ──
+  function togglePick(id) { if (selected.has(id)) selected.delete(id); else selected.add(id); confirmBulk = false; }
+  function exitSelect() { selecting = false; selected.clear(); confirmBulk = false; }
+  $('selectBtn').addEventListener('click', () => {
+    if (selecting) exitSelect(); else { selecting = true; selected.clear(); confirmBulk = false; editingId = confirmId = confirmClear = null; }
+    render();
+  });
+  $('selBar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-bulk]'); if (!b) return;
+    const vis = data.goals.filter(inView), picked = vis.filter(g => selected.has(g.id)), act = b.getAttribute('data-bulk');
+    if (act === 'all') { if (picked.length === vis.length) vis.forEach(g => selected.delete(g.id)); else vis.forEach(g => selected.add(g.id)); confirmBulk = false; }
+    else if (act === 'del') { if (picked.length) confirmBulk = true; }
+    else if (act === 'no') confirmBulk = false;
+    else if (act === 'cancel') exitSelect();
+    else if (act === 'yes') {
+      const ids = new Set(picked.map(g => g.id));
+      if (ids.size) { data.goals = data.goals.filter(g => !ids.has(g.id)); save(); say($('addMsg'), 'Deleted ' + ids.size + ' goal' + (ids.size === 1 ? '' : 's') + '.'); }
+      exitSelect();
+    }
+    render();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selecting && !drag && !(e.target.matches && e.target.matches('input, select, textarea'))) { exitSelect(); render(); }
   });
 
   // another tab changed the goals
