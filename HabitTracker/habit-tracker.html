@@ -69,6 +69,7 @@
   .day .cnt { position: absolute; right: 3px; bottom: 1px; font-size: 0.55rem; line-height: 1; opacity: 0.85; font-weight: 600; }
   .chips .sep { align-self: center; color: #64748b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0.1rem 0 0.3rem; }
   .sub { font-size: 0.8rem; color: #94a3b8; margin: -0.4rem 0 0.6rem; }
+  .hnote { font-size: 0.78rem; color: #cbd5e1; margin-top: 0.2rem; font-style: italic; overflow-wrap: anywhere; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -118,6 +119,7 @@
   <div id="presetWrap"><label class="f" style="margin-top:0">Start from a preset</label><div class="chips" id="presets"></div></div>
   <label class="f" for="hName">Name</label><input type="text" id="hName" maxlength="40" placeholder="e.g. Workout">
   <div class="row"><div style="width:9.5rem"><label class="f" for="hEmoji">Emoji</label><div style="display:flex;gap:0.35rem"><input type="text" id="hEmoji" maxlength="16" placeholder="&#127947;" style="flex:1;min-width:0;width:auto"><button type="button" class="btn" id="hEmojiPick" aria-label="Pick an emoji from the list" title="Pick an emoji from the list">&#128512;</button></div></div><div style="flex:1;min-width:9rem"><label class="f">Colour</label><div class="sw" id="hColors"></div></div></div>
+  <label class="f" for="hNote">Note <span style="color:#64748b">(optional, shows under the streak)</span></label><input type="text" id="hNote" maxlength="120" placeholder="e.g. 20 min before breakfast">
   <div id="habitOnly">
   <label class="f">How often?</label>
   <div class="seg" id="hMode"><button type="button" data-m="daily">Every day</button><button type="button" data-m="days">Set days</button><button type="button" data-m="weekly">Times a week</button></div>
@@ -173,6 +175,7 @@
         days: Array.isArray(h.days) ? h.days.filter(x => Number.isInteger(x) && x >= 0 && x <= 6) : [], weekly: Math.min(7, Math.max(1, parseInt(h.weekly, 10) || 3)),
         remind: /^([01]\d|2[0-3]):[0-5]\d$/.test(h.remind) ? h.remind : '',
         kind: h.kind === 'counter' ? 'counter' : 'habit', step: Math.min(999, Math.max(1, parseInt(h.step, 10) || 1)),
+        note: String(h.note == null ? '' : h.note).slice(0, 120),
         c: Number(h.c) || 0, u: Number(h.u) || 0, deleted: !!h.deleted };
       if (out.habits[id].mode === 'days' && !out.habits[id].days.length) out.habits[id].mode = 'daily';
       if (out.habits[id].kind === 'counter') Object.assign(out.habits[id], { mode: 'daily', days: [], target: 1, remind: '' });   // a counter has no schedule, goal or reminder
@@ -334,7 +337,7 @@
       const unit = h.mode === 'weekly' ? (streak === 1 ? 'week' : 'weeks') : (streak === 1 ? 'day' : 'days');
       return `<div class="habit${sched ? '' : ' rest'}" style="--c:${h.color}" data-id="${h.id}">
         <button type="button" class="check${done ? ' done' : (n > 0 ? ' part' : '')}" data-act="check" aria-label="${done ? 'Mark not done' : 'Mark done'}: ${esc(h.name)}">${done ? '\u2713' : (h.target > 1 && n > 0 ? n : '')}</button>
-        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${streak ? `<b>\uD83D\uDD25 ${streak} ${unit}</b>` : 'No streak yet'}${wk}${sched ? '' : ' \u00B7 rest day'}${rem}</div></div>
+        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${streak ? `<b>\uD83D\uDD25 ${streak} ${unit}</b>` : 'No streak yet'}${wk}${sched ? '' : ' \u00B7 rest day'}${rem}</div>${h.note ? `<div class="hnote">${esc(h.note)}</div>` : ''}</div>
         ${h.target > 1 ? `<div class="stepper"><button type="button" class="btn small" data-act="dec" aria-label="One less">\u2212</button><span>${n}/${h.target}</span><button type="button" class="btn small" data-act="inc" aria-label="One more">+</button></div>` : ''}
         <button type="button" class="btn small" data-act="edit" aria-label="Edit ${esc(h.name)}">\u22EF</button></div>`;
     }).join('');
@@ -351,7 +354,7 @@
     $('clist').innerHTML = cs.map(h => {
       const n = getCount(data, h.id, sel), st = h.step;
       return `<div class="habit counter" style="--c:${h.color}" data-id="${h.id}">
-        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${counterMeta(h)}</div></div>
+        <div class="info"><div class="name">${esc(h.emoji)} ${esc(h.name)}</div><div class="meta">${counterMeta(h)}</div>${h.note ? `<div class="hnote">${esc(h.note)}</div>` : ''}</div>
         <div class="stepper"><button type="button" class="btn small" data-act="dec" aria-label="Take ${st} off ${esc(h.name)}">\u2212${st > 1 ? st : ''}</button><input type="number" class="cin" inputmode="numeric" min="0" max="99999" value="${n}" aria-label="${esc(h.name)} count"><button type="button" class="btn small" data-act="inc" aria-label="Add ${st} to ${esc(h.name)}">+${st > 1 ? st : ''}</button></div>
         <button type="button" class="btn small" data-act="edit" aria-label="Edit ${esc(h.name)}">\u22EF</button></div>`;
     }).join('');
@@ -447,7 +450,7 @@
   const openDlg = (d) => { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); };
   const closeDlg = (d) => { if (d.close) d.close(); else d.removeAttribute('open'); };
   function drawForm() {
-    $('hName').value = form.name; $('hEmoji').value = form.emoji; $('hWeekly').value = form.weekly; $('hTarget').value = form.target; $('hRemind').value = form.remind; $('icsWrap').classList.toggle('hide', !form.remind);
+    $('hName').value = form.name; $('hNote').value = form.note || ''; $('hEmoji').value = form.emoji; $('hWeekly').value = form.weekly; $('hTarget').value = form.target; $('hRemind').value = form.remind; $('icsWrap').classList.toggle('hide', !form.remind);
     const ctr = form.kind === 'counter';
     $('hStep').value = form.step;
     $('hKind').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.getAttribute('data-k') === form.kind));
@@ -462,15 +465,15 @@
   }
   function openHabit(h, kind) {
     editing = h ? h.id : null;
-    form = h ? { name: h.name, emoji: h.emoji, color: h.color, mode: h.mode, days: h.days.slice(), weekly: h.weekly, target: h.target, remind: h.remind, kind: h.kind, step: h.step } : { name: '', emoji: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], mode: 'daily', days: [0, 2, 4], weekly: 3, target: 1, remind: '', kind: kind === 'counter' ? 'counter' : 'habit', step: 1 };
+    form = h ? { name: h.name, emoji: h.emoji, color: h.color, mode: h.mode, days: h.days.slice(), weekly: h.weekly, target: h.target, remind: h.remind, kind: h.kind, step: h.step, note: h.note || '' } : { name: '', note: '', emoji: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], mode: 'daily', days: [0, 2, 4], weekly: 3, target: 1, remind: '', kind: kind === 'counter' ? 'counter' : 'habit', step: 1 };
     pendingId = h ? null : newId(); $('hFoot').classList.remove('hide'); $('hConfirm').classList.add('hide');
     $('presetWrap').classList.toggle('hide', !!h); $('hDelete').classList.toggle('hide', !h); $('hErr').classList.add('hide');
     drawForm(); openDlg($('habitDlg'));
   }
-  const readForm = () => { form.name = $('hName').value; form.emoji = $('hEmoji').value; form.weekly = parseInt($('hWeekly').value, 10) || 3; form.target = parseInt($('hTarget').value, 10) || 1; form.remind = $('hRemind').value || ''; form.step = Math.min(999, Math.max(1, parseInt($('hStep').value, 10) || 1)); };
+  const readForm = () => { form.name = $('hName').value; form.note = $('hNote').value; form.emoji = $('hEmoji').value; form.weekly = parseInt($('hWeekly').value, 10) || 3; form.target = parseInt($('hTarget').value, 10) || 1; form.remind = $('hRemind').value || ''; form.step = Math.min(999, Math.max(1, parseInt($('hStep').value, 10) || 1)); };
   $('addBtn').addEventListener('click', () => openHabit(null));
   $('addCounterBtn').addEventListener('click', () => openHabit(null, 'counter'));
-  $('presets').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const p = PRESETS[+b.getAttribute('data-p')]; form = { name: p.name, emoji: p.emoji, color: p.color, mode: p.mode || 'daily', days: (p.days || [0, 2, 4]).slice(), weekly: p.weekly || 3, target: p.target || 1, remind: $('hRemind').value || '', kind: p.kind === 'counter' ? 'counter' : 'habit', step: p.step || 1 }; drawForm(); });
+  $('presets').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (!b) return; const p = PRESETS[+b.getAttribute('data-p')]; form = { name: p.name, note: $('hNote').value, emoji: p.emoji, color: p.color, mode: p.mode || 'daily', days: (p.days || [0, 2, 4]).slice(), weekly: p.weekly || 3, target: p.target || 1, remind: $('hRemind').value || '', kind: p.kind === 'counter' ? 'counter' : 'habit', step: p.step || 1 }; drawForm(); });
   $('hColors').addEventListener('click', (e) => { const b = e.target.closest('[data-color]'); if (b) { readForm(); form.color = b.getAttribute('data-color'); drawForm(); } });
   $('hMode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { readForm(); form.mode = b.getAttribute('data-m'); drawForm(); } });
   $('hKind').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) { readForm(); form.kind = b.getAttribute('data-k'); drawForm(); } });
@@ -491,7 +494,7 @@
     readForm();
     const err = formError();
     if (err) { $('hErr').textContent = err; $('hErr').classList.remove('hide'); return; }
-    const now = Date.now(), fields = { name: form.name.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind, kind: form.kind, step: form.step };
+    const now = Date.now(), fields = { name: form.name.trim(), note: form.note.trim(), emoji: form.emoji.trim(), color: form.color, mode: form.mode, days: form.days.slice().sort(), weekly: form.weekly, target: form.target, remind: form.remind, kind: form.kind, step: form.step };
     if (editing) { Object.assign(data.habits[editing], normalize({ habits: { [editing]: Object.assign({}, data.habits[editing], fields) } }).habits[editing], { u: now }); }
     else addHabitNoRender(fields, now, pendingId || newId());
     closeDlg($('habitDlg')); changed();
