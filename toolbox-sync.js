@@ -19,7 +19,7 @@
     const hex = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : '';
     const kind = v.flat === true ? 'flat' : (v.kind === 'linear' || v.kind === 'flat' ? v.kind : 'radial');
     const angle = Math.min(360, Math.max(0, Math.round(Number(v.angle)))), dim = Math.min(80, Math.max(0, Math.round(Number(v.dim))));
-    return { bg: hex(v.bg), bg2: hex(v.bg2), kind, angle: isNaN(angle) ? 135 : angle, text: hex(v.text), accent: hex(v.accent), img: Number(v.img) > 0 ? Math.floor(Number(v.img)) : 0, dim: isNaN(dim) ? 40 : dim };
+    return { bg: hex(v.bg), bg2: hex(v.bg2), kind, angle: isNaN(angle) ? 135 : angle, text: hex(v.text), accent: hex(v.accent), img: Number(v.img) > 0 ? Math.floor(Number(v.img)) : 0, dim: isNaN(dim) ? 40 : dim, theme: typeof v.theme === 'string' && /^[a-z-]{0,20}$/.test(v.theme) ? v.theme : '', fx: typeof v.fx === 'string' && /^[a-z]{2,10}$/.test(v.fx) ? v.fx : 'auto', fxLevel: [1, 2, 3].indexOf(Number(v.fxLevel)) >= 0 ? Number(v.fxLevel) : 2 };
   }
   function cleanMeta(m) {
     const out = emptyMeta();

@@ -8,7 +8,7 @@
 // devices. Without it, everything still works on this device.
 (function () {
   const KEY = 'toolbox:theme', STYLE_ID = 'toolbox-theme-style';
-  const DEFAULT = { bg: '', bg2: '', kind: 'radial', angle: 135, text: '', accent: '', img: 0, dim: 40 };
+  const DEFAULT = { bg: '', bg2: '', kind: 'radial', angle: 135, text: '', accent: '', img: 0, dim: 40, theme: '', fx: 'auto', fxLevel: 2 };
 
   // ── colour maths (kept simple: hex <-> HSL) ──
   function hexToHsl(hex) {
@@ -38,25 +38,26 @@
   const PRESETS = SOLIDS.map(([n, c]) => ({ name: n, bg: c, bg2: '', kind: 'radial' })).concat(GRADS.map(([n, a, b]) => ({ name: n, bg: a, bg2: b, kind: 'linear' })));
   // One-click looks: background, text and accent together. (They leave an uploaded picture alone.)
   const THEMES = [
-    { name: 'Site default', bg: '', bg2: '', kind: 'radial', angle: 135, text: '', accent: '' },
-    { name: 'Midnight Ember', bg: '#1a0f2e', bg2: '#3a1010', kind: 'linear', angle: 135, text: '#fde9c9', accent: '#ff7a3d' },
-    { name: 'Forest Night', bg: '#0a1f17', bg2: '#14342a', kind: 'linear', angle: 160, text: '#d4f5e3', accent: '#34d399' },
-    { name: 'Ocean Deep', bg: '#00152e', bg2: '#0b4f6c', kind: 'linear', angle: 135, text: '#d6efff', accent: '#38bdf8' },
-    { name: 'Sakura', bg: '#2a1020', bg2: '#3a1a3a', kind: 'linear', angle: 135, text: '#ffe4f0', accent: '#f472b6' },
-    { name: 'Royal', bg: '#0f0f33', bg2: '#2a1060', kind: 'linear', angle: 135, text: '#e8e0ff', accent: '#8b5cf6' },
-    { name: 'Sunset', bg: '#2b0f1f', bg2: '#3d2008', kind: 'linear', angle: 150, text: '#ffe8d6', accent: '#fb923c' },
-    { name: 'Terminal', bg: '#050805', bg2: '', kind: 'flat', angle: 135, text: '#b6ffb6', accent: '#22c55e' },
-    { name: 'Mono', bg: '#111111', bg2: '#2a2a2a', kind: 'linear', angle: 135, text: '#f5f5f5', accent: '#a3a3a3' }
+    { key: 'default', fx: '', name: 'Site default', bg: '', bg2: '', kind: 'radial', angle: 135, text: '', accent: '' },
+    { key: 'ember', fx: 'embers', name: 'Midnight Ember', bg: '#1a0f2e', bg2: '#3a1010', kind: 'linear', angle: 135, text: '#fde9c9', accent: '#ff7a3d' },
+    { key: 'forest', fx: 'leaves', name: 'Forest Night', bg: '#0a1f17', bg2: '#14342a', kind: 'linear', angle: 160, text: '#d4f5e3', accent: '#34d399' },
+    { key: 'ocean', fx: 'bubbles', name: 'Ocean Deep', bg: '#00152e', bg2: '#0b4f6c', kind: 'linear', angle: 135, text: '#d6efff', accent: '#38bdf8' },
+    { key: 'sakura', fx: 'sakura', name: 'Sakura', bg: '#2a1020', bg2: '#3a1a3a', kind: 'linear', angle: 135, text: '#ffe4f0', accent: '#f472b6' },
+    { key: 'royal', fx: 'stars', name: 'Royal', bg: '#0f0f33', bg2: '#2a1060', kind: 'linear', angle: 135, text: '#e8e0ff', accent: '#8b5cf6' },
+    { key: 'sunset', fx: 'bokeh', name: 'Sunset', bg: '#2b0f1f', bg2: '#3d2008', kind: 'linear', angle: 150, text: '#ffe8d6', accent: '#fb923c' },
+    { key: 'terminal', fx: 'rain', name: 'Terminal', bg: '#050805', bg2: '', kind: 'flat', angle: 135, text: '#b6ffb6', accent: '#22c55e' },
+    { key: 'mono', fx: 'snow', name: 'Mono', bg: '#111111', bg2: '#2a2a2a', kind: 'linear', angle: 135, text: '#f5f5f5', accent: '#a3a3a3' }
   ];
   const ACCENTS = [['Site default', ''], ['Blue', '#3b82f6'], ['Orange', '#ff5f2e'], ['Green', '#10b981'], ['Pink', '#ec4899'], ['Violet', '#8b5cf6'], ['Amber', '#f59e0b']];
   const TEXTS = [['Site default', ''], ['White', '#ffffff'], ['Warm', '#fde9c9'], ['Mint', '#b9f5dc'], ['Sky', '#bfe3ff'], ['Lavender', '#e0d4ff']];
 
+  const FXKEYS = ['auto', 'none', 'sakura', 'leaves', 'rain', 'bubbles', 'embers', 'stars', 'bokeh', 'snow'];
   const hex6 = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
   function clean(v) {
     if (!v || typeof v !== 'object') return null;
     const kind = v.flat === true ? 'flat' : (v.kind === 'linear' || v.kind === 'flat' ? v.kind : 'radial');
     const angle = Math.min(360, Math.max(0, Math.round(Number(v.angle)))), dim = Math.min(80, Math.max(0, Math.round(Number(v.dim))));
-    return { bg: hex6(v.bg), bg2: hex6(v.bg2), kind, angle: isNaN(angle) ? 135 : angle, text: hex6(v.text), accent: hex6(v.accent), img: Number(v.img) > 0 ? Math.floor(Number(v.img)) : 0, dim: isNaN(dim) ? 40 : dim };
+    return { bg: hex6(v.bg), bg2: hex6(v.bg2), kind, angle: isNaN(angle) ? 135 : angle, text: hex6(v.text), accent: hex6(v.accent), img: Number(v.img) > 0 ? Math.floor(Number(v.img)) : 0, dim: isNaN(dim) ? 40 : dim, theme: typeof v.theme === 'string' && /^[a-z-]{0,20}$/.test(v.theme) ? v.theme : '', fx: FXKEYS.indexOf(v.fx) >= 0 ? v.fx : 'auto', fxLevel: [1, 2, 3].indexOf(Number(v.fxLevel)) >= 0 ? Number(v.fxLevel) : 2 };
   }
   function read() { try { return clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return null; } }
   function write(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch (e) {} }
@@ -129,6 +130,20 @@
   }
 
   // ── turning a look into CSS ──
+  // The gradient goes on the page itself (html), not on body, and is stretched across the whole scrollable width (--tb-w, set below).
+  // Otherwise, when a page is wider than the screen (zoomed out, or content that overflows), the part past the screen edge would show
+  // a different colour as a hard band.
+  const rootBg = (endColour, grad) => 'html{background-color:' + endColour + ' !important;background-image:' + grad + ' !important;background-repeat:no-repeat !important;background-size:var(--tb-w,100%) 100% !important}';
+  let fitT = 0;
+  function fitRoot() {
+    const de = document.documentElement, sw = de.scrollWidth;
+    if (sw > de.clientWidth + 1) de.style.setProperty('--tb-w', sw + 'px'); else de.style.removeProperty('--tb-w');
+  }
+  function scheduleFit() { clearTimeout(fitT); fitT = setTimeout(fitRoot, 120); }
+  window.addEventListener('load', scheduleFit); window.addEventListener('resize', scheduleFit); window.addEventListener('orientationchange', scheduleFit);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', scheduleFit);
+  document.addEventListener('DOMContentLoaded', () => { try { new MutationObserver(scheduleFit).observe(document.body, { childList: true, subtree: true }); } catch (e) {} scheduleFit(); });
+
   let blobUrl = null, blobT = 0;
   function cssFor(t, imgUrl) {
     let out = '';
@@ -140,10 +155,10 @@
       const grad = t.kind === 'flat' ? c1 : t.kind === 'linear' ? 'linear-gradient(' + t.angle + 'deg,' + stops + ')' : 'radial-gradient(circle at top left,' + stops + ')';
       if (imgUrl) {
         const d = (t.dim / 100).toFixed(2);
-        out += 'html{background:' + (t.kind === 'flat' ? c1 : grad) + ' !important}body{background:transparent !important}' +
+        out += (t.kind === 'flat' ? 'html{background:' + c1 + ' !important}' : rootBg(end, grad)) + 'body{background:transparent !important}' +
           'body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(rgba(0,0,0,' + d + '),rgba(0,0,0,' + d + ')),url("' + imgUrl + '") center/cover no-repeat}';
       } else if (t.kind === 'flat') out += 'html,body{background:' + c1 + ' !important}';
-      else out += 'html{background:' + (t.bg2 ? end : hslToHex(h, s, l * 0.3)) + ' !important}body{background:' + grad + ' !important}';
+      else out += rootBg(end, grad) + 'body{background:transparent !important}';
     }
     out += accentCss(t.accent);
     if (t.text) {
@@ -156,10 +171,11 @@
   function paint(t, imgUrl) {
     let st = document.getElementById(STYLE_ID);
     if (!st) { st = document.createElement('style'); st.id = STYLE_ID; (document.head || document.documentElement).appendChild(st); }
-    st.textContent = cssFor(t, imgUrl);
+    st.textContent = cssFor(t, imgUrl); scheduleFit();
   }
   function apply() {
     const t = read() || DEFAULT;
+    fxSync();
     if (!t.img) { paint(t, null); return; }
     paint(t, blobT === t.img ? blobUrl : null);        // colours first; the picture joins as soon as it is read
     if (blobT === t.img) return;
@@ -173,11 +189,178 @@
   function set(t, keepPanel) { write(clean(t) || DEFAULT); apply(); if (panelOpen && !keepPanel) renderPanel(); }
   const cur = () => Object.assign({}, DEFAULT, read() || {});
 
-  apply();
   const refresh = () => { blobT = 0; apply(); if (panelOpen) renderPanel(); };
   window.addEventListener('toolbox:synced', refresh);                                          // arrived from another device
   window.addEventListener('storage', e => { if (e.key === KEY) refresh(); });                  // changed in another tab
   window.ToolboxTheme = { get: cur, set, presets: PRESETS, themes: THEMES, imgGet, imgPut };
+
+  // ── ambient animation: soft effects down both sides of the screen ──
+  // Each theme has its own (cherry blossoms, leaves, digital rain, bubbles, embers, stars, golden bokeh, snow). They are drawn on two
+  // thin canvases along the screen edges, fade out toward the middle, never take clicks, and pause when the tab is hidden.
+  const FXLIST = [['auto', 'Match my theme'], ['none', 'Off'], ['sakura', 'Cherry blossoms'], ['leaves', 'Falling leaves'], ['rain', 'Digital rain'], ['bubbles', 'Bubbles'], ['embers', 'Embers'], ['stars', 'Starfield'], ['bokeh', 'Golden bokeh'], ['snow', 'Soft snow']];
+  const LV = { 1: 0.55, 2: 1, 3: 1.7 };
+  const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[(Math.random() * a.length) | 0];
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const GLYPHS = Array.from('ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿ0123456789ABCDEF<>/=+*');
+
+  const FX = {
+    sakura: {
+      n: 7,
+      make(sd, init) { const x = rnd(0, sd.w); return { x, bx: x, y: init ? rnd(-20, sd.h) : -20, s: rnd(5, 10), vy: rnd(28, 55), wind: rnd(3, 10), sw: rnd(12, 32), f: rnd(0.6, 1.3), ph: rnd(0, 6.28), rot: rnd(0, 6.28), vr: rnd(-1.2, 1.2), fl: rnd(0, 6.28), fs: rnd(1.5, 3), c: pick(['#ffc6dc', '#ffb0cf', '#ffd6e6', '#ff9ec4']) }; },
+      tick(p, dt, t, sd) { p.y += p.vy * dt; p.bx += p.wind * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.sw; p.rot += p.vr * dt; p.fl += p.fs * dt; return p.y < sd.h + 20 && p.x > -30 && p.x < sd.w + 30; },
+      draw(g, p, a) {
+        const s = p.s; g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.fl))); g.globalAlpha = 0.8 * a; g.fillStyle = p.c;
+        g.beginPath(); g.moveTo(0, -s); g.bezierCurveTo(s * 0.95, -s * 0.7, s * 0.85, s * 0.7, 0, s); g.bezierCurveTo(-s * 0.85, s * 0.7, -s * 0.95, -s * 0.7, 0, -s); g.fill(); g.restore();
+      }
+    },
+    leaves: {
+      n: 6,
+      make(sd, init) { const x = rnd(0, sd.w); return { x, bx: x, y: init ? rnd(-20, sd.h) : -24, s: rnd(7, 13), vy: rnd(26, 52), wind: rnd(2, 8), sw: rnd(18, 40), f: rnd(0.5, 1.1), ph: rnd(0, 6.28), rot: rnd(0, 6.28), vr: rnd(-1.4, 1.4), fl: rnd(0, 6.28), fs: rnd(1, 2.2), c: pick(['#1f6b3a', '#2d8a4e', '#155c33', '#3a7d44', '#0f4a2a', '#2f9e57']) }; },
+      tick(p, dt, t, sd) { p.y += p.vy * dt; p.bx += p.wind * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.sw; p.rot += p.vr * dt; p.fl += p.fs * dt; return p.y < sd.h + 24 && p.x > -30 && p.x < sd.w + 30; },
+      draw(g, p, a) {
+        const s = p.s; g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.scale(0.4 + 0.6 * Math.abs(Math.cos(p.fl)), 1); g.globalAlpha = 0.8 * a; g.fillStyle = p.c;
+        g.beginPath(); g.moveTo(0, -s); g.quadraticCurveTo(s * 0.9, -s * 0.15, 0, s); g.quadraticCurveTo(-s * 0.9, -s * 0.15, 0, -s); g.fill();
+        g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(0, -s * 0.8); g.lineTo(0, s * 0.9); g.stroke(); g.restore();
+      }
+    },
+    rain: {
+      n: 0, cell: 15,
+      make(sd, init, i, n) {
+        const len = 6 + ((Math.random() * 11) | 0);
+        return { x: (i + 0.5) * (sd.w / n), y: init ? rnd(-sd.h * 0.3, sd.h) : -rnd(0, sd.h * 0.5), vy: rnd(50, 130), len, ch: Array.from({ length: len }, () => pick(GLYPHS)), tm: 0 };
+      },
+      tick(p, dt, t, sd) { p.y += p.vy * dt; p.tm += dt; if (p.tm > 0.11) { p.tm = 0; p.ch[(Math.random() * p.len) | 0] = pick(GLYPHS); } return p.y - p.len * 15 < sd.h; },
+      draw(g, p, a) {
+        g.font = '13px ui-monospace,Menlo,Consolas,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        for (let k = 0; k < p.len; k++) {
+          const cy = p.y - k * 15; if (cy < -15 || cy > 2000) continue;
+          g.globalAlpha = a * (1 - k / p.len) * 0.9; g.fillStyle = k === 0 ? '#e6ffe6' : '#22c55e'; g.fillText(p.ch[k], p.x, cy);
+        }
+      }
+    },
+    bubbles: {
+      n: 8,
+      make(sd, init) { const r = rnd(3, 11), x = rnd(0, sd.w); return { x, bx: x, r, y: init ? rnd(0, sd.h) : sd.h + r, vy: 20 + r * 4 + rnd(0, 20), wob: rnd(5, 15), f: rnd(0.8, 1.8), ph: rnd(0, 6.28) }; },
+      tick(p, dt, t) { p.y -= p.vy * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.wob; return p.y > -p.r - 4; },
+      draw(g, p, a, t, sd) {
+        const fade = clamp01(p.y / (sd.h * 0.3)) * a;
+        g.globalAlpha = fade; g.fillStyle = 'rgba(150,210,255,0.10)'; g.strokeStyle = 'rgba(200,235,255,0.6)'; g.lineWidth = 1;
+        g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.2832); g.fill(); g.stroke();
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(p.x - p.r * 0.35, p.y - p.r * 0.35, Math.max(0.8, p.r * 0.22), 0, 6.2832); g.fill();
+      }
+    },
+    embers: {
+      n: 9, add: true,
+      make(sd, init) { const x = rnd(0, sd.w); return { x, bx: x, y: init ? rnd(0, sd.h) : sd.h + 10, vy: rnd(24, 70), sw: rnd(8, 22), f: rnd(0.5, 1.4), ph: rnd(0, 6.28), s: rnd(1, 2.6), ff: rnd(3, 7), c: pick(['255,154,61', '255,207,77', '255,95,46']) }; },
+      tick(p, dt, t, sd) { p.y -= p.vy * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.sw; return p.y > -10; },
+      draw(g, p, a, t, sd) {
+        const k = (0.25 + 0.75 * clamp01(p.y / sd.h)) * (0.65 + 0.35 * Math.sin(t * p.ff + p.ph)) * a;
+        g.fillStyle = 'rgba(' + p.c + ',' + (0.22 * k) + ')'; g.beginPath(); g.arc(p.x, p.y, p.s * 3, 0, 6.2832); g.fill();
+        g.fillStyle = 'rgba(' + p.c + ',' + (0.9 * k) + ')'; g.beginPath(); g.arc(p.x, p.y, p.s, 0, 6.2832); g.fill();
+      }
+    },
+    stars: {
+      n: 24, add: true,
+      make(sd, init, i) {
+        if (i === 0) return { shoot: true, on: false, next: rnd(2, 8), life: 0, dur: 0.9, x: 0, y: 0, ang: 0.7 };
+        return { x: rnd(0, sd.w), y: rnd(0, sd.h), r: rnd(0.4, 1.4), tw: rnd(0.6, 2.2), ph: rnd(0, 6.28), big: Math.random() < 0.12, c: pick(['255,255,255', '220,210,255', '200,220,255']) };
+      },
+      tick(p, dt, t, sd) {
+        if (!p.shoot) return true;
+        if (!p.on) { p.next -= dt; if (p.next <= 0) { p.on = true; p.life = 0; p.x = rnd(sd.w * 0.3, sd.w); p.y = rnd(0, sd.h * 0.4); p.ang = rnd(0.5, 0.9); } }
+        else { p.life += dt; p.x -= Math.cos(p.ang) * 260 * dt; p.y += Math.sin(p.ang) * 260 * dt; if (p.life > p.dur) { p.on = false; p.next = rnd(6, 14); } }
+        return true;
+      },
+      draw(g, p, a, t) {
+        if (p.shoot) {
+          if (!p.on) return;
+          const f = 1 - p.life / p.dur, dx = Math.cos(p.ang) * 70, dy = -Math.sin(p.ang) * 70, gr = g.createLinearGradient(p.x, p.y, p.x + dx, p.y + dy);
+          gr.addColorStop(0, 'rgba(255,255,255,' + 0.9 * f * a + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          g.strokeStyle = gr; g.lineWidth = 1.4; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x + dx, p.y + dy); g.stroke(); return;
+        }
+        const k = (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * p.tw + p.ph))) * a;
+        g.fillStyle = 'rgba(' + p.c + ',' + 0.85 * k + ')'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.2832); g.fill();
+        if (p.big) { g.strokeStyle = 'rgba(' + p.c + ',' + 0.5 * k + ')'; g.lineWidth = 0.7; g.beginPath(); g.moveTo(p.x - 4, p.y); g.lineTo(p.x + 4, p.y); g.moveTo(p.x, p.y - 4); g.lineTo(p.x, p.y + 4); g.stroke(); }
+      }
+    },
+    bokeh: {
+      n: 6, add: true,
+      make(sd, init) { const r = rnd(10, 38), x = rnd(0, sd.w); return { x, bx: x, r, y: init ? rnd(0, sd.h) : sd.h + r, vy: rnd(4, 12), sw: rnd(10, 25), f: rnd(0.15, 0.4), ph: rnd(0, 6.28), c: pick(['255,176,103', '255,122,89', '255,217,138', '255,150,110']), pa: rnd(0.07, 0.17), pf: rnd(0.3, 0.8) }; },
+      tick(p, dt, t) { p.y -= p.vy * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.sw; return p.y > -p.r; },
+      draw(g, p, a, t, sd) {
+        const k = (0.6 + 0.4 * Math.sin(t * p.pf + p.ph)) * p.pa * a * Math.sin(Math.PI * clamp01(p.y / sd.h)) * 1.6, gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        gr.addColorStop(0, 'rgba(' + p.c + ',' + k * 0.8 + ')'); gr.addColorStop(0.7, 'rgba(' + p.c + ',' + k + ')'); gr.addColorStop(1, 'rgba(' + p.c + ',0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.2832); g.fill();
+      }
+    },
+    snow: {
+      n: 12,
+      make(sd, init) { const r = rnd(0.8, 2.6), x = rnd(0, sd.w); return { x, bx: x, r, y: init ? rnd(-10, sd.h) : -10, vy: rnd(14, 38) * (r / 1.6), sw: rnd(5, 16), f: rnd(0.4, 1.1), ph: rnd(0, 6.28) }; },
+      tick(p, dt, t, sd) { p.y += p.vy * dt; p.x = p.bx + Math.sin(t * p.f + p.ph) * p.sw; return p.y < sd.h + 6; },
+      draw(g, p, a) { g.fillStyle = 'rgba(235,240,255,' + 0.75 * a + ')'; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.2832); g.fill(); }
+    }
+  };
+
+  let fxKey = '', fxLvl = 0, fxSides = [], fxRaf = 0, fxLast = 0, fxT = 0, fxDpr = 1, fxWait = false, fxW = 0;
+  const reduceMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  function fxTeardown() { cancelAnimationFrame(fxRaf); fxRaf = 0; fxSides.forEach(s => s.cv.remove()); fxSides = []; }
+  function fxSetup(key, level) {
+    fxTeardown();
+    const def = FX[key], W = window.innerWidth, H = window.innerHeight, narrow = W < 640;
+    const S = narrow ? Math.max(40, Math.round(W * 0.12)) : Math.min(240, Math.max(70, Math.round(W * 0.15)));
+    fxDpr = Math.min(2, window.devicePixelRatio || 1); fxW = W; fxLast = 0;
+    fxSides = [0, 1].map(i => {
+      const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); cv.className = 'toolbox-fx';
+      cv.width = Math.round(S * fxDpr); cv.height = Math.round(H * fxDpr);
+      cv.style.cssText = 'position:fixed;top:0;' + (i ? 'right' : 'left') + ':0;width:' + S + 'px;height:' + H + 'px;z-index:9000;pointer-events:none;';
+      document.body.appendChild(cv);
+      const sd = { cv, g: cv.getContext('2d'), w: S, h: H, ps: [], outer: i ? (x => S - x) : (x => x), amp: narrow ? 0.7 : 1 };
+      const n = def.cell ? Math.max(2, Math.round((S / def.cell) * Math.min(1, LV[level] * 0.7))) : Math.max(3, Math.round(def.n * LV[level] * (H / 900) * Math.min(1, S / 200)));
+      for (let k = 0; k < n; k++) sd.ps.push(def.make(sd, true, k, n));
+      return sd;
+    });
+    fxRaf = requestAnimationFrame(fxLoop);
+  }
+  function fxLoop(ts) {
+    fxRaf = requestAnimationFrame(fxLoop);
+    if (document.hidden) { fxLast = 0; return; }
+    const def = FX[fxKey]; if (!def) return;
+    const dt = fxLast ? Math.min(0.05, (ts - fxLast) / 1000) : 0.016; fxLast = ts; fxT += dt;
+    fxSides.forEach(sd => {
+      const g = sd.g; g.setTransform(fxDpr, 0, 0, fxDpr, 0, 0); g.clearRect(0, 0, sd.w, sd.h);
+      g.globalCompositeOperation = def.add ? 'lighter' : 'source-over';
+      for (let i = 0; i < sd.ps.length; i++) {
+        let p = sd.ps[i];
+        if (def.tick(p, dt, fxT, sd) === false) { sd.ps[i] = p = def.make(sd, false, i, sd.ps.length); continue; }
+        const a = Math.pow(1 - clamp01(sd.outer(p.x) / sd.w), 1.2) * sd.amp;
+        if (a > 0.02) { g.globalAlpha = 1; def.draw(g, p, a, fxT, sd); }
+      }
+      g.globalAlpha = 1;
+    });
+  }
+  // which effect is wanted right now, by name ('' for none)
+  function fxWanted(t) {
+    let key = t.fx;
+    if (key === 'auto') key = (THEMES.find(x => x.key === t.theme) || {}).fx || '';
+    return key === 'none' || !FX[key] || reduceMotion() ? '' : key;
+  }
+  function fxSync() {
+    if (!document.body) { if (!fxWait) { fxWait = true; document.addEventListener('DOMContentLoaded', () => { fxWait = false; fxSync(); }); } return; }
+    const t = read() || DEFAULT, key = fxWanted(t);
+    if (key === fxKey && t.fxLevel === fxLvl) return;
+    fxKey = key; fxLvl = t.fxLevel;
+    if (key) fxSetup(key, t.fxLevel); else fxTeardown();
+  }
+  let fxResize = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(fxResize);
+    fxResize = setTimeout(() => {      // phones fire "resize" as the address bar slides; only rebuild for a real change
+      const sd = fxSides[0]; if (!fxKey || !sd) return;
+      if (Math.abs(window.innerWidth - fxW) > 0 || Math.abs(window.innerHeight - sd.h) > 120) fxSetup(fxKey, fxLvl);
+    }, 250);
+  });
+
+  apply();      // first paint of the saved look (after the animation code above is defined)
 
   // ── side panel ──
   let panelOpen = false, root = null, drawer = null, lastFocus = null, note = '';
@@ -245,6 +428,11 @@
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;">' + thm + '</div>' +
       '<p style="color:#64748b;font-size:0.75rem;line-height:1.5;margin:0.5rem 0 0;">' + (hasImg ? 'A theme sets the colours. Your picture still covers the background, so remove it below to see the theme\u2019s background.' : 'One click sets the background, text and accent together. Fine-tune anything below.') + '</p>' +
 
+      '<div style="' + LBL + '">Animation</div>' +
+      '<label style="' + ROW + '">Effect<select data-fx style="background:#0f131a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:0.3rem 0.4rem;font-size:0.85rem;max-width:11rem;">' + FXLIST.map(([k, n]) => '<option value="' + k + '"' + (t.fx === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>' +
+      '<label style="' + ROW + '">Amount<select data-fxlevel style="background:#0f131a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:0.3rem 0.4rem;font-size:0.85rem;">' + [[1, 'Gentle'], [2, 'Normal'], [3, 'Lively']].map(([k, n]) => '<option value="' + k + '"' + (t.fxLevel === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>' +
+      '<p style="color:#64748b;font-size:0.75rem;line-height:1.5;margin:0.5rem 0 0;">' + (reduceMotion() ? 'Your device asks for reduced motion, so animations stay off.' : t.fx === 'auto' ? (fxWanted(t) ? 'Showing the ' + (FXLIST.find(x => x[0] === fxWanted(t)) || ['', ''])[1].toLowerCase() + ' effect from your theme.' : 'Pick a theme and it brings its own animation.') : 'Soft effects down both sides of the screen.') + '</p>' +
+
       '<div style="' + LBL + '">Background</div>' +
       '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;">' + sw + '</div>' +
       '<label style="' + ROW + '">Style<select data-kind style="background:#0f131a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:0.3rem 0.4rem;font-size:0.85rem;">' +
@@ -288,7 +476,7 @@
     const p = e.target.closest('[data-preset]');
     if (p) { const pr = PRESETS[+p.getAttribute('data-preset')]; set(Object.assign(cur(), { bg: pr.bg, bg2: pr.bg2, kind: pr.kind })); return; }
     const th = e.target.closest('[data-theme]');
-    if (th) { const o = THEMES[+th.getAttribute('data-theme')]; set(Object.assign(cur(), { bg: o.bg, bg2: o.bg2, kind: o.kind, angle: o.angle, text: o.text, accent: o.accent })); return; }
+    if (th) { const o = THEMES[+th.getAttribute('data-theme')]; set(Object.assign(cur(), { bg: o.bg, bg2: o.bg2, kind: o.kind, angle: o.angle, text: o.text, accent: o.accent, theme: o.key })); return; }
     const ax = e.target.closest('[data-acc]');
     if (ax) { set(Object.assign(cur(), { accent: ax.getAttribute('data-acc') })); return; }
     const x = e.target.closest('[data-text]');
@@ -309,6 +497,8 @@
     else if (el.matches('[data-c2]')) set(Object.assign(cur(), { bg2: el.value }), live);
     else if (el.matches('[data-accc]')) set(Object.assign(cur(), { accent: el.value }), live);
     else if (el.matches('[data-textc]')) set(Object.assign(cur(), { text: el.value }), live);
+    else if (el.matches('[data-fx]')) set(Object.assign(cur(), { fx: el.value }));
+    else if (el.matches('[data-fxlevel]')) set(Object.assign(cur(), { fxLevel: +el.value }));
     else if (el.matches('[data-kind]')) set(Object.assign(cur(), { kind: el.value }));
     else if (el.matches('[data-angle]')) { set(Object.assign(cur(), { angle: +el.value }), live); const v = drawer.querySelector('[data-angle-val]'); if (v) v.textContent = el.value + '°'; }
     else if (el.matches('[data-dim]')) { set(Object.assign(cur(), { dim: +el.value }), live); const v = drawer.querySelector('[data-dim-val]'); if (v) v.textContent = el.value + '%'; }
