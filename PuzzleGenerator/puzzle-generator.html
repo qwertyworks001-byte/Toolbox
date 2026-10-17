@@ -6,74 +6,91 @@
 <title>Puzzle Generator</title>
 <link rel="icon" type="image/png" href="../Assets/Favicon/Favicon.png">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="../toolbox-theme.js"></script>
 <link rel="stylesheet" href="../style.css">
 <script src="../timer-engine.js"></script>
 <style>
+  /* shared puzzle style: these variables are set from the Style panel */
+  #root { --pz-cell: #f8fafc; --pz-line: #334155; --pz-thick: #0f172a; --pz-text: #0f172a; --pz-num: #334155; --pz-hl: #dbeafe; --pz-sel: #fde68a; --pz-user: #1d4ed8; --pz-block: transparent;
+          --pz-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --pz-scale: 1; --pz-bw: 1px; --pz-radius: 0px; --pz-gap: 0px; }
   textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  .xw { display: grid; width: max-content; margin: 0 auto; }
-  .cell { position: relative; width: var(--cell); height: var(--cell); background: #f8fafc; border: 1px solid #334155; margin: 0 -1px -1px 0; }
-  .cell.blk { background: transparent; border: 0; }
-  .cell input { width: 100%; height: 100%; border: 0; background: transparent; text-align: center; font-weight: 700; color: #0f172a; text-transform: uppercase;
-                font-size: calc(var(--cell) * 0.52); padding: calc(var(--cell) * 0.12) 0 0; outline: none; caret-color: transparent; border-radius: 0; font-family: inherit; }
-  .cell .n { position: absolute; top: 1px; left: 2px; font-size: max(0.5rem, calc(var(--cell) * 0.26)); line-height: 1; color: #334155; pointer-events: none; font-weight: 600; }
-  .cell.hl { background: #dbeafe; }
-  .cell.act { background: #fde68a; }
+  details > summary { list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary.sm::after { content: "\25BE"; margin-left: 0.4rem; color: #94a3b8; }
+  details[open] > summary.sm::after { content: "\25B4"; }
+  .stc { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.72rem; color: #94a3b8; }
+  .stc input[type="color"] { width: 100%; height: 2rem; padding: 0; border: 1px solid #475569; border-radius: 0.4rem; background: transparent; cursor: pointer; }
+  .dlm { position: absolute; left: 0; top: calc(100% + 0.25rem); z-index: 20; min-width: 13.5rem; background: #0f172a; border: 1px solid #475569; border-radius: 0.6rem; padding: 0.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .dlm button { display: block; width: 100%; text-align: left; font-size: 0.8rem; padding: 0.45rem 0.65rem; border-radius: 0.4rem; color: #cbd5e1; }
+  .dlm button:hover { background: rgba(59,130,246,0.18); color: #bfdbfe; }
+
+  /* crossword */
+  .xw { display: grid; width: max-content; margin: 0 auto; grid-auto-rows: calc(var(--cell) + var(--pz-gap) - var(--pz-bw)); }
+  .cell { position: relative; width: var(--cell); height: var(--cell); background: var(--pz-cell); border: var(--pz-bw) solid var(--pz-line); border-radius: var(--pz-radius); font-family: var(--pz-font); }
+  .cell.blk { background: var(--pz-block); border: 0; }
+  .cell input { width: 100%; height: 100%; border: 0; background: transparent; text-align: center; font-weight: 700; color: var(--pz-text); text-transform: uppercase;
+                font-size: calc(var(--cell) * 0.52); padding: calc(var(--cell) * 0.12) 0 0; outline: none; caret-color: transparent; border-radius: var(--pz-radius); font-family: inherit; }
+  .cell .n { position: absolute; top: 1px; left: 3px; font-size: max(0.5rem, calc(var(--cell) * 0.26)); line-height: 1; color: var(--pz-num); pointer-events: none; font-weight: 600; }
+  .cell.hl { background: var(--pz-hl); }
+  .cell.act { background: var(--pz-sel); }
   .cell.wrong { background: #fecaca; }
   .cell.wrong input { color: #b91c1c; }
-  .cell.rev input { color: #1d4ed8; }
+  .cell.rev input { color: var(--pz-user); }
   .clue { padding: 0.3rem 0.5rem; border-left: 3px solid transparent; border-radius: 0 0.4rem 0.4rem 0; cursor: pointer; font-size: 0.9rem; line-height: 1.4; }
   .clue:hover { background: rgba(255,255,255,0.05); }
   .clue.cur { background: rgba(59,130,246,0.16); border-left-color: #3b82f6; }
   .clue .len { color: #64748b; }
-  .soon { opacity: 0.45; cursor: not-allowed; }
   .btn { font-size: 0.8rem; padding: 0.4rem 0.75rem; border-radius: 0.5rem; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; }
   .btn:hover { border-color: #3b82f6; color: #93c5fd; }
+
   /* sudoku */
-  .sd { display: grid; grid-template-columns: repeat(9, var(--sc)); --sc: min(3rem, calc((100vw - 5rem) / 9)); border: 2px solid #e2e8f0; width: max-content; outline: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+  .sd { display: grid; grid-template-columns: repeat(var(--sn), var(--sc)); --sn: 9; --sc: 3rem; --nc: 3; border: calc(var(--pz-bw) * 2) solid var(--pz-thick); width: max-content; outline: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; font-family: var(--pz-font); }
   .sd:focus-visible { box-shadow: 0 0 0 3px rgba(59,130,246,0.6); }
-  .sc { position: relative; width: var(--sc); height: var(--sc); background: #f8fafc; border: 1px solid #94a3b8; display: flex; align-items: center; justify-content: center; font-size: calc(var(--sc) * 0.58); font-weight: 600; color: #1d4ed8; cursor: pointer; }
-  .sc.br { border-right: 2px solid #0f172a; }
-  .sc.bb { border-bottom: 2px solid #0f172a; }
-  .sc.giv { color: #0f172a; font-weight: 800; }
+  .sc { position: relative; width: var(--sc); height: var(--sc); background: var(--pz-cell); border: var(--pz-bw) solid var(--pz-line); border-radius: var(--pz-radius); display: flex; align-items: center; justify-content: center; font-size: calc(var(--sc) * 0.55); font-weight: 600; color: var(--pz-user); cursor: pointer; }
+  .sc.br { border-right: calc(var(--pz-bw) * 2) solid var(--pz-thick); }
+  .sc.bb { border-bottom: calc(var(--pz-bw) * 2) solid var(--pz-thick); }
+  .sc.giv { color: var(--pz-text); font-weight: 800; }
   .sc.hnt { color: #7c3aed; }
-  .sc.pr { background: #e0e7ff; }
-  .sc.same { background: #c7d2fe; }
-  .sc.selc { background: #fde68a; }
+  .sc.pr { background: var(--pz-hl); }
+  .sc.same { background: color-mix(in srgb, var(--pz-hl) 55%, var(--pz-sel)); }
+  .sc.selc { background: var(--pz-sel); }
   .sc.err { background: #fecaca; color: #b91c1c; }
   .sc.wrong { background: #fca5a5; }
-  .sc .nt { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); pointer-events: none; }
-  .sc .nt i { font-style: normal; font-size: calc(var(--sc) * 0.24); font-weight: 600; color: #475569; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .sc .nt { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--nc), 1fr); grid-auto-rows: 1fr; pointer-events: none; }
+  .sc .nt i { font-style: normal; font-size: calc(var(--sc) * 0.22); font-weight: 600; color: var(--pz-num); display: flex; align-items: center; justify-content: center; line-height: 1; }
   .pad { display: grid; grid-template-columns: repeat(3, 3.2rem); gap: 0.4rem; }
   .pad button { height: 3.2rem; border-radius: 0.6rem; background: #1e293b; border: 1px solid #475569; color: #e2e8f0; font-size: 1.2rem; font-weight: 600; }
   .pad button:hover { border-color: #3b82f6; color: #93c5fd; }
-  .pad button.wide { grid-column: span 3; height: 2.6rem; font-size: 0.85rem; }
+  .pad button.wide { grid-column: 1 / -1; height: 2.6rem; font-size: 0.85rem; }
   .pad button.on { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #bfdbfe; }
+
   /* word search */
-  .ws { display: grid; grid-template-columns: repeat(var(--n), var(--wc)); --wc: min(2.2rem, calc((100vw - 6rem) / var(--n))); width: max-content; touch-action: none; -webkit-user-select: none; user-select: none; border: 1px solid #475569; background: #f8fafc; }
-  .wc { width: var(--wc); height: var(--wc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: calc(var(--wc) * 0.5); color: #0f172a; cursor: pointer; }
-  .wc.sel { background: #fde68a !important; }
-  .wc.ans { box-shadow: inset 0 0 0 2px #f97316; }
+  .ws { display: grid; grid-template-columns: repeat(var(--n), var(--wc)); gap: var(--pz-gap); --wc: min(calc(2.2rem * var(--pz-scale)), calc((100vw - 6rem) / var(--n))); width: max-content; touch-action: none; -webkit-user-select: none; user-select: none; border: var(--pz-bw) solid var(--pz-line); background: var(--pz-cell); font-family: var(--pz-font); }
+  .wc { width: var(--wc); height: var(--wc); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: calc(var(--wc) * 0.5); color: var(--pz-text); cursor: pointer; border-radius: var(--pz-radius); }
+  .wc.sel { background: var(--pz-sel) !important; }
+  .wc.ans { box-shadow: inset 0 0 0 2px var(--pz-user); }
   .wsw { padding: 0.15rem 0.5rem; font-size: 0.9rem; border-left: 3px solid transparent; }
   .wsw.done { text-decoration: line-through; color: #64748b; }
+
   @media print {
-    .sc, .wc { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .sd { --sc: 2.5rem !important; border-color: #000; }
-    .sc { border-color: #000; background: #fff !important; color: #000 !important; }
-    .sc.br { border-right-color: #000; } .sc.bb { border-bottom-color: #000; }
-    .sc.pr, .sc.same, .sc.selc, .sc.err, .sc.wrong { background: #fff !important; }
-    .ws { --wc: calc(17cm / var(--n)) !important; border-color: #000; background: #fff; }
-    .wc { color: #000; } .wc.sel { background: none !important; }
-    .wsw { color: #000; } .wsw.done { color: #000; }
-    .ptitle { color: #000 !important; }
+    body:not(.print-styled) #root { --pz-cell: #fff !important; --pz-line: #000 !important; --pz-thick: #000 !important; --pz-text: #000 !important; --pz-num: #000 !important; --pz-hl: #fff !important; --pz-sel: #fff !important; --pz-user: #000 !important; --pz-block: transparent !important; }
+    body:not(.print-styled).blocks-filled #root { --pz-block: #000 !important; }
+    .xw, .cell, .sc, .wc, .ws { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cell.hl, .cell.act, .cell.wrong { background: var(--pz-cell) !important; }
+    .cell.wrong input { color: var(--pz-text); }
+    .sc.pr, .sc.same, .sc.selc, .sc.err, .sc.wrong { background: var(--pz-cell) !important; }
+    .sc.err { color: var(--pz-user); }
+    .wc.sel { background: none !important; }
     body { background: #fff !important; color: #000 !important; }
     .no-print { display: none !important; }
     .glass { background: none !important; border: none !important; backdrop-filter: none !important; padding: 0 !important; }
     .xw { --cell: 2.1rem !important; }
-    .cell { border-color: #000; background: #fff !important; }
-    .cell input, .cell .n { color: #000 !important; }
+    .sd { --sc: min(2.6rem, calc(17cm / var(--sn))) !important; }
+    .ws { --wc: calc(17cm / var(--n)) !important; }
     .clue { color: #000; border: 0; background: none !important; cursor: default; }
     .clue .len { color: #444; }
-    h2, h3, #title { color: #000 !important; }
+    .wsw, .wsw.done { color: #000; }
+    h2, h3, #title, .ptitle { color: #000 !important; }
     #root { max-width: none !important; padding: 0 !important; }
   }
 </style>
@@ -93,7 +110,7 @@
       <button type="button" id="favToggle" class="text-lg text-slate-600 hover:scale-110 transition-transform" aria-label="Add to favorites" aria-pressed="false">&#9734;</button>
     </div>
     <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Puzzle Generator</h1>
-    <p class="text-slate-400 mt-1 text-sm sm:text-base">Make your own puzzles to solve on screen or print out.</p>
+    <p class="text-slate-400 mt-1 text-sm sm:text-base">Make your own puzzles, style them your way, then solve on screen, print or download.</p>
   </header>
 
   <!-- Puzzle types. To add a new one (e.g. sudoku): add a tab button here, a <section data-puzzle="..."> below, and its code at the bottom of the script. -->
@@ -103,6 +120,34 @@
     <button type="button" class="tab-btn text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/50" data-puzzle="wordsearch">&#128269; Word search</button>
   </div>
 
+  <details id="styleBox" class="glass rounded-2xl mb-5 no-print">
+    <summary class="sm cursor-pointer select-none px-5 py-3 text-sm font-semibold text-slate-200 flex items-center">&#127912; Style <span class="ml-2 text-xs font-normal text-slate-500">colours, font, lines</span></summary>
+    <div class="px-5 pb-5 pt-1">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <label class="stc">Preset
+          <select id="stPreset" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1.5 text-slate-200 text-sm">
+            <option value="classic">Classic</option><option value="dark">Dark</option><option value="pastel">Pastel</option><option value="ocean">Ocean</option><option value="forest">Forest</option><option value="sunset">Sunset</option><option value="contrast">High contrast</option><option value="newspaper">Newspaper</option><option value="custom" hidden>Custom</option>
+          </select>
+        </label>
+        <label class="stc">Font
+          <select id="stFont" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1.5 text-slate-200 text-sm">
+            <option value="sans">Clean sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option><option value="round">Rounded</option><option value="hand">Handwritten</option><option value="cond">Condensed</option>
+          </select>
+        </label>
+        <label class="stc">Line thickness<input type="range" id="stBw" min="1" max="3" step="1" class="accent-blue-500"></label>
+        <label class="stc">Corner rounding<input type="range" id="stRadius" min="0" max="12" step="1" class="accent-blue-500"></label>
+        <label class="stc">Gap between squares <span class="text-slate-600">(crossword, word search)</span><input type="range" id="stGap" min="0" max="6" step="1" class="accent-blue-500"></label>
+        <label class="stc">Size<input type="range" id="stScale" min="0.8" max="1.4" step="0.05" class="accent-blue-500"></label>
+      </div>
+      <div class="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3 mb-4" id="stColors"></div>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-300">
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="stBlockOn" class="accent-blue-500"> Show crossword black squares</label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="stPrintStyled" class="accent-blue-500"> Print with this style (default is plain black and white)</label>
+        <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="stPrintBlocks" class="accent-blue-500"> Fill black squares when printing</label>
+        <button type="button" class="btn sm:ml-auto" id="stReset">Reset style</button>
+      </div>
+    </div>
+  </details>
   <section data-puzzle="crossword" id="crossword">
 
     <div class="glass rounded-2xl p-6 mb-5 no-print">
@@ -136,7 +181,15 @@
         <button type="button" class="btn" id="checkBtn">Check</button>
         <button type="button" class="btn" id="clearEntries">Clear entries</button>
         <button type="button" class="btn" id="printBtn">Print</button>
-        <button type="button" class="btn" id="pngBtn">Download grid image</button>
+        <div class="relative inline-block" id="dlWrap">
+          <button type="button" class="btn" id="dlBtn" aria-haspopup="true" aria-expanded="false">Download &#9662;</button>
+          <div class="dlm hidden" id="dlMenu" role="menu">
+            <button type="button" role="menuitem" data-act="grid">Grid image (PNG)</button>
+            <button type="button" role="menuitem" data-act="clues">Clues (text file)</button>
+            <button type="button" role="menuitem" data-act="both">Grid and clues in one image</button>
+            <button type="button" role="menuitem" data-act="files">Grid image + clues file</button>
+          </div>
+        </div>
         <button type="button" class="btn" id="copyClues">Copy clues</button>
       </div>
       <h2 class="text-xl font-bold text-white mb-1" id="title"></h2>
@@ -155,6 +208,11 @@
   <section data-puzzle="sudoku" id="sudoku" class="hidden">
     <div class="glass rounded-2xl p-6">
       <div class="flex flex-wrap items-center gap-2 mb-4 no-print">
+        <label class="inline-flex items-center gap-1.5 text-xs text-slate-300">Size
+          <select id="sdSize" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1 text-slate-200">
+            <option value="6">6 x 6</option><option value="9" selected>9 x 9</option><option value="12">12 x 12</option>
+          </select>
+        </label>
         <label class="inline-flex items-center gap-1.5 text-xs text-slate-300">Difficulty
           <select id="sdDiff" class="bg-slate-900/70 border border-slate-700 rounded-md px-2 py-1 text-slate-200">
             <option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option><option value="expert">Expert</option>
@@ -173,14 +231,8 @@
       <div class="flex flex-wrap items-start gap-6">
         <div class="overflow-x-auto pb-1"><div class="sd" id="sdGrid" tabindex="0" role="grid" aria-label="Sudoku grid. Use arrow keys to move and number keys to fill in."></div></div>
         <div class="no-print">
-          <div class="pad" id="sdPad">
-            <button type="button" data-d="1">1</button><button type="button" data-d="2">2</button><button type="button" data-d="3">3</button>
-            <button type="button" data-d="4">4</button><button type="button" data-d="5">5</button><button type="button" data-d="6">6</button>
-            <button type="button" data-d="7">7</button><button type="button" data-d="8">8</button><button type="button" data-d="9">9</button>
-            <button type="button" class="wide" data-d="0">Erase</button>
-            <button type="button" class="wide" id="sdNotes">Notes: off</button>
-          </div>
-          <p class="text-xs text-slate-500 mt-3 max-w-[10.5rem] leading-relaxed">Tap a square, then a number. Keys 1-9 work too, N toggles notes, and arrows move.</p>
+          <div class="pad" id="sdPad"></div>
+          <p class="text-xs text-slate-500 mt-3 max-w-[10.5rem] leading-relaxed" id="sdKeys"></p>
         </div>
       </div>
     </div>
@@ -395,8 +447,8 @@
     if (!P) { panel.classList.add('hidden'); return; }
     panel.classList.remove('hidden');
     $('title').textContent = $('xwTitle').value.trim() || 'Crossword';
-    grid.style.gridTemplateColumns = 'repeat(' + P.cols + ', var(--cell))';
-    grid.style.setProperty('--cell', 'min(2.75rem, calc((100vw - 6rem) / ' + P.cols + '))');
+    grid.style.gridTemplateColumns = 'repeat(' + P.cols + ', calc(var(--cell) + var(--pz-gap) - var(--pz-bw)))';
+    grid.style.setProperty('--cell', 'min(calc(2.75rem * var(--pz-scale)), calc((100vw - 6rem) / ' + P.cols + '))');
     let html = '';
     for (let r = 0; r < P.rows; r++) for (let c = 0; c < P.cols; c++) {
       if (!P.sol[r][c]) { html += '<div class="cell blk"></div>'; continue; }
@@ -537,22 +589,79 @@
     }
     const b = $('copyClues'); b.textContent = ok ? '\u2713 Copied' : 'Copy failed'; setTimeout(() => { b.textContent = 'Copy clues'; }, 1200);
   });
-  $('pngBtn').addEventListener('click', () => {
-    if (!P) return;
-    const px = 44, pad = 24, title = $('xwTitle').value.trim(), top = title ? 56 : 0;
-    const cv = document.createElement('canvas'); cv.width = P.cols * px + pad * 2; cv.height = P.rows * px + pad * 2 + top;
-    const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
-    if (title) { g.fillStyle = '#000'; g.font = 'bold 26px sans-serif'; g.textBaseline = 'middle'; g.fillText(title, pad, pad + 14); }
-    g.strokeStyle = '#000'; g.lineWidth = 1.5;
+  /* ---------- styling helpers shared by the image downloads ---------- */
+  function sty() {
+    const cs = getComputedStyle($('root')), v = n => cs.getPropertyValue(n).trim();
+    return { cell: v('--pz-cell'), line: v('--pz-line'), thick: v('--pz-thick'), text: v('--pz-text'), num: v('--pz-num'), block: v('--pz-block'), user: v('--pz-user'), bw: parseFloat(v('--pz-bw')) || 1, font: v('--pz-font') || 'sans-serif' };
+  }
+
+  /* ---------- crossword downloads ---------- */
+  const xwBase = () => { const t = $('xwTitle').value.trim(); return (t && t.replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '-').toLowerCase()) || 'crossword'; };
+  function cluesText() {
+    const showLen = $('showLen').checked, line = i => { const w = P.words[i]; return w.num + '. ' + w.clue + (showLen ? ' (' + w.len + ')' : ''); }, t = $('xwTitle').value.trim();
+    return (t ? t + '\n' + '='.repeat(Math.min(t.length, 60)) + '\n\n' : '') + 'ACROSS\n' + P.across.map(line).join('\n') + '\n\nDOWN\n' + P.down.map(line).join('\n') + '\n';
+  }
+  function saveText(t, name) {
+    const b = new Blob([t], { type: 'text/plain;charset=utf-8' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function wrapText(g, t, maxW) {
+    const out = []; let cur = '';
+    t.split(' ').forEach(w => { const test = cur ? cur + ' ' + w : w; if (cur && g.measureText(test).width > maxW) { out.push(cur); cur = w; } else cur = test; });
+    if (cur) out.push(cur);
+    return out;
+  }
+  function drawGrid(g, ox, oy, px, S) {
+    g.lineWidth = Math.max(1, S.bw * 1.5); g.textAlign = 'left';
     for (let r = 0; r < P.rows; r++) for (let c = 0; c < P.cols; c++) {
-      if (!P.sol[r][c]) continue;
-      const x = pad + c * px, y = pad + top + r * px;
-      g.strokeRect(x, y, px, px);
-      if (P.nums[r][c]) { g.fillStyle = '#000'; g.font = '11px sans-serif'; g.textBaseline = 'top'; g.textAlign = 'left'; g.fillText(String(P.nums[r][c]), x + 3, y + 2); }
+      const x = ox + c * px, y = oy + r * px;
+      if (!P.sol[r][c]) { if (S.block && S.block !== 'transparent') { g.fillStyle = S.block; g.fillRect(x, y, px, px); } continue; }
+      g.fillStyle = S.cell; g.fillRect(x, y, px, px); g.strokeStyle = S.line; g.strokeRect(x, y, px, px);
+      if (P.nums[r][c]) { g.fillStyle = S.num; g.font = '600 11px ' + S.font; g.textBaseline = 'top'; g.textAlign = 'left'; g.fillText(String(P.nums[r][c]), x + 3, y + 2); }
       const v = showAns ? P.sol[r][c] : entriesGrid[r][c];
-      if (v) { g.fillStyle = '#000'; g.font = 'bold 24px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v, x + px / 2, y + px / 2 + 3); }
+      if (v) { g.fillStyle = showAns ? S.user : S.text; g.font = 'bold 24px ' + S.font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v, x + px / 2, y + px / 2 + 3); }
     }
-    cv.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = (title ? title.replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '-').toLowerCase() : 'crossword') + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+  }
+  function crosswordCanvas(withClues) {
+    const S = sty(), px = 44, pad = 24, title = $('xwTitle').value.trim(), titleH = title ? 48 : 0, gw = P.cols * px, gh = P.rows * px;
+    const W = withClues ? Math.max(gw + pad * 2, 720) : gw + pad * 2, showLen = $('showLen').checked, lh = 21, colW = (W - pad * 3) / 2;
+    const cv = document.createElement('canvas'), g = cv.getContext('2d');
+    let ac = [], dn = [], clueH = 0;
+    if (withClues) {
+      g.font = '15px ' + S.font;
+      const fmt = i => { const w = P.words[i]; return wrapText(g, w.num + '. ' + w.clue + (showLen ? ' (' + w.len + ')' : ''), colW); };
+      ac = P.across.map(fmt); dn = P.down.map(fmt);
+      const h = a => a.reduce((s, l) => s + l.length * lh + 6, 0) + 30;
+      clueH = Math.max(h(ac), h(dn)) + pad;
+    }
+    cv.width = W; cv.height = pad * 2 + titleH + gh + clueH;
+    g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+    if (title) { g.fillStyle = '#000'; g.font = 'bold 26px ' + S.font; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(title, pad, pad + 14); }
+    drawGrid(g, (W - gw) / 2, pad + titleH, px, S);
+    if (withClues) {
+      const col = (head, lists, x) => {
+        let y = pad + titleH + gh + pad;
+        g.fillStyle = '#000'; g.font = 'bold 14px ' + S.font; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(head, x, y); y += 26;
+        g.font = '15px ' + S.font;
+        lists.forEach(l => { l.forEach((ln, k) => { g.fillText(ln, x + (k ? 14 : 0), y); y += lh; }); y += 6; });
+      };
+      col('ACROSS', ac, pad); col('DOWN', dn, pad * 2 + colW);
+    }
+    return cv;
+  }
+  const dlMenu = $('dlMenu');
+  function closeDl() { dlMenu.classList.add('hidden'); $('dlBtn').setAttribute('aria-expanded', 'false'); }
+  $('dlBtn').addEventListener('click', e => { e.stopPropagation(); const open = dlMenu.classList.toggle('hidden') === false; $('dlBtn').setAttribute('aria-expanded', String(open)); });
+  document.addEventListener('click', e => { if (!e.target.closest('#dlWrap')) closeDl(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDl(); });
+  dlMenu.addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]'); if (!b || !P) return;
+    closeDl();
+    const act = b.dataset.act, name = xwBase();
+    if (act === 'grid') download(crosswordCanvas(false), name + '.png');
+    else if (act === 'both') download(crosswordCanvas(true), name + '-with-clues.png');
+    else if (act === 'clues') saveText(cluesText(), name + '-clues.txt');
+    else if (act === 'files') { download(crosswordCanvas(false), name + '.png'); setTimeout(() => saveText(cluesText(), name + '-clues.txt'), 400); }
   });
 
   /* ---------- generating ---------- */
@@ -594,21 +703,32 @@
   }
 
   /* =====================================================================
-     SUDOKU
+     SUDOKU (6x6, 9x9 or 12x12)
      Puzzles are built by filling a random complete grid, then removing
      squares (in symmetric pairs) only while the puzzle still has exactly
-     one solution.
+     one solution. Boxes are 2x3 (6x6), 3x3 (9x9) or 3x4 (12x12), as rows x columns.
+     Digits above 9 show as A, B, C.
      ===================================================================== */
-  const SD_KEY = 'toolbox:puzzles:sudoku';
-  const SD = { diff: 'medium', givens: [], sol: [], vals: [], notes: [], hints: new Set(), wrong: new Set(), sel: -1, notesMode: false, showSol: false };
-  const sdGrid = $('sdGrid'); let sdCells = [];
-  const rowOf = i => (i / 9) | 0, colOf = i => i % 9, boxOf = i => (((i / 9) | 0) / 3 | 0) * 3 + ((i % 9) / 3 | 0);
-  const PEERS = Array.from({ length: 81 }, (_, i) => { const p = []; for (let j = 0; j < 81; j++) if (j !== i && (rowOf(j) === rowOf(i) || colOf(j) === colOf(i) || boxOf(j) === boxOf(i))) p.push(j); return p; });
+  const SD_KEY = 'toolbox:puzzles:sudoku', SD_SIZE_KEY = 'toolbox:puzzles:sudoku:size';
+  const SD_DIMS = { 6: [2, 3], 9: [3, 3], 12: [3, 4] };
+  const SD = { n: 9, br: 3, bc: 3, N: 81, diff: 'medium', givens: [], sol: [], vals: [], notes: [], hints: new Set(), wrong: new Set(), sel: -1, notesMode: false, showSol: false };
+  const sdGrid = $('sdGrid'); let sdCells = [], PEERS = [];
+  const rowOf = i => (i / SD.n) | 0, colOf = i => i % SD.n;
+  const boxOf = i => ((rowOf(i) / SD.br) | 0) * (SD.n / SD.bc) + ((colOf(i) / SD.bc) | 0);
+  const dsp = d => d < 10 ? String(d) : String.fromCharCode(55 + d);
   const popcount = m => { let c = 0; while (m) { m &= m - 1; c++; } return c; };
+  const sdKey = n => n === 9 ? SD_KEY : SD_KEY + ':' + n;
+
+  function sdDims(n) {
+    if (!SD_DIMS[n]) n = 9;
+    SD.n = n; SD.br = SD_DIMS[n][0]; SD.bc = SD_DIMS[n][1]; SD.N = n * n;
+    PEERS = Array.from({ length: SD.N }, (_, i) => { const p = []; for (let j = 0; j < SD.N; j++) if (j !== i && (rowOf(j) === rowOf(i) || colOf(j) === colOf(i) || boxOf(j) === boxOf(i))) p.push(j); return p; });
+    $('sdSize').value = String(n);
+  }
 
   function sdMasks(g) {
-    const rm = new Array(9).fill(0), cm = new Array(9).fill(0), bm = new Array(9).fill(0);
-    for (let i = 0; i < 81; i++) if (g[i]) {
+    const n = SD.n, rm = new Array(n).fill(0), cm = new Array(n).fill(0), bm = new Array(n).fill(0);
+    for (let i = 0; i < SD.N; i++) if (g[i]) {
       const b = 1 << g[i];
       if ((rm[rowOf(i)] | cm[colOf(i)] | bm[boxOf(i)]) & b) return null;
       rm[rowOf(i)] |= b; cm[colOf(i)] |= b; bm[boxOf(i)] |= b;
@@ -617,21 +737,23 @@
   }
   // picks the empty square with the fewest candidates; returns null if some square has none, or {i:-1} when the grid is full
   function sdPick(g, M) {
-    let best = -1, bc = 10, bmask = 0;
-    for (let i = 0; i < 81; i++) if (!g[i]) {
-      const mask = ~(M.rm[rowOf(i)] | M.cm[colOf(i)] | M.bm[boxOf(i)]) & 0x3FE, c = popcount(mask);
+    const full = (1 << (SD.n + 1)) - 2; let best = -1, bc = 99, bmask = 0;
+    for (let i = 0; i < SD.N; i++) if (!g[i]) {
+      const mask = ~(M.rm[rowOf(i)] | M.cm[colOf(i)] | M.bm[boxOf(i)]) & full, c = popcount(mask);
       if (c === 0) return null;
       if (c < bc) { best = i; bc = c; bmask = mask; if (c === 1) break; }
     }
     return { i: best, mask: bmask };
   }
-  function sdCount(grid, limit) {
+  // counts solutions up to `limit`; if the search gets too long it gives up and reports `limit` (treated as "not unique")
+  function sdCount(grid, limit, cap) {
     const g = grid.slice(), M = sdMasks(g); if (!M) return 0;
-    let n = 0;
+    let n = 0, nodes = 0;
     (function rec() {
+      if (++nodes > cap) { n = limit; return; }
       const p = sdPick(g, M); if (!p) return;
       if (p.i < 0) { n++; return; }
-      for (let d = 1; d <= 9 && n < limit; d++) if (p.mask & (1 << d)) {
+      for (let d = 1; d <= SD.n && n < limit; d++) if (p.mask & (1 << d)) {
         const b = 1 << d, r = rowOf(p.i), c = colOf(p.i), x = boxOf(p.i);
         g[p.i] = d; M.rm[r] |= b; M.cm[c] |= b; M.bm[x] |= b;
         rec();
@@ -641,62 +763,75 @@
     return n;
   }
   function sdFill(rng) {
-    const g = new Array(81).fill(0), M = sdMasks(g);
-    (function rec() {
-      const p = sdPick(g, M); if (!p) return false;
-      if (p.i < 0) return true;
-      const ds = []; for (let d = 1; d <= 9; d++) if (p.mask & (1 << d)) ds.push(d);
-      shuffle(ds, rng);
-      for (const d of ds) {
-        const b = 1 << d, r = rowOf(p.i), c = colOf(p.i), x = boxOf(p.i);
-        g[p.i] = d; M.rm[r] |= b; M.cm[c] |= b; M.bm[x] |= b;
-        if (rec()) return true;
-        g[p.i] = 0; M.rm[r] &= ~b; M.cm[c] &= ~b; M.bm[x] &= ~b;
-      }
-      return false;
-    })();
-    return g;
+    for (let tries = 0; tries < 30; tries++) {
+      const g = new Array(SD.N).fill(0), M = sdMasks(g); let nodes = 0, ok = false;
+      ok = (function rec() {
+        if (++nodes > 60000) return false;
+        const p = sdPick(g, M); if (!p) return false;
+        if (p.i < 0) return true;
+        const ds = []; for (let d = 1; d <= SD.n; d++) if (p.mask & (1 << d)) ds.push(d);
+        shuffle(ds, rng);
+        for (const d of ds) {
+          const b = 1 << d, r = rowOf(p.i), c = colOf(p.i), x = boxOf(p.i);
+          g[p.i] = d; M.rm[r] |= b; M.cm[c] |= b; M.bm[x] |= b;
+          if (rec()) return true;
+          g[p.i] = 0; M.rm[r] &= ~b; M.cm[c] &= ~b; M.bm[x] &= ~b;
+        }
+        return false;
+      })();
+      if (ok) return g;
+    }
+    return new Array(SD.N).fill(0);
   }
 
   function sdStatus(t) { $('sdStatus').textContent = t; }
-  const SD_HELP = 'Tap a square, then a number. Every row, column and 3x3 box needs the digits 1 to 9 once.';
+  const sdHelp = () => 'Tap a square, then a ' + (SD.n > 9 ? 'symbol' : 'number') + '. Every row, column and ' + SD.br + 'x' + SD.bc + ' box needs ' + (SD.n === 12 ? 'the digits 1 to 9 and the letters A to C' : 'the digits 1 to ' + SD.n) + ' once.';
 
   function sdNew() {
-    const rng = mulberry32((Math.random() * 2147483647) | 0);
+    const rng = mulberry32((Math.random() * 2147483647) | 0), N = SD.N;
     const sol = sdFill(rng), p = sol.slice();
-    const target = { easy: 40, medium: 34, hard: 30, expert: 26 }[SD.diff] || 34;
-    const half = shuffle(Array.from({ length: 41 }, (_, i) => i), rng);
-    let givens = 81; const t0 = performance.now();
+    const frac = { easy: 0.49, medium: 0.42, hard: 0.37, expert: 0.32 }[SD.diff] || 0.42, target = Math.floor(N * frac);
+    const cap = SD.n >= 12 ? 40000 : SD.n === 9 ? 2000000 : 200000, timeCap = SD.n >= 12 ? 3500 : 1800;
+    const half = shuffle(Array.from({ length: Math.ceil(N / 2) }, (_, i) => i), rng);
+    let givens = N; const t0 = performance.now();
     for (const i of half) {
-      if (givens <= target || performance.now() - t0 > 1800) break;
-      const j = 80 - i, a = p[i], b = p[j];
+      if (givens <= target || performance.now() - t0 > timeCap) break;
+      const j = N - 1 - i, a = p[i], b = p[j];
       p[i] = 0; p[j] = 0;
-      if (sdCount(p, 2) === 1) givens -= (i === j ? 1 : 2); else { p[i] = a; p[j] = b; }
+      if (sdCount(p, 2, cap) === 1) givens -= (i === j ? 1 : 2); else { p[i] = a; p[j] = b; }
     }
-    SD.sol = sol; SD.givens = p; SD.vals = p.slice(); SD.notes = new Array(81).fill(0);
+    SD.sol = sol; SD.givens = p; SD.vals = p.slice(); SD.notes = new Array(N).fill(0);
     SD.hints = new Set(); SD.wrong = new Set(); SD.sel = -1; SD.showSol = false; $('sdShow').checked = false;
     sdBuild(); sdPaint(); sdSave();
-    sdStatus(SD_HELP);
+    sdStatus(sdHelp());
   }
   function sdBuild() {
+    const n = SD.n, nc = n === 12 ? 4 : 3;
+    sdGrid.style.setProperty('--sn', n); sdGrid.style.setProperty('--nc', nc);
+    sdGrid.style.setProperty('--sc', 'min(calc(' + (n === 6 ? 3.4 : n === 9 ? 3 : 2.6) + 'rem * var(--pz-scale)), calc((100vw - 5rem) / ' + n + '))');
     let html = '';
-    for (let i = 0; i < 81; i++) {
-      const cls = 'sc' + (colOf(i) % 3 === 2 && colOf(i) < 8 ? ' br' : '') + (rowOf(i) % 3 === 2 && rowOf(i) < 8 ? ' bb' : '');
-      html += `<div class="${cls}" data-i="${i}" role="gridcell"><span class="v"></span><div class="nt"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>`;
+    const notes = '<i></i>'.repeat(n);
+    for (let i = 0; i < SD.N; i++) {
+      const cls = 'sc' + (colOf(i) % SD.bc === SD.bc - 1 && colOf(i) < n - 1 ? ' br' : '') + (rowOf(i) % SD.br === SD.br - 1 && rowOf(i) < n - 1 ? ' bb' : '');
+      html += `<div class="${cls}" data-i="${i}" role="gridcell"><span class="v"></span><div class="nt">${notes}</div></div>`;
     }
     sdGrid.innerHTML = html; sdCells = Array.from(sdGrid.children);
-    $('sdTitle').textContent = 'Sudoku (' + SD.diff.charAt(0).toUpperCase() + SD.diff.slice(1) + ')';
+    let pad = ''; for (let d = 1; d <= n; d++) pad += `<button type="button" data-d="${d}">${dsp(d)}</button>`;
+    pad += '<button type="button" class="wide" data-d="0">Erase</button><button type="button" class="wide" id="sdNotes">Notes: off</button>';
+    const padEl = $('sdPad'); padEl.innerHTML = pad; padEl.style.gridTemplateColumns = 'repeat(' + nc + ', 3.2rem)';
+    $('sdKeys').textContent = 'Keys ' + (n === 12 ? '1-9 and A, B, C' : '1-' + n) + ' work too, N toggles notes, and arrows move.';
+    $('sdTitle').textContent = 'Sudoku ' + n + 'x' + n + ' (' + SD.diff.charAt(0).toUpperCase() + SD.diff.slice(1) + ')';
   }
   function sdPaint() {
-    if (!sdCells.length) return;
+    if (!sdCells.length || sdCells.length !== SD.N) return;
     const bad = new Set();
-    for (let i = 0; i < 81; i++) if (SD.vals[i]) for (const j of PEERS[i]) if (SD.vals[j] === SD.vals[i]) { bad.add(i); break; }
+    for (let i = 0; i < SD.N; i++) if (SD.vals[i]) for (const j of PEERS[i]) if (SD.vals[j] === SD.vals[i]) { bad.add(i); break; }
     const s = SD.sel, sv = s >= 0 ? (SD.showSol ? SD.sol[s] : SD.vals[s]) : 0;
-    for (let i = 0; i < 81; i++) {
+    for (let i = 0; i < SD.N; i++) {
       const el = sdCells[i], v = SD.showSol ? SD.sol[i] : SD.vals[i];
-      el.querySelector('.v').textContent = v || '';
+      el.querySelector('.v').textContent = v ? dsp(v) : '';
       const nt = el.querySelector('.nt').children;
-      for (let d = 1; d <= 9; d++) nt[d - 1].textContent = !v && (SD.notes[i] & (1 << d)) ? d : '';
+      for (let d = 1; d <= SD.n; d++) nt[d - 1].textContent = !v && (SD.notes[i] & (1 << d)) ? dsp(d) : '';
       el.classList.toggle('giv', !!SD.givens[i]);
       el.classList.toggle('hnt', !SD.givens[i] && SD.hints.has(i));
       el.classList.toggle('err', !SD.showSol && bad.has(i));
@@ -705,25 +840,32 @@
       el.classList.toggle('pr', s >= 0 && i !== s && (rowOf(i) === rowOf(s) || colOf(i) === colOf(s) || boxOf(i) === boxOf(s)));
       el.classList.toggle('same', !!sv && i !== s && v === sv);
     }
-    $('sdNotes').textContent = 'Notes: ' + (SD.notesMode ? 'on' : 'off'); $('sdNotes').classList.toggle('on', SD.notesMode);
+    const nb = $('sdNotes'); if (nb) { nb.textContent = 'Notes: ' + (SD.notesMode ? 'on' : 'off'); nb.classList.toggle('on', SD.notesMode); }
   }
   function sdSave() {
-    try { localStorage.setItem(SD_KEY, JSON.stringify({ diff: SD.diff, givens: SD.givens, sol: SD.sol, vals: SD.vals, notes: SD.notes, hints: Array.from(SD.hints) })); } catch (e) {}
+    try {
+      localStorage.setItem(sdKey(SD.n), JSON.stringify({ n: SD.n, diff: SD.diff, givens: SD.givens, sol: SD.sol, vals: SD.vals, notes: SD.notes, hints: Array.from(SD.hints) }));
+      localStorage.setItem(SD_SIZE_KEY, String(SD.n));
+    } catch (e) {}
   }
+  // loads the saved game for the current size; returns true when one was found
   function sdLoad() {
     try {
-      const s = JSON.parse(localStorage.getItem(SD_KEY));
-      const ok = a => Array.isArray(a) && a.length === 81 && a.every(n => Number.isInteger(n) && n >= 0 && n <= 1023);
+      const s = JSON.parse(localStorage.getItem(sdKey(SD.n))), max = 1 << (SD.n + 1);
+      const ok = a => Array.isArray(a) && a.length === SD.N && a.every(n => Number.isInteger(n) && n >= 0 && n < max);
       if (s && ok(s.givens) && ok(s.sol) && ok(s.vals) && ok(s.notes)) {
         SD.diff = s.diff || 'medium'; SD.givens = s.givens; SD.sol = s.sol; SD.vals = s.vals; SD.notes = s.notes; SD.hints = new Set(s.hints || []);
-        $('sdDiff').value = SD.diff; sdBuild(); sdPaint(); sdStatus(SD_HELP);
+        SD.wrong = new Set(); SD.sel = -1; SD.showSol = false; $('sdShow').checked = false;
+        $('sdDiff').value = SD.diff; sdBuild(); sdPaint(); sdStatus(sdHelp());
+        return true;
       }
     } catch (e) {}
+    return false;
   }
   function sdSolved() { return SD.vals.every((v, i) => v === SD.sol[i]); }
   function sdEnter(d) {
     const s = SD.sel;
-    if (s < 0 || SD.showSol || SD.givens[s]) return;
+    if (s < 0 || SD.showSol || SD.givens[s] || d > SD.n) return;
     SD.wrong.clear();
     if (d === 0) { if (SD.vals[s]) SD.vals[s] = 0; else SD.notes[s] = 0; }
     else if (SD.notesMode) { if (SD.vals[s]) return; SD.notes[s] ^= (1 << d); }
@@ -737,13 +879,14 @@
   sdGrid.addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/^[1-9]$/.test(e.key)) { e.preventDefault(); sdEnter(+e.key); return; }
+    if (SD.n > 9 && /^[abcABC]$/.test(e.key)) { e.preventDefault(); sdEnter(e.key.toUpperCase().charCodeAt(0) - 55); return; }
     if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); sdEnter(0); return; }
     if (e.key === 'n' || e.key === 'N') { e.preventDefault(); SD.notesMode = !SD.notesMode; sdPaint(); return; }
     const mv = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
     if (mv) {
       e.preventDefault();
-      const s = SD.sel < 0 ? 0 : SD.sel, r = Math.min(8, Math.max(0, rowOf(s) + mv[0])), c = Math.min(8, Math.max(0, colOf(s) + mv[1]));
-      sdSelect(r * 9 + c);
+      const s = SD.sel < 0 ? 0 : SD.sel, r = Math.min(SD.n - 1, Math.max(0, rowOf(s) + mv[0])), c = Math.min(SD.n - 1, Math.max(0, colOf(s) + mv[1]));
+      sdSelect(r * SD.n + c);
     }
   });
   sdGrid.addEventListener('focus', () => { if (SD.sel < 0 && SD.givens.length) sdSelect(0); });
@@ -754,10 +897,16 @@
     else sdEnter(+b.dataset.d);
   });
   $('sdNewBtn').addEventListener('click', () => { SD.diff = $('sdDiff').value; sdStatus('Making a puzzle...'); setTimeout(sdNew, 20); });
+  $('sdSize').addEventListener('change', e => {
+    sdDims(+e.target.value);
+    try { localStorage.setItem(SD_SIZE_KEY, String(SD.n)); } catch (er) {}
+    SD.givens = []; SD.sel = -1;
+    if (!sdLoad()) { SD.diff = $('sdDiff').value; sdStatus('Making a ' + SD.n + 'x' + SD.n + ' puzzle...'); setTimeout(sdNew, 20); }
+  });
   $('sdShow').addEventListener('change', e => { SD.showSol = e.target.checked; sdPaint(); });
   $('sdClear').addEventListener('click', () => {
     if (!SD.givens.length) return;
-    SD.vals = SD.givens.slice(); SD.notes = new Array(81).fill(0); SD.hints = new Set(); SD.wrong = new Set(); sdPaint(); sdSave(); sdStatus('Entries cleared.');
+    SD.vals = SD.givens.slice(); SD.notes = new Array(SD.N).fill(0); SD.hints = new Set(); SD.wrong = new Set(); sdPaint(); sdSave(); sdStatus('Entries cleared.');
   });
   $('sdCheck').addEventListener('click', () => {
     if (!SD.givens.length) return;
@@ -783,21 +932,24 @@
   $('sdPrint').addEventListener('click', () => window.print());
   $('sdPng').addEventListener('click', () => {
     if (!SD.givens.length) return;
-    const px = 52, pad = 20, cv = document.createElement('canvas'); cv.width = cv.height = px * 9 + pad * 2;
+    const S = sty(), n = SD.n, px = n === 12 ? 46 : 52, pad = 20, cv = document.createElement('canvas'); cv.width = cv.height = px * n + pad * 2;
     const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = S.cell; g.fillRect(pad, pad, px * n, px * n);
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (let i = 0; i < 81; i++) {
+    for (let i = 0; i < SD.N; i++) {
       const v = SD.showSol ? SD.sol[i] : SD.vals[i]; if (!v) continue;
-      g.fillStyle = SD.givens[i] ? '#000' : '#1d4ed8'; g.font = (SD.givens[i] ? 'bold ' : '') + '28px sans-serif';
-      g.fillText(String(v), pad + colOf(i) * px + px / 2, pad + rowOf(i) * px + px / 2 + 2);
+      g.fillStyle = SD.givens[i] ? S.text : S.user; g.font = (SD.givens[i] ? 'bold ' : '600 ') + Math.round(px * 0.55) + 'px ' + S.font;
+      g.fillText(dsp(v), pad + colOf(i) * px + px / 2, pad + rowOf(i) * px + px / 2 + 2);
     }
-    g.strokeStyle = '#000';
-    for (let k = 0; k <= 9; k++) {
-      g.lineWidth = k % 3 === 0 ? 3 : 1;
-      g.beginPath(); g.moveTo(pad, pad + k * px); g.lineTo(pad + 9 * px, pad + k * px); g.stroke();
-      g.beginPath(); g.moveTo(pad + k * px, pad); g.lineTo(pad + k * px, pad + 9 * px); g.stroke();
+    for (let k = 0; k <= n; k++) {
+      [[k % SD.br === 0, k], [k % SD.bc === 0, k]].forEach((t, axis) => {
+        g.strokeStyle = t[0] ? S.thick : S.line; g.lineWidth = t[0] ? S.bw * 3 : S.bw;
+        g.beginPath();
+        if (axis === 0) { g.moveTo(pad, pad + k * px); g.lineTo(pad + n * px, pad + k * px); } else { g.moveTo(pad + k * px, pad); g.lineTo(pad + k * px, pad + n * px); }
+        g.stroke();
+      });
     }
-    download(cv, 'sudoku-' + SD.diff + '.png');
+    download(cv, 'sudoku-' + n + 'x' + n + '-' + SD.diff + '.png');
   });
 
   /* =====================================================================
@@ -990,6 +1142,51 @@
       if (n) wsGenerate(false);
     }
   } catch (e) {}
+  /* =====================================================================
+     STYLE PANEL (applies to all three puzzle types)
+     ===================================================================== */
+  const ST_KEY = 'toolbox:puzzles:style';
+  const FONTS = { sans: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif', serif: 'Georgia, "Times New Roman", serif', mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', round: '"Trebuchet MS", "Segoe UI", sans-serif', hand: '"Segoe Print", "Bradley Hand", "Comic Sans MS", cursive', cond: '"Arial Narrow", "Roboto Condensed", sans-serif' };
+  const PRESETS = {
+    classic:   { cell: '#f8fafc', line: '#334155', thick: '#0f172a', text: '#0f172a', num: '#334155', hl: '#dbeafe', sel: '#fde68a', user: '#1d4ed8', block: '#0f172a', blockOn: false, font: 'sans', bw: 1, radius: 0, gap: 0, scale: 1 },
+    dark:      { cell: '#1e293b', line: '#64748b', thick: '#cbd5e1', text: '#f1f5f9', num: '#94a3b8', hl: '#1e3a8a', sel: '#854d0e', user: '#60a5fa', block: '#020617', blockOn: false, font: 'sans', bw: 1, radius: 0, gap: 0, scale: 1 },
+    pastel:    { cell: '#fff7ed', line: '#fdba74', thick: '#fb923c', text: '#7c2d12', num: '#c2410c', hl: '#fed7aa', sel: '#fde68a', user: '#be185d', block: '#fdba74', blockOn: false, font: 'round', bw: 1, radius: 6, gap: 2, scale: 1 },
+    ocean:     { cell: '#ecfeff', line: '#0e7490', thick: '#164e63', text: '#083344', num: '#155e75', hl: '#a5f3fc', sel: '#fde047', user: '#1d4ed8', block: '#164e63', blockOn: false, font: 'sans', bw: 1, radius: 3, gap: 0, scale: 1 },
+    forest:    { cell: '#f0fdf4', line: '#166534', thick: '#14532d', text: '#052e16', num: '#166534', hl: '#bbf7d0', sel: '#fde68a', user: '#0369a1', block: '#14532d', blockOn: false, font: 'serif', bw: 1, radius: 0, gap: 0, scale: 1 },
+    sunset:    { cell: '#fff1f2', line: '#be123c', thick: '#881337', text: '#4c0519', num: '#9f1239', hl: '#fecdd3', sel: '#fed7aa', user: '#c2410c', block: '#881337', blockOn: false, font: 'round', bw: 1, radius: 4, gap: 0, scale: 1 },
+    contrast:  { cell: '#ffffff', line: '#000000', thick: '#000000', text: '#000000', num: '#000000', hl: '#e5e7eb', sel: '#facc15', user: '#0000ee', block: '#000000', blockOn: true, font: 'sans', bw: 2, radius: 0, gap: 0, scale: 1.1 },
+    newspaper: { cell: '#fffdf5', line: '#000000', thick: '#000000', text: '#111111', num: '#111111', hl: '#e7e5e4', sel: '#d6d3d1', user: '#1f2937', block: '#000000', blockOn: true, font: 'serif', bw: 1, radius: 0, gap: 0, scale: 1 }
+  };
+  const COLS = [['cell', 'Squares'], ['line', 'Lines'], ['thick', 'Box lines'], ['text', 'Letters'], ['num', 'Numbers'], ['hl', 'Highlight'], ['sel', 'Selected'], ['user', 'Entries / answers'], ['block', 'Black squares']];
+  let ST = Object.assign({ preset: 'classic', printStyled: false, printBlocks: false }, PRESETS.classic);
+
+  function applyStyle() {
+    const r = $('root').style;
+    COLS.forEach(([k]) => r.setProperty('--pz-' + k, k === 'block' && !ST.blockOn ? 'transparent' : ST[k]));
+    r.setProperty('--pz-font', FONTS[ST.font] || FONTS.sans);
+    r.setProperty('--pz-bw', ST.bw + 'px'); r.setProperty('--pz-radius', ST.radius + 'px'); r.setProperty('--pz-gap', ST.gap + 'px'); r.setProperty('--pz-scale', ST.scale);
+    document.body.classList.toggle('print-styled', !!ST.printStyled); document.body.classList.toggle('blocks-filled', !!ST.printBlocks);
+  }
+  function syncControls() {
+    $('stPreset').value = ST.preset; $('stFont').value = ST.font; $('stBw').value = ST.bw; $('stRadius').value = ST.radius; $('stGap').value = ST.gap; $('stScale').value = ST.scale;
+    $('stBlockOn').checked = !!ST.blockOn; $('stPrintStyled').checked = !!ST.printStyled; $('stPrintBlocks').checked = !!ST.printBlocks;
+    COLS.forEach(([k]) => { $('stc-' + k).value = ST[k]; });
+  }
+  function saveStyle() { try { localStorage.setItem(ST_KEY, JSON.stringify(ST)); } catch (e) {} }
+  function changed(patch) { Object.assign(ST, patch); if (!('preset' in patch)) ST.preset = 'custom'; applyStyle(); syncControls(); saveStyle(); }
+
+  $('stColors').innerHTML = COLS.map(([k, l]) => `<label class="stc">${l}<input type="color" id="stc-${k}"></label>`).join('');
+  COLS.forEach(([k]) => $('stc-' + k).addEventListener('input', e => changed({ [k]: e.target.value, ...(k === 'block' ? { blockOn: true } : {}) })));
+  $('stPreset').addEventListener('change', e => { const p = PRESETS[e.target.value]; if (p) changed(Object.assign({ preset: e.target.value }, p)); });
+  $('stFont').addEventListener('change', e => changed({ font: e.target.value }));
+  [['stBw', 'bw'], ['stRadius', 'radius'], ['stGap', 'gap'], ['stScale', 'scale']].forEach(([id, k]) => $(id).addEventListener('input', e => changed({ [k]: +e.target.value })));
+  $('stBlockOn').addEventListener('change', e => changed({ blockOn: e.target.checked }));
+  $('stPrintStyled').addEventListener('change', e => { ST.printStyled = e.target.checked; applyStyle(); saveStyle(); });
+  $('stPrintBlocks').addEventListener('change', e => { ST.printBlocks = e.target.checked; applyStyle(); saveStyle(); });
+  $('stReset').addEventListener('click', () => { ST = Object.assign({ preset: 'classic', printStyled: false, printBlocks: false }, PRESETS.classic); applyStyle(); syncControls(); saveStyle(); });
+  try { const s = JSON.parse(localStorage.getItem(ST_KEY)); if (s && typeof s === 'object') { Object.keys(ST).forEach(k => { if (k in s && typeof s[k] === typeof ST[k]) ST[k] = s[k]; }); if (!FONTS[ST.font]) ST.font = 'sans'; } } catch (e) {}
+  applyStyle(); syncControls();
+  try { sdDims(+localStorage.getItem(SD_SIZE_KEY) || 9); } catch (e) { sdDims(9); }
   sdLoad();
 
   /* ---------- puzzle type tabs ---------- */

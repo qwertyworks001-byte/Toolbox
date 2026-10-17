@@ -2,7 +2,7 @@
 // Load it (after firebase-config.js) on any page. It needs no changes to the pages themselves: it watches the
 // browser storage those pages already use, so a star toggled on any tool page is picked up too.
 (function () {
-  const FAV = 'toolbox:favorites', REC = 'toolbox:recent', META = 'toolbox:sync-meta';
+  const FAV = 'toolbox:favorites', REC = 'toolbox:recent', THEME = 'toolbox:theme', META = 'toolbox:sync-meta';
   const me = document.currentScript;
   const base = me && me.src ? me.src.replace(/[^/]*$/, '') : '';
 
@@ -11,13 +11,23 @@
   // Favourites are tracked one tool at a time (newest change per tool wins) so two devices can both add favourites
   // without erasing each other. Recents are one short list, so the newest whole list wins. The favourites ORDER (what you
   // drag them into) is also one list, newest whole list wins; favourites not in it yet go on the end, oldest first.
-  const emptyMeta = () => ({ fav: {}, rec: { ids: [], t: 0 }, ord: { ids: [], t: 0 } });
+  // The look of the site (background colour) is one small setting, newest change wins.
+  const emptyMeta = () => ({ fav: {}, rec: { ids: [], t: 0 }, ord: { ids: [], t: 0 }, theme: { v: null, t: 0 } });
+  // (colours, gradient style and angle, text colour, and the time of the uploaded picture; the picture itself is stored apart from this)
+  function cleanTheme(v) {
+    if (!v || typeof v !== 'object') return null;
+    const hex = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : '';
+    const kind = v.flat === true ? 'flat' : (v.kind === 'linear' || v.kind === 'flat' ? v.kind : 'radial');
+    const angle = Math.min(360, Math.max(0, Math.round(Number(v.angle)))), dim = Math.min(80, Math.max(0, Math.round(Number(v.dim))));
+    return { bg: hex(v.bg), bg2: hex(v.bg2), kind, angle: isNaN(angle) ? 135 : angle, text: hex(v.text), accent: hex(v.accent), img: Number(v.img) > 0 ? Math.floor(Number(v.img)) : 0, dim: isNaN(dim) ? 40 : dim };
+  }
   function cleanMeta(m) {
     const out = emptyMeta();
     if (!m || typeof m !== 'object') return out;
     Object.keys(m.fav || {}).forEach(id => { const e = m.fav[id]; if (e && typeof e === 'object') out.fav[id] = { on: !!e.on, t: Number(e.t) || 0 }; });
     if (m.rec && Array.isArray(m.rec.ids)) out.rec = { ids: m.rec.ids.filter(x => typeof x === 'string').slice(0, 12), t: Number(m.rec.t) || 0 };
     if (m.ord && Array.isArray(m.ord.ids)) out.ord = { ids: m.ord.ids.filter(x => typeof x === 'string').slice(0, 200), t: Number(m.ord.t) || 0 };
+    if (m.theme && typeof m.theme === 'object') out.theme = { v: cleanTheme(m.theme.v), t: Number(m.theme.t) || 0 };
     return out;
   }
   function orderedFav(meta) {
@@ -30,13 +40,14 @@
     });
   }
   // Record what the page currently has in storage (new stars / un-stars / a changed recents list) with the time we noticed it.
-  function stamp(meta, favList, recList, now) {
+  function stamp(meta, favList, recList, now, themeLocal) {
     let changed = false;
     const have = new Set(favList);
     have.forEach(id => { const e = meta.fav[id]; if (!e || !e.on) { meta.fav[id] = { on: true, t: now }; changed = true; } });
     Object.keys(meta.fav).forEach(id => { if (meta.fav[id].on && !have.has(id)) { meta.fav[id] = { on: false, t: now }; changed = true; } });
     if (JSON.stringify(recList) !== JSON.stringify(meta.rec.ids)) { meta.rec = { ids: recList.slice(), t: now }; changed = true; }
     if (JSON.stringify(favList) !== JSON.stringify(orderedFav(meta))) { meta.ord = { ids: favList.slice(), t: now }; changed = true; }   // the page reordered them
+    if (themeLocal && JSON.stringify(themeLocal) !== JSON.stringify(meta.theme.v)) { meta.theme = { v: themeLocal, t: now }; changed = true; }
     return changed;
   }
   function mergeMeta(a, b) {
@@ -48,6 +59,7 @@
     });
     if (a.rec.t >= b.rec.t) { out.rec = a.rec; if (a.rec.t > b.rec.t) changedRemote = true; } else { out.rec = b.rec; changedLocal = true; }
     if (a.ord.t >= b.ord.t) { out.ord = a.ord; if (a.ord.t > b.ord.t) changedRemote = true; } else { out.ord = b.ord; changedLocal = true; }
+    if (a.theme.t >= b.theme.t) { out.theme = a.theme; if (a.theme.t > b.theme.t) changedRemote = true; } else { out.theme = b.theme; changedLocal = true; }
     return { meta: out, changedLocal, changedRemote };
   }
   function listsFrom(meta) {
@@ -59,6 +71,7 @@
   const origSet = Storage.prototype.setItem;
   const rawSet = (k, v) => origSet.call(localStorage, k, v);
   const readJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const readTheme = () => cleanTheme(readJSON(THEME));
   const readList = (k) => { const v = readJSON(k); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; };
   let meta = cleanMeta(readJSON(META));
   const saveMeta = () => { try { rawSet(META, JSON.stringify(meta)); } catch (e) {} };
@@ -68,37 +81,48 @@
     const want = listsFrom(meta), curFav = readList(FAV), curRec = readList(REC);
     const sameFav = JSON.stringify(curFav) === JSON.stringify(want.fav);
     const sameRec = JSON.stringify(curRec) === JSON.stringify(want.rec);
-    if (sameFav && sameRec) return;
-    try { rawSet(FAV, JSON.stringify(want.fav)); rawSet(REC, JSON.stringify(want.rec)); } catch (e) {}
+    const sameTheme = !meta.theme.v || JSON.stringify(readTheme()) === JSON.stringify(meta.theme.v);
+    if (sameFav && sameRec && sameTheme) return;
+    try {
+      if (!sameFav || !sameRec) { rawSet(FAV, JSON.stringify(want.fav)); rawSet(REC, JSON.stringify(want.rec)); }
+      if (!sameTheme) rawSet(THEME, JSON.stringify(meta.theme.v));
+    } catch (e) {}
     window.dispatchEvent(new CustomEvent('toolbox:synced'));
   }
   // Notice changes the pages make to storage (a star, a "recently used" entry), on this page or any other that loads this file.
-  Storage.prototype.setItem = function (k, v) { origSet.call(this, k, v); if (this === localStorage && (k === FAV || k === REC)) onLocal(); };
+  Storage.prototype.setItem = function (k, v) { origSet.call(this, k, v); if (this === localStorage && (k === FAV || k === REC || k === THEME)) onLocal(); };
   let localTimer = null;
-  function onLocal() { clearTimeout(localTimer); localTimer = setTimeout(() => { if (stamp(meta, readList(FAV), readList(REC), Date.now())) { saveMeta(); schedulePush(); } }, 50); }
-  if (stamp(meta, readList(FAV), readList(REC), Date.now())) saveMeta();   // catches stars toggled on pages that don't load this file
+  function onLocal() { clearTimeout(localTimer); localTimer = setTimeout(() => { if (stamp(meta, readList(FAV), readList(REC), Date.now(), readTheme())) { saveMeta(); schedulePush(); } }, 50); }
+  if (stamp(meta, readList(FAV), readList(REC), Date.now(), readTheme())) saveMeta();   // catches stars toggled on pages that don't load this file
 
   // ── cloud ──
   const cfg = window.TOOLBOX_FIREBASE, configured = !!(cfg && cfg.apiKey && cfg.projectId);
-  let status = configured ? 'signedout' : 'unconfigured', user = null, db = null, unsub = null, pushTimer = null, watch = null, busy = false, badgeEl = null;
+  let status = configured ? 'signedout' : 'unconfigured', user = null, db = null, unsub = null, imgUnsub = null, remoteImg = null, pushTimer = null, watch = null, busy = false, badgeEl = null;
   const WATCH_MS = window.__syncTimeoutMs || 12000;
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   const load = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
   const ref = () => db.doc('users/' + user.uid + '/toolbox/prefs');
+  const imgRef = () => db.doc('users/' + user.uid + '/toolbox/background');
   const SIGNIN = base + 'HabitTracker/habit-tracker.html#sync';
 
-  function setStatus(s) { status = s; drawBadge(); }
+  function setStatus(s) { status = s; drawBadge(); window.dispatchEvent(new CustomEvent('toolbox:authstate')); }
   function drawBadge() {
     if (!configured) return;
     if (!badgeEl) {
       badgeEl = document.createElement('a'); badgeEl.id = 'toolbox-sync-badge';
       badgeEl.style.cssText = 'position:fixed;top:0.6rem;right:0.6rem;z-index:9999;font:500 0.72rem ui-sans-serif,system-ui,sans-serif;padding:0.3rem 0.7rem;border-radius:999px;text-decoration:none;background:rgba(15,23,42,0.92);border:1px solid #475569;color:#cbd5e1;';
-      badgeEl.addEventListener('click', (e) => { e.preventDefault(); openAuth(); });
+      badgeEl.addEventListener('click', (e) => { e.preventDefault(); if (window.ToolboxPanel) window.ToolboxPanel.open(); else openAuth(); });   // the account / personalization panel when the page has it
       document.body.appendChild(badgeEl);
     }
     const t = { signedout: ['\u2601 Sign in to sync', '#f59e0b'], syncing: ['\u2601 Syncing\u2026', '#475569'], synced: ['\u2601 Synced', '#10b981'], error: ['\u2601 Sync problem', '#f59e0b'] }[status];
-    badgeEl.textContent = t[0]; badgeEl.style.borderColor = t[1]; badgeEl.href = SIGNIN;
-    badgeEl.title = status === 'synced' ? 'Favourites and recents are synced across your devices' : 'Open the sign-in / sync window';
+    badgeEl.style.borderColor = t[1]; badgeEl.href = SIGNIN;
+    if (user) {         // signed in: your Google picture (or your initial) in a ring that shows the sync status
+      const pic = user.photoURL, ini = ((user.displayName || user.email || '?').trim().charAt(0) || '?').toUpperCase();
+      badgeEl.style.padding = '2px'; badgeEl.style.lineHeight = '0';
+      badgeEl.innerHTML = pic ? '<img alt="" referrerpolicy="no-referrer" src="' + pic.replace(/"/g, '&quot;') + '" style="width:28px;height:28px;border-radius:50%;display:block;object-fit:cover;">'
+        : '<span style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#334155;color:#f1f5f9;font:600 0.8rem ui-sans-serif,system-ui,sans-serif;line-height:1;">' + ini + '</span>';
+    } else { badgeEl.style.padding = '0.3rem 0.7rem'; badgeEl.style.lineHeight = ''; badgeEl.textContent = t[0]; }
+    badgeEl.title = status === 'synced' ? 'Account: synced across your devices' : 'Open your account and personalization';
   }
 
   async function init() {
@@ -109,7 +133,7 @@
       if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(cfg);
       if (window.toolboxActivateAppCheck) window.toolboxActivateAppCheck();
       db = firebase.firestore();
-      firebase.auth().onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (u) { setStatus('syncing'); listen(); } else setStatus('signedout'); });
+      firebase.auth().onAuthStateChanged((u) => { user = u; clearTimeout(watch); if (unsub) { unsub(); unsub = null; } if (imgUnsub) { imgUnsub(); imgUnsub = null; } remoteImg = null; if (u) { setStatus('syncing'); listen(); } else setStatus('signedout'); });
     } catch (e) { setStatus('error'); }
   }
   function listen() {
@@ -118,7 +142,14 @@
       clearTimeout(watch); let needPush = true;
       if (snap.exists) { try { const m = mergeMeta(meta, cleanMeta(JSON.parse(snap.data().json))); meta = m.meta; saveMeta(); apply(); needPush = m.changedRemote; } catch (e) {} }
       if (needPush) push(); else setStatus('synced');
+      reconcileImage();
     }, () => { clearTimeout(watch); setStatus('error'); });
+    // the uploaded background picture lives in its own small document (one picture, at most ~900 KB)
+    imgUnsub = imgRef().onSnapshot((snap) => {
+      const d = snap.exists ? snap.data() : null;
+      remoteImg = d && typeof d.data === 'string' && Number(d.t) > 0 ? { data: d.data, t: Number(d.t) } : null;
+      reconcileImage();
+    }, () => {});
   }
   async function push() {
     if (!user || busy) return; busy = true; setStatus('syncing');
@@ -131,6 +162,27 @@
       meta = merged; saveMeta(); apply(); busy = false; setStatus('synced');
     } catch (e) { busy = false; setStatus('error'); }
   }
+  // Keeps the picture the same on every device: the theme setting says which picture (by its upload time) you want; whichever
+  // device has it and the cloud doesn't uploads it, and a device that is missing it downloads it.
+  let imgBusy = false;
+  async function reconcileImage() {
+    const TT = window.ToolboxTheme; if (imgBusy || !TT || !TT.imgGet || !user || !db) return;
+    const t = readTheme(), want = t ? t.img : 0; if (!want) return;
+    imgBusy = true;
+    try {
+      const rec = await TT.imgGet(), have = rec ? rec.t : 0, rem = remoteImg ? remoteImg.t : 0;
+      if (have === want && rem < have) {
+        const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(rec.blob); });
+        if (data.length < 900000) await imgRef().set({ data, t: have });
+      } else if (have !== want && rem === want) {
+        const blob = await (await fetch(remoteImg.data)).blob();
+        await TT.imgPut(blob, remoteImg.t);
+        window.dispatchEvent(new CustomEvent('toolbox:synced'));
+      }
+    } catch (e) {}
+    imgBusy = false;
+  }
+  window.addEventListener('toolbox:theme-image', () => reconcileImage());
   function schedulePush() { if (!user) return; clearTimeout(pushTimer); pushTimer = setTimeout(push, 600); }
 
   // ── in-page sign-in window (so nobody gets sent to another page to sign in) ──
@@ -225,6 +277,7 @@
     view();
   }
   window.ToolboxAuth = { open: openAuth };
+  window.ToolboxSync = { user: () => user, status: () => status, configured: () => configured, signOut: () => { try { return firebase.auth().signOut(); } catch (e) {} } };
 
   window.addEventListener('online', () => { if (user) push(); });
   init();

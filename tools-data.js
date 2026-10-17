@@ -449,8 +449,8 @@ window.TOOLBOX_TOOLS = [
   {
     id: 'puzzle-generator',
     name: 'Puzzle Generator',
-    description: 'Make your own puzzles. Crossword maker: paste words and clues to get a numbered grid you can solve on screen, print, or download. More puzzle types coming.',
-    tags: ['puzzle', 'crossword', 'crossword maker', 'crossword generator', 'word puzzle', 'clues', 'sudoku', 'word search', 'games', 'teacher', 'worksheet', 'printable', 'brain teaser'],
+    description: 'Make your own puzzles: a crossword from your words and clues, a word search from a word list, or a Sudoku in 6x6, 9x9 or 12x12. Restyle them with your own colours and fonts, then solve on screen, print, or download.',
+    tags: ['puzzle', 'crossword', 'crossword maker', 'crossword generator', 'sudoku', 'sudoku generator', 'word search', 'word find', 'word puzzle', 'clues', 'games', 'teacher', 'worksheet', 'printable', 'brain teaser', '6x6 sudoku', '12x12 sudoku', 'custom colors', 'puzzle style', 'download crossword'],
     categories: ['random', 'utilities'],
     path: 'PuzzleGenerator/puzzle-generator.html',
     color: '#ff7a59',
